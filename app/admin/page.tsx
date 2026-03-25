@@ -1,9 +1,14 @@
 import { AdminConsole } from "@/app/admin/AdminConsole";
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { requireAdminUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function AdminPage() {
-  const dbUser = await syncCurrentClerkUser();
+  const dbUser = await requireAdminUser();
+
+  if (!dbUser) {
+    redirect("/");
+  }
 
   const [mangaCount, chapterCount, pageCount, recentManga] = await Promise.all([
     prisma.manga.count(),
@@ -27,17 +32,15 @@ export default async function AdminPage() {
   return (
     <AdminConsole
       dbUser={
-        dbUser
-          ? {
-              email: dbUser.email,
-              username: dbUser.username,
-              role: dbUser.role,
-              createdAt: dbUser.createdAt.toISOString(),
-            }
-          : null
+        {
+          email: dbUser.email,
+          username: dbUser.username,
+          role: dbUser.role,
+          createdAt: dbUser.createdAt.toISOString(),
+        }
       }
       stats={{ mangaCount, chapterCount, pageCount }}
-      recentManga={recentManga.map((entry) => ({
+      recentManga={recentManga.map((entry: (typeof recentManga)[number]) => ({
         id: entry.id,
         mangaName: entry.mangaName,
         status: entry.status,

@@ -47,7 +47,7 @@ export async function getCurrentDbUser() {
 }
 
 export async function requireAdminUser() {
-  const user = await getCurrentDbUser();
+  const user = await syncCurrentClerkUser();
 
   if (!user || user.role !== "ADMIN") {
     return null;

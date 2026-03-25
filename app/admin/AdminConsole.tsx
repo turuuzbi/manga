@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import {
+  importGoogleDriveFolderAction,
   ingestMangaAction,
   initialAdminActionState,
   type AdminActionState,
@@ -24,7 +25,7 @@ type AdminConsoleProps = {
     username: string | null;
     role: "READER" | "ADMIN";
     createdAt: string;
-  } | null;
+  };
   stats: {
     mangaCount: number;
     chapterCount: number;
@@ -50,24 +51,42 @@ function SubmitButton() {
   );
 }
 
+function DriveSubmitButton() {
+  return (
+    <button
+      type="submit"
+      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-sky-300"
+    >
+      <CloudUpload size={18} />
+      Import Drive Folder
+    </button>
+  );
+}
+
 export function AdminConsole({
   dbUser,
   stats,
   recentManga,
 }: AdminConsoleProps) {
-  const [state, formAction, pending] = useActionState<
+  const [manualState, manualFormAction, manualPending] = useActionState<
     AdminActionState,
     FormData
   >(ingestMangaAction, initialAdminActionState);
+  const [driveState, driveFormAction, drivePending] = useActionState<
+    AdminActionState,
+    FormData
+  >(importGoogleDriveFolderAction, initialAdminActionState);
   const [coverName, setCoverName] = useState("");
   const [pageCount, setPageCount] = useState(0);
 
+  const activeState = driveState.message ? driveState : manualState;
+
   const statusTone = useMemo(() => {
-    if (!state.message) {
+    if (!activeState.message) {
       return null;
     }
 
-    return state.ok
+    return activeState.ok
       ? {
           icon: CheckCircle2,
           className:
@@ -77,7 +96,7 @@ export function AdminConsole({
           icon: AlertCircle,
           className: "border-red-500/30 bg-red-500/10 text-red-200",
         };
-  }, [state]);
+  }, [activeState]);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
@@ -95,13 +114,12 @@ export function AdminConsole({
             </div>
             <div className="space-y-3">
               <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-                Drop manga pages once, send them to R2, and save clean public
-                URLs into Neon.
+                Import manga panels without the download-and-reupload grind.
               </h1>
               <p className="max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-                This panel now syncs the signed-in Clerk user into Prisma,
-                creates manga and chapters, uploads images to Cloudflare R2,
-                and stores each page URL in your database.
+                Admin-only access is now enforced through your Prisma role, and
+                you can ingest from local files or a Google Drive folder
+                straight into R2 and Neon.
               </p>
             </div>
           </div>
@@ -109,19 +127,15 @@ export function AdminConsole({
           <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">
             <StatusTile
               icon={UserRound}
-              label="Clerk To Neon"
-              value={dbUser ? "Synced" : "Missing"}
-              detail={dbUser ? dbUser.email : "Sign in to create your DB user"}
+              label="Admin User"
+              value={dbUser.email}
+              detail={dbUser.username ?? "No username set in Clerk"}
             />
             <StatusTile
               icon={ShieldCheck}
               label="Current Role"
-              value={dbUser?.role ?? "Guest"}
-              detail={
-                dbUser?.role === "ADMIN"
-                  ? "Admin access confirmed"
-                  : "Current sync defaults to READER"
-              }
+              value={dbUser.role}
+              detail="Admin access confirmed"
             />
             <StatusTile
               icon={Database}
@@ -137,151 +151,155 @@ export function AdminConsole({
             className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${statusTone.className}`}
           >
             <statusTone.icon size={18} className="mt-0.5 shrink-0" />
-            <p>{state.message}</p>
+            <p>{activeState.message}</p>
           </div>
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-          <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
-            <div className="mb-6 flex flex-col gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                New Ingest
-              </p>
-              <h2 className="text-2xl font-semibold text-white">
-                Create a manga, first chapter, and page records in one pass
-              </h2>
-            </div>
+          <div className="space-y-6">
+            <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+              <div className="mb-6 flex flex-col gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
+                  Manual Upload
+                </p>
+                <h2 className="text-2xl font-semibold text-white">
+                  Create a manga, chapter, and page rows from local files
+                </h2>
+              </div>
 
-            <form action={formAction} className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <form action={manualFormAction} className="space-y-6">
+                <MetadataFields />
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <UploadField
+                    label="Cover Image"
+                    helper={coverName || "Optional. JPG, PNG, or WEBP."}
+                  >
+                    <input
+                      type="file"
+                      name="coverImage"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) =>
+                        setCoverName(event.target.files?.[0]?.name ?? "")
+                      }
+                    />
+                  </UploadField>
+
+                  <UploadField
+                    label="Chapter Pages"
+                    helper={
+                      pageCount > 0
+                        ? `${pageCount} files ready for upload`
+                        : "Required. Select every page in reading order."
+                    }
+                  >
+                    <input
+                      type="file"
+                      name="pages"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      required
+                      onChange={(event) =>
+                        setPageCount(event.target.files?.length ?? 0)
+                      }
+                    />
+                  </UploadField>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
+                  Files are uploaded to Cloudflare R2 first, then their public
+                  URLs are stored in Neon through Prisma.
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <SubmitButton />
+                  {manualPending ? (
+                    <p className="text-sm text-zinc-400">
+                      Uploading pages and writing DB rows...
+                    </p>
+                  ) : null}
+                </div>
+              </form>
+            </section>
+
+            <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+              <div className="mb-6 flex flex-col gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
+                  Google Drive Import
+                </p>
+                <h2 className="text-2xl font-semibold text-white">
+                  Pull an entire folder directly from Google Drive
+                </h2>
+                <p className="text-sm leading-6 text-zinc-400">
+                  Share the folder with your Google service account email, then
+                  paste the folder URL or ID here.
+                </p>
+              </div>
+
+              <form action={driveFormAction} className="space-y-6">
+                <MetadataFields />
+
                 <Field
-                  label="Series Title"
-                  name="mangaName"
-                  placeholder="Omniscient Reader"
+                  label="Drive Folder URL Or ID"
+                  name="driveFolder"
+                  placeholder="https://drive.google.com/drive/folders/..."
                   required
                 />
-                <SelectField label="Status" name="status" defaultValue="ONGOING">
-                  <option value="ONGOING">Ongoing</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="HIATUS">Hiatus</option>
-                </SelectField>
-                <Field label="Author" name="author" placeholder="Author name" />
-                <Field label="Artist" name="artist" placeholder="Artist name" />
-                <Field
-                  label="Chapter Number"
-                  name="chapterNumber"
-                  type="number"
-                  placeholder="1"
-                  step="0.1"
-                  min="0.1"
-                  required
-                />
-                <Field
-                  label="Chapter Title"
-                  name="chapterTitle"
-                  placeholder="The Beginning"
-                />
-              </div>
 
-              <TextAreaField
-                label="Description"
-                name="description"
-                placeholder="Short synopsis for the series page..."
-              />
-
-              <TextAreaField
-                label="Genres"
-                name="genres"
-                placeholder="Action, Fantasy, Drama"
-                rows={3}
-              />
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <UploadField
-                  label="Cover Image"
-                  helper={coverName || "Optional. JPG, PNG, or WEBP."}
-                >
+                <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-300">
                   <input
-                    type="file"
-                    name="coverImage"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) =>
-                      setCoverName(event.target.files?.[0]?.name ?? "")
-                    }
+                    type="checkbox"
+                    name="useFirstPageAsCover"
+                    defaultChecked
+                    className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent text-orange-400"
                   />
-                </UploadField>
+                  <span>Use the first Google Drive image as the manga cover.</span>
+                </label>
 
-                <UploadField
-                  label="Chapter Pages"
-                  helper={
-                    pageCount > 0
-                      ? `${pageCount} files ready for upload`
-                      : "Required. Select every page in reading order."
-                  }
-                >
-                  <input
-                    type="file"
-                    name="pages"
-                    multiple
-                    accept="image/*"
-                    className="hidden"
-                    required
-                    onChange={(event) =>
-                      setPageCount(event.target.files?.length ?? 0)
-                    }
-                  />
-                </UploadField>
-              </div>
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
+                  This uses the Google Drive API server-side. The folder must be
+                  visible to your configured service account.
+                </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
-                Files are uploaded to Cloudflare R2 first, then their public
-                URLs are stored in Neon through Prisma.
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <SubmitButton />
-                {pending ? (
-                  <p className="text-sm text-zinc-400">
-                    Uploading pages and writing DB rows...
-                  </p>
-                ) : null}
-              </div>
-            </form>
-          </section>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <DriveSubmitButton />
+                  {drivePending ? (
+                    <p className="text-sm text-zinc-400">
+                      Pulling images from Drive and saving them to R2...
+                    </p>
+                  ) : null}
+                </div>
+              </form>
+            </section>
+          </div>
 
           <aside className="space-y-6">
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                    Current User
+                    Access Control
                   </p>
                   <h3 className="mt-2 text-xl font-semibold text-white">
-                    Neon sync status
+                    Admin verification
                   </h3>
                 </div>
                 <UserRound className="text-zinc-500" size={20} />
               </div>
-              {dbUser ? (
-                <div className="space-y-4 text-sm text-zinc-300">
-                  <InfoRow label="Email" value={dbUser.email} />
-                  <InfoRow
-                    label="Username"
-                    value={dbUser.username ?? "No username set in Clerk"}
-                  />
-                  <InfoRow label="Role" value={dbUser.role} />
-                  <InfoRow
-                    label="Created"
-                    value={new Date(dbUser.createdAt).toLocaleDateString()}
-                  />
-                </div>
-              ) : (
-                <p className="text-sm leading-6 text-zinc-400">
-                  Your current Clerk account has not been synced because there
-                  is no signed-in user on this page yet.
-                </p>
-              )}
+              <div className="space-y-4 text-sm text-zinc-300">
+                <InfoRow label="Email" value={dbUser.email} />
+                <InfoRow
+                  label="Username"
+                  value={dbUser.username ?? "No username set in Clerk"}
+                />
+                <InfoRow label="Role" value={dbUser.role} />
+                <InfoRow
+                  label="Created"
+                  value={new Date(dbUser.createdAt).toLocaleDateString()}
+                />
+              </div>
             </section>
 
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
@@ -330,6 +348,55 @@ export function AdminConsole({
         </div>
       </div>
     </div>
+  );
+}
+
+function MetadataFields() {
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Series Title"
+          name="mangaName"
+          placeholder="Omniscient Reader"
+          required
+        />
+        <SelectField label="Status" name="status" defaultValue="ONGOING">
+          <option value="ONGOING">Ongoing</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="HIATUS">Hiatus</option>
+        </SelectField>
+        <Field label="Author" name="author" placeholder="Author name" />
+        <Field label="Artist" name="artist" placeholder="Artist name" />
+        <Field
+          label="Chapter Number"
+          name="chapterNumber"
+          type="number"
+          placeholder="1"
+          step="0.1"
+          min="0.1"
+          required
+        />
+        <Field
+          label="Chapter Title"
+          name="chapterTitle"
+          placeholder="The Beginning"
+        />
+      </div>
+
+      <TextAreaField
+        label="Description"
+        name="description"
+        placeholder="Short synopsis for the series page..."
+      />
+
+      <TextAreaField
+        label="Genres"
+        name="genres"
+        placeholder="Action, Fantasy, Drama"
+        rows={3}
+      />
+    </>
   );
 }
 
