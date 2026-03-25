@@ -364,18 +364,20 @@ const genres = [
   "Sports",
 ];
 
-// ─── MAIN ────────────────────────────────────────────────────────────────────
-export default function YuumeManga({
-  featuredTitle,
-  latestSeries = [],
-  trending = [],
-  isLoading = false,
-}: {
+type YuumeMangaProps = {
   featuredTitle?: { title: string; subtitle: string; chapter: number };
   latestSeries?: MangaSeries[];
   trending?: TrendingEntry[];
   isLoading?: boolean;
-}) {
+};
+
+// ─── MAIN ────────────────────────────────────────────────────────────────────
+function YuumeManga({
+  featuredTitle,
+  latestSeries = [],
+  trending = [],
+  isLoading = false,
+}: YuumeMangaProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeGenre, setActiveGenre] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -1370,4 +1372,8 @@ export default function YuumeManga({
       </div>
     </>
   );
+}
+
+export default function HomePage() {
+  return <YuumeManga />;
 }
