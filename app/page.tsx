@@ -12,6 +12,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { SignUpButton } from "@clerk/nextjs";
 
 interface MangaSeries {
   id: string;
@@ -559,9 +560,9 @@ export default function YuumeManga({
                   }}
                 />
               </div>
-              <button className="hidden md:block yu-btn yu-btn-rose">
-                Sign Up
-              </button>
+              <div className="hidden md:block yu-btn yu-btn-rose">
+                <SignUpButton />
+              </div>
               <button
                 className="md:hidden p-2"
                 style={{
