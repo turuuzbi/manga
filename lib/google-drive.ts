@@ -9,8 +9,12 @@ export type GoogleDriveImageFile = {
 };
 
 function getDriveAuth() {
-  const clientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const clientEmail = normalizeEnvString(
+    process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
+  );
+  const privateKey = normalizePrivateKey(
+    process.env.GOOGLE_DRIVE_PRIVATE_KEY,
+  );
 
   if (!clientEmail || !privateKey) {
     throw new Error(
@@ -23,6 +27,56 @@ function getDriveAuth() {
     key: privateKey,
     scopes: ["https://www.googleapis.com/auth/drive.readonly"],
   });
+}
+
+function stripTrailingDelimiters(value: string) {
+  return value.replace(/[,\s;]+$/g, "");
+}
+
+function stripWrappingQuotes(value: string) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+
+function normalizeEnvString(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  let normalized = value.trim();
+
+  normalized = stripTrailingDelimiters(normalized);
+  normalized = stripWrappingQuotes(normalized);
+  normalized = stripTrailingDelimiters(normalized);
+
+  return normalized;
+}
+
+function normalizePrivateKey(value?: string) {
+  const normalizedValue = normalizeEnvString(value);
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  let normalized = normalizedValue;
+
+  normalized = normalized.replace(/\r\n/g, "\n");
+  normalized = normalized.replace(/\\n/g, "\n");
+
+  if (!normalized.includes("BEGIN PRIVATE KEY")) {
+    throw new Error(
+      "GOOGLE_DRIVE_PRIVATE_KEY is not formatted like a service-account private key.",
+    );
+  }
+
+  return normalized;
 }
 
 function getDriveClient() {

@@ -15,9 +15,13 @@ import {
 import {
   importGoogleDriveFolderAction,
   ingestMangaAction,
-  initialAdminActionState,
   type AdminActionState,
 } from "@/app/admin/actions";
+
+const initialAdminActionState: AdminActionState = {
+  ok: false,
+  message: "",
+};
 
 type AdminConsoleProps = {
   dbUser: {

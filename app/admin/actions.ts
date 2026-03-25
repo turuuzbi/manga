@@ -16,11 +16,6 @@ export type AdminActionState = {
   createdMangaId?: string;
 };
 
-export const initialAdminActionState: AdminActionState = {
-  ok: false,
-  message: "",
-};
-
 const allowedStatuses = new Set(["ONGOING", "COMPLETED", "HIATUS"]);
 
 type IngestionInput = {
