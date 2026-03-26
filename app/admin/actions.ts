@@ -74,6 +74,18 @@ function parseIngestionInput(formData: FormData): IngestionInput {
   };
 }
 
+function parseMangaMetadataInput(formData: FormData) {
+  return {
+    mangaId: String(formData.get("mangaId") ?? "").trim(),
+    mangaName: String(formData.get("mangaName") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim(),
+    author: String(formData.get("author") ?? "").trim(),
+    artist: String(formData.get("artist") ?? "").trim(),
+    genreInput: String(formData.get("genres") ?? ""),
+    rawStatus: String(formData.get("status") ?? "ONGOING").toUpperCase(),
+  };
+}
+
 function validateIngestionInput(
   input: IngestionInput,
   pageCount: number,
@@ -321,6 +333,90 @@ export async function importGoogleDriveFolderAction(
       ok: false,
       message:
         error instanceof Error ? error.message : "Google Drive import failed.",
+    };
+  }
+}
+
+export async function updateMangaMetadataAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return {
+        ok: false,
+        message: "Admin access is required for manga updates.",
+      };
+    }
+
+    const input = parseMangaMetadataInput(formData);
+
+    if (!input.mangaId) {
+      return {
+        ok: false,
+        message: "Choose a manga to update.",
+      };
+    }
+
+    if (!input.mangaName) {
+      return {
+        ok: false,
+        message: "Series title is required.",
+      };
+    }
+
+    if (!allowedStatuses.has(input.rawStatus)) {
+      return {
+        ok: false,
+        message: "Choose a valid manga status.",
+      };
+    }
+
+    const genres = parseGenres(input.genreInput);
+
+    await prisma.manga.update({
+      where: {
+        id: input.mangaId,
+      },
+      data: {
+        mangaName: input.mangaName,
+        description: input.description || null,
+        author: input.author || null,
+        artist: input.artist || null,
+        status: input.rawStatus as "ONGOING" | "COMPLETED" | "HIATUS",
+        genres: {
+          deleteMany: {},
+          create:
+            genres.length > 0
+              ? genres.map((name) => ({
+                  genre: {
+                    connectOrCreate: {
+                      where: { name },
+                      create: { name },
+                    },
+                  },
+                }))
+              : undefined,
+        },
+      },
+    });
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${input.mangaId}`);
+
+    return {
+      ok: true,
+      message: `Updated "${input.mangaName}" in Neon.`,
+      createdMangaId: input.mangaId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Manga update failed.",
     };
   }
 }

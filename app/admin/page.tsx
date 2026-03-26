@@ -29,7 +29,7 @@ export default async function AdminPage() {
     );
   }
 
-  const [mangaCount, chapterCount, pageCount, recentManga] = await Promise.all([
+  const [mangaCount, chapterCount, pageCount, recentManga, mangaLibrary] = await Promise.all([
     prisma.manga.count(),
     prisma.chapter.count(),
     prisma.page.count(),
@@ -39,6 +39,23 @@ export default async function AdminPage() {
       },
       take: 5,
       include: {
+        _count: {
+          select: {
+            chapters: true,
+          },
+        },
+      },
+    }),
+    prisma.manga.findMany({
+      orderBy: {
+        mangaName: "asc",
+      },
+      include: {
+        genres: {
+          include: {
+            genre: true,
+          },
+        },
         _count: {
           select: {
             chapters: true,
@@ -63,6 +80,16 @@ export default async function AdminPage() {
         id: entry.id,
         mangaName: entry.mangaName,
         status: entry.status,
+        chapterCount: entry._count.chapters,
+      }))}
+      mangaLibrary={mangaLibrary.map((entry) => ({
+        id: entry.id,
+        mangaName: entry.mangaName,
+        description: entry.description ?? "",
+        author: entry.author ?? "",
+        artist: entry.artist ?? "",
+        status: entry.status,
+        genres: entry.genres.map((genreEntry) => genreEntry.genre.name),
         chapterCount: entry._count.chapters,
       }))}
     />

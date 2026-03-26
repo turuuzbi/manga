@@ -43,6 +43,59 @@ function formatChapterLabel(number: number, title: string | null) {
   return title ? `Chapter ${number} • ${title}` : `Chapter ${number}`;
 }
 
+function ReaderChapterSwitch({
+  previousChapter,
+  currentChapterNumber,
+  nextChapter,
+}: {
+  previousChapter: ReaderExperienceProps["previousChapter"];
+  currentChapterNumber: number;
+  nextChapter: ReaderExperienceProps["nextChapter"];
+}) {
+  return (
+    <div className="pointer-events-auto mx-auto w-full max-w-md">
+      <div className="grid grid-cols-[64px_1fr_64px] items-stretch overflow-hidden rounded-[24px] border border-[#8b6b2d]/50 bg-[#090909]/92 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur">
+        {previousChapter ? (
+          <Link
+            href={`/reader/${previousChapter.id}`}
+            className="flex items-center justify-center border-r border-[#8b6b2d]/40 text-zinc-100 transition hover:bg-white/5"
+            aria-label={`Go to chapter ${previousChapter.number}`}
+          >
+            <ChevronLeft size={18} />
+          </Link>
+        ) : (
+          <span className="flex items-center justify-center border-r border-[#8b6b2d]/20 text-zinc-700">
+            <ChevronLeft size={18} />
+          </span>
+        )}
+
+        <div className="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#b69a64]">
+            Chapter
+          </span>
+          <span className="text-lg font-semibold text-white">
+            {currentChapterNumber}
+          </span>
+        </div>
+
+        {nextChapter ? (
+          <Link
+            href={`/reader/${nextChapter.id}`}
+            className="flex items-center justify-center border-l border-[#8b6b2d]/40 text-zinc-100 transition hover:bg-white/5"
+            aria-label={`Go to chapter ${nextChapter.number}`}
+          >
+            <ChevronRight size={18} />
+          </Link>
+        ) : (
+          <span className="flex items-center justify-center border-l border-[#8b6b2d]/20 text-zinc-700">
+            <ChevronRight size={18} />
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ReaderExperience({
   manga,
   chapter,
@@ -142,8 +195,8 @@ export function ReaderExperience({
           showChrome ? "translate-y-0" : "-translate-y-full"
         }`}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-5">
-          <div className="min-w-0">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 w-full md:w-auto">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
               <Link
                 href="/"
@@ -162,11 +215,11 @@ export function ReaderExperience({
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1">
+          <div className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 md:w-auto md:shrink-0 md:justify-start">
             <button
               type="button"
               onClick={() => setReaderMode("scroll")}
-              className={`flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition ${
+              className={`flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition md:flex-none ${
                 readerMode === "scroll"
                   ? "bg-white text-black"
                   : "text-zinc-300 hover:bg-white/10"
@@ -178,7 +231,7 @@ export function ReaderExperience({
             <button
               type="button"
               onClick={() => setReaderMode("paged")}
-              className={`flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition ${
+              className={`flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition md:flex-none ${
                 readerMode === "paged"
                   ? "bg-white text-black"
                   : "text-zinc-300 hover:bg-white/10"
@@ -193,15 +246,15 @@ export function ReaderExperience({
 
       {readerMode === "scroll" ? (
         <main
-          className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col px-2 pb-28 pt-24 sm:px-4"
+          className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl flex-col px-0 pb-40 pt-20 sm:pt-24"
           onClick={() => setShowChrome((value) => !value)}
         >
-          <div className="mb-5 flex items-center justify-between rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400">
+          <div className="mx-3 mb-4 flex items-center justify-between rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400 sm:mx-0">
             <span>Vertical Scroll</span>
             <span>{pageLabel}</span>
           </div>
 
-          <div className="space-y-3">
+          <div>
             {pages.map((page, index) => (
               <div
                 key={page.id}
@@ -209,7 +262,7 @@ export function ReaderExperience({
                   pageRefs.current[index] = node;
                 }}
                 data-page-index={index}
-                className="overflow-hidden rounded-[24px] border border-white/8 bg-black/60 shadow-[0_22px_70px_rgba(0,0,0,0.38)]"
+                className="overflow-hidden bg-black"
               >
                 <img
                   src={page.imageUrl}
@@ -220,10 +273,57 @@ export function ReaderExperience({
               </div>
             ))}
           </div>
+
+          <div className="mx-auto mt-0 w-full max-w-4xl bg-[#1a1a1d] px-6 py-10 text-center shadow-[0_-10px_30px_rgba(0,0,0,0.25)]">
+            <p className="text-2xl font-semibold text-white sm:text-3xl">
+              You finished chapter {chapter.number}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">
+              Jump straight into the previous or next chapter without leaving
+              the reader.
+            </p>
+
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              {previousChapter ? (
+                <Link
+                  href={`/reader/${previousChapter.id}`}
+                  className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#28282d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#34343a]"
+                >
+                  Previous
+                </Link>
+              ) : (
+                <span className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#242429] px-5 py-3 text-sm font-semibold text-zinc-600">
+                  Previous
+                </span>
+              )}
+
+              {nextChapter ? (
+                <Link
+                  href={`/reader/${nextChapter.id}`}
+                  className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
+                >
+                  Next Chapter
+                </Link>
+              ) : (
+                <span className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/20 bg-[#2d281f] px-5 py-3 text-sm font-semibold text-[#7f7253]">
+                  Latest Chapter
+                </span>
+              )}
+            </div>
+
+            <div className="mt-5">
+              <Link
+                href={`/manga/${manga.id}`}
+                className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b69a64] transition hover:text-[#e1c98b]"
+              >
+                Back to series
+              </Link>
+            </div>
+          </div>
         </main>
       ) : (
-        <main className="relative z-10 flex min-h-screen items-center justify-center px-2 pb-24 pt-20 sm:px-4">
-          <div className="relative flex h-[calc(100vh-7rem)] w-full max-w-6xl items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-black/80 shadow-[0_26px_90px_rgba(0,0,0,0.45)]">
+        <main className="relative z-10 flex min-h-screen items-center justify-center px-0 pb-36 pt-16 sm:px-4 sm:pt-20">
+          <div className="relative flex h-[calc(100vh-7.5rem)] w-full max-w-6xl items-center justify-center overflow-hidden bg-black shadow-[0_26px_90px_rgba(0,0,0,0.45)]">
             <button
               type="button"
               onClick={goPreviousPage}
@@ -264,49 +364,24 @@ export function ReaderExperience({
         </main>
       )}
 
-      <footer
-        className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/72 backdrop-blur-xl transition-transform duration-300 ${
-          showChrome ? "translate-y-0" : "translate-y-full"
+      <div
+        className={`fixed inset-x-0 bottom-4 z-40 px-3 transition-transform duration-300 sm:px-5 ${
+          showChrome ? "translate-y-0" : "translate-y-[140%]"
         }`}
       >
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:items-center">
+          <ReaderChapterSwitch
+            previousChapter={previousChapter}
+            currentChapterNumber={chapter.number}
+            nextChapter={nextChapter}
+          />
+          <div className="text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
             {readerMode === "scroll"
               ? "Scroll to read"
               : "Tap left or right side to turn pages"}
           </div>
-
-          <div className="flex items-center gap-2">
-            {previousChapter ? (
-              <Link
-                href={`/reader/${previousChapter.id}`}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/10"
-              >
-                <ChevronLeft size={16} />
-                Ch. {previousChapter.number}
-              </Link>
-            ) : (
-              <span className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-600">
-                Start
-              </span>
-            )}
-
-            {nextChapter ? (
-              <Link
-                href={`/reader/${nextChapter.id}`}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-zinc-200"
-              >
-                Ch. {nextChapter.number}
-                <ChevronRight size={16} />
-              </Link>
-            ) : (
-              <span className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-600">
-                Latest
-              </span>
-            )}
-          </div>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

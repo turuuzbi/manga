@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AppAccountDock } from "@/app/_components/AppAccountDock";
+import { mongolianLocalization } from "@/lib/clerk-auth-ui";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider afterSignOutUrl="/">
+    <ClerkProvider
+      afterSignOutUrl="/"
+      localization={mongolianLocalization as never}
+    >
       <html lang="en">
         <body className="antialiased">
           <AppAccountDock />
