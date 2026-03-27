@@ -61,6 +61,28 @@ export default async function AdminPage() {
             chapters: true,
           },
         },
+        chapters: {
+          orderBy: {
+            chapterNumber: "desc",
+          },
+          include: {
+            pages: {
+              orderBy: {
+                pageNumber: "asc",
+              },
+              select: {
+                id: true,
+                pageNumber: true,
+                imageUrl: true,
+              },
+            },
+            _count: {
+              select: {
+                pages: true,
+              },
+            },
+          },
+        },
       },
     }),
   ]);
@@ -91,6 +113,18 @@ export default async function AdminPage() {
         status: entry.status,
         genres: entry.genres.map((genreEntry) => genreEntry.genre.name),
         chapterCount: entry._count.chapters,
+        chapters: entry.chapters.map((chapter) => ({
+          id: chapter.id,
+          chapterNumber: chapter.chapterNumber,
+          title: chapter.title ?? "",
+          publishedAt: chapter.publishedAt.toISOString(),
+          pageCount: chapter._count.pages,
+          pages: chapter.pages.map((page) => ({
+            id: page.id,
+            pageNumber: page.pageNumber,
+            imageUrl: page.imageUrl,
+          })),
+        })),
       }))}
     />
   );

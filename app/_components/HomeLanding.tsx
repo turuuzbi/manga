@@ -12,7 +12,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignInButton, SignUpButton, SignedOut } from "@clerk/nextjs";
 
 interface MangaSeries {
   id: string;
@@ -235,6 +235,11 @@ function StarBurst({
 }
 
 const genres = ["Action", "Fantasy", "Drama", "Romance", "Comedy", "Mystery"];
+const headerLinks = [
+  { label: "Library", href: "#library" },
+  { label: "Mangas", href: "/manga" },
+  { label: "Hot Pick", href: "#featured" },
+];
 
 type HomeLandingProps = {
   featuredTitle?: {
@@ -371,14 +376,14 @@ export function HomeLanding({
                 textTransform: "uppercase",
               }}
             >
-              {["Browse", "Popular", "New", "Completed"].map((label) => (
-                <a
-                  key={label}
-                  href="#library"
+              {headerLinks.map((entry) => (
+                <Link
+                  key={entry.label}
+                  href={entry.href}
                   style={{ color: "#5a4a3a", textDecoration: "none" }}
                 >
-                  {label}
-                </a>
+                  {entry.label}
+                </Link>
               ))}
             </div>
 
@@ -406,14 +411,16 @@ export function HomeLanding({
                 />
               </div>
 
-              <div className="hidden items-center gap-2 md:flex">
-                <SignInButton>
-                  <button className="yu-btn yu-btn-paper">Sign In</button>
-                </SignInButton>
-                <SignUpButton>
-                  <button className="yu-btn yu-btn-ink">Join Free</button>
-                </SignUpButton>
-              </div>
+              <SignedOut>
+                <div className="hidden items-center gap-2 md:flex">
+                  <SignInButton>
+                    <button className="yu-btn yu-btn-paper">Sign In</button>
+                  </SignInButton>
+                  <SignUpButton>
+                    <button className="yu-btn yu-btn-ink">Join Free</button>
+                  </SignUpButton>
+                </div>
+              </SignedOut>
 
               <button
                 className="p-2 md:hidden"
@@ -435,10 +442,10 @@ export function HomeLanding({
               className="flex flex-col gap-4 px-5 py-4 md:hidden"
               style={{ borderTop: "2px solid #1a1108" }}
             >
-              {["Browse", "Popular", "New", "Completed"].map((label) => (
-                <a
-                  key={label}
-                  href="#library"
+              {headerLinks.map((entry) => (
+                <Link
+                  key={entry.label}
+                  href={entry.href}
                   style={{
                     fontSize: 14,
                     fontWeight: 700,
@@ -446,17 +453,19 @@ export function HomeLanding({
                     textDecoration: "none",
                   }}
                 >
-                  {label}
-                </a>
+                  {entry.label}
+                </Link>
               ))}
-              <div className="flex gap-3 pt-1">
-                <SignInButton>
-                  <button className="yu-btn yu-btn-paper">Sign In</button>
-                </SignInButton>
-                <SignUpButton>
-                  <button className="yu-btn yu-btn-ink">Join Free</button>
-                </SignUpButton>
-              </div>
+              <SignedOut>
+                <div className="flex gap-3 pt-1">
+                  <SignInButton>
+                    <button className="yu-btn yu-btn-paper">Sign In</button>
+                  </SignInButton>
+                  <SignUpButton>
+                    <button className="yu-btn yu-btn-ink">Join Free</button>
+                  </SignUpButton>
+                </div>
+              </SignedOut>
             </div>
           ) : null}
         </nav>
@@ -466,6 +475,7 @@ export function HomeLanding({
           style={{ position: "relative", zIndex: 1 }}
         >
           <section
+            id="featured"
             className="mb-12 grid grid-cols-1 lg:grid-cols-5"
             style={{
               border: "3px solid #1a1108",

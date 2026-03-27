@@ -6,9 +6,10 @@ import prisma from "@/lib/db";
 import {
   downloadGoogleDriveFile,
   extractGoogleDriveFolderId,
+  listGoogleDriveFolders,
   listGoogleDriveImages,
 } from "@/lib/google-drive";
-import { uploadToR2 } from "@/lib/r2";
+import { deleteFromR2, getR2KeyFromUrl, uploadToR2 } from "@/lib/r2";
 
 export type AdminActionState = {
   ok: boolean;
@@ -36,6 +37,11 @@ type UploadAsset = {
   width?: number | null;
   height?: number | null;
 };
+
+type DriveImportMode =
+  | "new_manga_from_chapter"
+  | "existing_manga_chapter"
+  | "bulk_parent_folder";
 
 function slugifySegment(value: string) {
   return value
@@ -86,6 +92,33 @@ function parseMangaMetadataInput(formData: FormData) {
   };
 }
 
+function parseDriveImportMode(formData: FormData): DriveImportMode {
+  const mode = String(formData.get("driveImportMode") ?? "new_manga_from_chapter");
+
+  if (
+    mode === "existing_manga_chapter" ||
+    mode === "bulk_parent_folder" ||
+    mode === "new_manga_from_chapter"
+  ) {
+    return mode;
+  }
+
+  return "new_manga_from_chapter";
+}
+
+function parseChapterNumberFromFolderName(name: string) {
+  const match = name.trim().match(/(\d+(\.\d+)?)/);
+
+  return match ? Number(match[1]) : NaN;
+}
+
+function deriveChapterTitleFromFolderName(name: string) {
+  const trimmed = name.trim();
+  const withoutLeadingNumber = trimmed.replace(/^\d+(\.\d+)?[\s._-]*/, "").trim();
+
+  return withoutLeadingNumber.length > 0 ? withoutLeadingNumber : null;
+}
+
 function validateIngestionInput(
   input: IngestionInput,
   pageCount: number,
@@ -112,18 +145,28 @@ function validateIngestionInput(
   return null;
 }
 
-async function createMangaIngestion({
-  input,
-  coverAsset,
-  pageAssets,
-}: {
-  input: IngestionInput;
-  coverAsset?: UploadAsset | null;
-  pageAssets: UploadAsset[];
-}) {
+function validateChapterAppendInput(
+  chapterNumber: number,
+  pageCount: number,
+): AdminActionState | null {
+  if (!Number.isFinite(chapterNumber) || chapterNumber <= 0) {
+    return { ok: false, message: "Chapter number must be greater than 0." };
+  }
+
+  if (pageCount === 0) {
+    return {
+      ok: false,
+      message: "Add at least one manga page so the chapter can be created.",
+    };
+  }
+
+  return null;
+}
+
+async function createMangaRecord(input: IngestionInput) {
   const genres = parseGenres(input.genreInput);
 
-  const manga = await prisma.manga.create({
+  return prisma.manga.create({
     data: {
       mangaName: input.mangaName,
       description: input.description || null,
@@ -145,26 +188,54 @@ async function createMangaIngestion({
           : undefined,
     },
   });
+}
 
-  if (coverAsset) {
-    const coverKey = `manga/${manga.id}/cover/${slugifySegment(coverAsset.name || input.mangaName) || "cover"}`;
-    const { url } = await uploadToR2(
-      coverAsset.buffer,
-      coverKey,
-      coverAsset.contentType || "application/octet-stream",
-    );
-
-    await prisma.manga.update({
-      where: { id: manga.id },
-      data: { coverImage: url },
-    });
+async function attachCoverToManga({
+  mangaId,
+  mangaName,
+  coverAsset,
+}: {
+  mangaId: string;
+  mangaName: string;
+  coverAsset?: UploadAsset | null;
+}) {
+  if (!coverAsset) {
+    return null;
   }
 
+  const coverKey = `manga/${mangaId}/cover/${slugifySegment(coverAsset.name || mangaName) || "cover"}`;
+  const { url } = await uploadToR2(
+    coverAsset.buffer,
+    coverKey,
+    coverAsset.contentType || "application/octet-stream",
+  );
+
+  await prisma.manga.update({
+    where: { id: mangaId },
+    data: { coverImage: url },
+  });
+
+  return url;
+}
+
+async function createChapterWithPages({
+  mangaId,
+  mangaName,
+  chapterNumber,
+  chapterTitle,
+  pageAssets,
+}: {
+  mangaId: string;
+  mangaName: string;
+  chapterNumber: number;
+  chapterTitle?: string | null;
+  pageAssets: UploadAsset[];
+}) {
   const chapter = await prisma.chapter.create({
     data: {
-      mangaId: manga.id,
-      chapterNumber: input.chapterNumberValue,
-      title: input.chapterTitle || null,
+      mangaId,
+      chapterNumber,
+      title: chapterTitle || null,
     },
   });
 
@@ -172,7 +243,7 @@ async function createMangaIngestion({
 
   for (const [index, pageAsset] of pageAssets.entries()) {
     const pageNumber = index + 1;
-    const pageKey = `manga/${manga.id}/chapters/${chapter.id}/${String(pageNumber).padStart(3, "0")}-${slugifySegment(pageAsset.name) || `page-${pageNumber}`}`;
+    const pageKey = `manga/${mangaId}/chapters/${chapter.id}/${String(pageNumber).padStart(3, "0")}-${slugifySegment(pageAsset.name) || `page-${pageNumber}`}`;
     const { url } = await uploadToR2(
       pageAsset.buffer,
       pageKey,
@@ -195,9 +266,124 @@ async function createMangaIngestion({
   revalidatePath("/admin");
 
   return {
-    mangaId: manga.id,
+    mangaId,
+    mangaName,
+    chapterId: chapter.id,
     pageCount: pagesToCreate.length,
   };
+}
+
+async function createMangaIngestion({
+  input,
+  coverAsset,
+  pageAssets,
+}: {
+  input: IngestionInput;
+  coverAsset?: UploadAsset | null;
+  pageAssets: UploadAsset[];
+}) {
+  const manga = await createMangaRecord(input);
+
+  await attachCoverToManga({
+    mangaId: manga.id,
+    mangaName: input.mangaName,
+    coverAsset,
+  });
+
+  return createChapterWithPages({
+    mangaId: manga.id,
+    mangaName: input.mangaName,
+    chapterNumber: input.chapterNumberValue,
+    chapterTitle: input.chapterTitle || null,
+    pageAssets,
+  });
+}
+
+async function appendChapterToManga({
+  mangaId,
+  chapterNumber,
+  chapterTitle,
+  pageAssets,
+  setCoverFromFirstPage,
+}: {
+  mangaId: string;
+  chapterNumber: number;
+  chapterTitle?: string | null;
+  pageAssets: UploadAsset[];
+  setCoverFromFirstPage?: boolean;
+}) {
+  const manga = await prisma.manga.findUnique({
+    where: { id: mangaId },
+    select: {
+      id: true,
+      mangaName: true,
+      coverImage: true,
+    },
+  });
+
+  if (!manga) {
+    throw new Error("Selected manga could not be found.");
+  }
+
+  const existingChapter = await prisma.chapter.findUnique({
+    where: {
+      mangaId_chapterNumber: {
+        mangaId,
+        chapterNumber,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existingChapter) {
+    throw new Error(`Chapter ${chapterNumber} already exists for this manga.`);
+  }
+
+  if (setCoverFromFirstPage && !manga.coverImage && pageAssets[0]) {
+    await attachCoverToManga({
+      mangaId: manga.id,
+      mangaName: manga.mangaName,
+      coverAsset: pageAssets[0],
+    });
+  }
+
+  return createChapterWithPages({
+    mangaId: manga.id,
+    mangaName: manga.mangaName,
+    chapterNumber,
+    chapterTitle,
+    pageAssets,
+  });
+}
+
+async function buildDrivePageAssets(folderId: string) {
+  const driveImages = await listGoogleDriveImages(folderId);
+
+  const pageAssets: UploadAsset[] = [];
+
+  for (const image of driveImages) {
+    const buffer = await downloadGoogleDriveFile(image.id);
+
+    pageAssets.push({
+      name: image.name,
+      contentType: image.mimeType,
+      buffer,
+      width: image.width,
+      height: image.height,
+    });
+  }
+
+  return { driveImages, pageAssets };
+}
+
+async function deleteR2AssetsFromUrls(urls: string[]) {
+  const keys = urls
+    .map((url) => getR2KeyFromUrl(url))
+    .filter((key): key is string => Boolean(key));
+
+  for (const key of keys) {
+    await deleteFromR2(key);
+  }
 }
 
 export async function ingestMangaAction(
@@ -283,8 +469,10 @@ export async function importGoogleDriveFolderAction(
     }
 
     const input = parseIngestionInput(formData);
+    const driveImportMode = parseDriveImportMode(formData);
     const folderValue = String(formData.get("driveFolder") ?? "");
     const folderId = extractGoogleDriveFolderId(folderValue);
+    const existingMangaId = String(formData.get("existingMangaId") ?? "").trim();
     const useFirstPageAsCover =
       String(formData.get("useFirstPageAsCover") ?? "") === "on";
 
@@ -295,25 +483,116 @@ export async function importGoogleDriveFolderAction(
       };
     }
 
-    const driveImages = await listGoogleDriveImages(folderId);
+    if (driveImportMode === "bulk_parent_folder") {
+      if (!input.mangaName) {
+        return { ok: false, message: "Series title is required." };
+      }
+
+      if (!allowedStatuses.has(input.rawStatus)) {
+        return { ok: false, message: "Choose a valid manga status." };
+      }
+
+      const chapterFolders = await listGoogleDriveFolders(folderId);
+
+      if (chapterFolders.length === 0) {
+        return {
+          ok: false,
+          message: "No chapter folders were found inside that parent folder.",
+        };
+      }
+
+      const manga = await createMangaRecord(input);
+      let importedChapters = 0;
+      let importedPages = 0;
+
+      for (const [folderIndex, chapterFolder] of chapterFolders.entries()) {
+        const chapterNumber = parseChapterNumberFromFolderName(chapterFolder.name);
+
+        if (!Number.isFinite(chapterNumber) || chapterNumber <= 0) {
+          throw new Error(
+            `Could not read a chapter number from folder "${chapterFolder.name}".`,
+          );
+        }
+
+        const { driveImages, pageAssets } = await buildDrivePageAssets(
+          chapterFolder.id,
+        );
+
+        if (driveImages.length === 0) {
+          continue;
+        }
+
+        if (folderIndex === 0 && useFirstPageAsCover && pageAssets[0]) {
+          await attachCoverToManga({
+            mangaId: manga.id,
+            mangaName: manga.mangaName,
+            coverAsset: pageAssets[0],
+          });
+        }
+
+        await createChapterWithPages({
+          mangaId: manga.id,
+          mangaName: manga.mangaName,
+          chapterNumber,
+          chapterTitle: deriveChapterTitleFromFolderName(chapterFolder.name),
+          pageAssets,
+        });
+
+        importedChapters += 1;
+        importedPages += pageAssets.length;
+      }
+
+      revalidatePath("/");
+      revalidatePath(`/manga/${manga.id}`);
+
+      return {
+        ok: true,
+        message: `Imported ${importedChapters} chapters and ${importedPages} pages into "${manga.mangaName}".`,
+        createdMangaId: manga.id,
+      };
+    }
+
+    const { driveImages, pageAssets } = await buildDrivePageAssets(folderId);
+
+    if (driveImportMode === "existing_manga_chapter") {
+      const appendValidationError = validateChapterAppendInput(
+        input.chapterNumberValue,
+        driveImages.length,
+      );
+
+      if (appendValidationError) {
+        return appendValidationError;
+      }
+
+      if (!existingMangaId) {
+        return {
+          ok: false,
+          message: "Choose an existing manga before importing a new chapter.",
+        };
+      }
+
+      const result = await appendChapterToManga({
+        mangaId: existingMangaId,
+        chapterNumber: input.chapterNumberValue,
+        chapterTitle: input.chapterTitle || null,
+        pageAssets,
+        setCoverFromFirstPage: useFirstPageAsCover,
+      });
+
+      revalidatePath("/");
+      revalidatePath(`/manga/${existingMangaId}`);
+
+      return {
+        ok: true,
+        message: `Imported chapter ${input.chapterNumberValue} with ${result.pageCount} pages into the existing manga.`,
+        createdMangaId: existingMangaId,
+      };
+    }
+
     const validationError = validateIngestionInput(input, driveImages.length);
 
     if (validationError) {
       return validationError;
-    }
-
-    const pageAssets: UploadAsset[] = [];
-
-    for (const image of driveImages) {
-      const buffer = await downloadGoogleDriveFile(image.id);
-
-      pageAssets.push({
-        name: image.name,
-        contentType: image.mimeType,
-        buffer,
-        width: image.width,
-        height: image.height,
-      });
     }
 
     const coverAsset = useFirstPageAsCover ? pageAssets[0] : null;
@@ -322,6 +601,9 @@ export async function importGoogleDriveFolderAction(
       coverAsset,
       pageAssets,
     });
+
+    revalidatePath("/");
+    revalidatePath(`/manga/${result.mangaId}`);
 
     return {
       ok: true,
@@ -417,6 +699,193 @@ export async function updateMangaMetadataAction(
       ok: false,
       message:
         error instanceof Error ? error.message : "Manga update failed.",
+    };
+  }
+}
+
+export async function reorderChapterPagesAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return {
+        ok: false,
+        message: "Admin access is required for chapter page edits.",
+      };
+    }
+
+    const chapterId = String(formData.get("chapterId") ?? "").trim();
+    const pageOrderRaw = String(formData.get("pageOrder") ?? "").trim();
+
+    if (!chapterId || !pageOrderRaw) {
+      return {
+        ok: false,
+        message: "Choose a chapter and keep at least one page in the order list.",
+      };
+    }
+
+    const pageOrder = JSON.parse(pageOrderRaw);
+
+    if (
+      !Array.isArray(pageOrder) ||
+      pageOrder.length === 0 ||
+      !pageOrder.every((entry) => typeof entry === "string")
+    ) {
+      return {
+        ok: false,
+        message: "The page order payload is invalid.",
+      };
+    }
+
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: chapterId },
+      select: {
+        id: true,
+        mangaId: true,
+        chapterNumber: true,
+        pages: {
+          orderBy: {
+            pageNumber: "asc",
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!chapter) {
+      return {
+        ok: false,
+        message: "That chapter could not be found.",
+      };
+    }
+
+    const existingPageIds = chapter.pages.map((page) => page.id).sort();
+    const requestedPageIds = [...pageOrder].sort();
+
+    if (
+      existingPageIds.length !== requestedPageIds.length ||
+      existingPageIds.some((pageId, index) => pageId !== requestedPageIds[index])
+    ) {
+      return {
+        ok: false,
+        message: "The page list no longer matches the latest DB state. Refresh and try again.",
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const [index, pageId] of pageOrder.entries()) {
+        await tx.page.update({
+          where: { id: pageId },
+          data: {
+            pageNumber: 10_000 + index + 1,
+          },
+        });
+      }
+
+      for (const [index, pageId] of pageOrder.entries()) {
+        await tx.page.update({
+          where: { id: pageId },
+          data: {
+            pageNumber: index + 1,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${chapter.mangaId}`);
+    revalidatePath(`/reader/${chapter.id}`);
+
+    return {
+      ok: true,
+      message: `Updated the page order for chapter ${chapter.chapterNumber}. Reader mode will now follow the new order.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Page order update failed.",
+    };
+  }
+}
+
+export async function deleteChapterAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return {
+        ok: false,
+        message: "Admin access is required for chapter deletion.",
+      };
+    }
+
+    const chapterId = String(formData.get("chapterId") ?? "").trim();
+
+    if (!chapterId) {
+      return {
+        ok: false,
+        message: "Choose a chapter before deleting it.",
+      };
+    }
+
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: chapterId },
+      select: {
+        id: true,
+        mangaId: true,
+        chapterNumber: true,
+        title: true,
+        manga: {
+          select: {
+            mangaName: true,
+          },
+        },
+        pages: {
+          select: {
+            imageUrl: true,
+          },
+        },
+      },
+    });
+
+    if (!chapter) {
+      return {
+        ok: false,
+        message: "That chapter could not be found.",
+      };
+    }
+
+    await deleteR2AssetsFromUrls(chapter.pages.map((page) => page.imageUrl));
+
+    await prisma.chapter.delete({
+      where: {
+        id: chapter.id,
+      },
+    });
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    revalidatePath(`/manga/${chapter.mangaId}`);
+
+    return {
+      ok: true,
+      message: `Deleted chapter ${chapter.chapterNumber} from "${chapter.manga.mangaName}" and removed its page files from R2.`,
+      createdMangaId: chapter.mangaId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Chapter deletion failed.",
     };
   }
 }

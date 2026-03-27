@@ -380,14 +380,14 @@ export default async function MangaPreviewPage({
                   href={`/reader/${chapter.id}`}
                   className="group panel-box overflow-hidden transition hover:-translate-x-px hover:-translate-y-px"
                 >
-                  <div className="grid gap-0 md:grid-cols-[auto_1fr_auto]">
-                    <div className="flex min-h-[92px] items-center justify-center border-b-2 border-[#1a1108] bg-[#f5c518] px-5 md:min-h-full md:border-b-0 md:border-r-2">
-                      <span className="font-manga-preview text-3xl leading-none text-[#1a1108] sm:text-4xl">
+                  <div className="grid grid-cols-[72px_1fr] gap-0 sm:grid-cols-[84px_1fr_auto]">
+                    <div className="flex min-h-[74px] items-center justify-center border-r-2 border-[#1a1108] bg-[#f5c518] px-3 sm:min-h-full sm:px-4">
+                      <span className="font-manga-preview text-[1.9rem] leading-none text-[#1a1108] sm:text-[2.3rem]">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                     </div>
 
-                    <div className="relative overflow-hidden bg-[#fffdf8] px-4 py-4 sm:px-5">
+                    <div className="relative overflow-hidden bg-[#fffdf8] px-3 py-3 sm:px-5 sm:py-4">
                       <Halftone
                         uid={`chapter-tone-${chapter.id}`}
                         size={9}
@@ -395,13 +395,19 @@ export default async function MangaPreviewPage({
                         opacity={0.05}
                       />
                       <div className="relative z-10">
-                        <p className="text-lg font-semibold text-[#18130f]">
-                          {formatChapterLabel(
-                            chapter.chapterNumber,
-                            chapter.title,
-                          )}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[#6b594d]">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-base font-semibold leading-6 text-[#18130f] sm:text-lg">
+                            {formatChapterLabel(
+                              chapter.chapterNumber,
+                              chapter.title,
+                            )}
+                          </p>
+                          <span className="inline-flex shrink-0 items-center gap-1 border border-[#1a1108]/20 bg-[#fff3d6] px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#8a6a57] sm:hidden">
+                            Read
+                            <ChevronRight size={12} className="text-[#1a1108]" />
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#6b594d] sm:text-sm">
                           <span className="inline-flex items-center gap-2">
                             <BookOpen size={14} />
                             {chapter._count.pages} pages
@@ -414,7 +420,7 @@ export default async function MangaPreviewPage({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 border-t-2 border-[#1a1108] bg-[#fff7e6] px-4 py-4 md:border-l-2 md:border-t-0 md:px-5">
+                    <div className="hidden items-center justify-between gap-3 border-l-2 border-[#1a1108] bg-[#fff7e6] px-4 py-4 sm:flex sm:px-5">
                       <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#8a6a57]">
                         Read now
                       </span>

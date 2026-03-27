@@ -8,6 +8,11 @@ export type GoogleDriveImageFile = {
   height?: number | null;
 };
 
+export type GoogleDriveFolder = {
+  id: string;
+  name: string;
+};
+
 function getDriveAuth() {
   const clientEmail = normalizeEnvString(
     process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
@@ -137,6 +142,39 @@ export async function listGoogleDriveImages(folderId: string) {
   } while (pageToken);
 
   return files;
+}
+
+export async function listGoogleDriveFolders(folderId: string) {
+  const drive = getDriveClient();
+  const folders: GoogleDriveFolder[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: "nextPageToken, files(id, name)",
+      orderBy: "name_natural",
+      pageSize: 1000,
+      pageToken,
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+    });
+
+    for (const file of response.data.files ?? []) {
+      if (!file.id || !file.name) {
+        continue;
+      }
+
+      folders.push({
+        id: file.id,
+        name: file.name,
+      });
+    }
+
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return folders;
 }
 
 export async function downloadGoogleDriveFile(fileId: string) {

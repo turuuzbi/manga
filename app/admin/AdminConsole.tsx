@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useActionState,
   useMemo,
@@ -11,20 +12,27 @@ import {
 } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   CloudUpload,
   Database,
+  GripVertical,
   FileImage,
   FolderSync,
   Layers3,
+  MoveDown,
+  MoveUp,
   PencilLine,
+  Trash2,
   ShieldCheck,
   Sparkles,
   UserRound,
 } from "lucide-react";
 import {
+  deleteChapterAction,
   importGoogleDriveFolderAction,
   ingestMangaAction,
+  reorderChapterPagesAction,
   updateMangaMetadataAction,
   type AdminActionState,
 } from "@/app/admin/actions";
@@ -61,10 +69,26 @@ type AdminConsoleProps = {
     status: "ONGOING" | "COMPLETED" | "HIATUS";
     genres: string[];
     chapterCount: number;
+    chapters: Array<{
+      id: string;
+      chapterNumber: number;
+      title: string;
+      publishedAt: string;
+      pageCount: number;
+      pages: Array<{
+        id: string;
+        pageNumber: number;
+        imageUrl: string;
+      }>;
+    }>;
   }>;
 };
 
-type AdminView = "manage" | "upload" | "drive";
+type AdminView = "manage" | "chapters" | "upload" | "drive";
+type DriveImportMode =
+  | "new_manga_from_chapter"
+  | "existing_manga_chapter"
+  | "bulk_parent_folder";
 
 export function AdminConsole({
   dbUser,
@@ -72,9 +96,13 @@ export function AdminConsole({
   recentManga,
   mangaLibrary,
 }: AdminConsoleProps) {
+  const initialChapter = mangaLibrary[0]?.chapters[0] ?? null;
   const [activeView, setActiveView] = useState<AdminView>("manage");
   const [selectedMangaId, setSelectedMangaId] = useState(
     mangaLibrary[0]?.id ?? "",
+  );
+  const [selectedChapterId, setSelectedChapterId] = useState(
+    initialChapter?.id ?? "",
   );
   const [manualState, manualFormAction, manualPending] = useActionState<
     AdminActionState,
@@ -88,18 +116,63 @@ export function AdminConsole({
     AdminActionState,
     FormData
   >(updateMangaMetadataAction, initialAdminActionState);
+  const [chapterOrderState, chapterOrderFormAction, chapterOrderPending] =
+    useActionState<AdminActionState, FormData>(
+      reorderChapterPagesAction,
+      initialAdminActionState,
+    );
+  const [chapterDeleteState, chapterDeleteFormAction, chapterDeletePending] =
+    useActionState<AdminActionState, FormData>(
+      deleteChapterAction,
+      initialAdminActionState,
+    );
   const [coverName, setCoverName] = useState("");
   const [pageCount, setPageCount] = useState(0);
+  const [driveImportMode, setDriveImportMode] =
+    useState<DriveImportMode>("new_manga_from_chapter");
+  const [pageDraft, setPageDraft] = useState<
+    Array<{
+      id: string;
+      pageNumber: number;
+      imageUrl: string;
+    }>
+  >(initialChapter ? getSortedPages(initialChapter) : []);
 
   const selectedManga =
     mangaLibrary.find((entry) => entry.id === selectedMangaId) ??
     mangaLibrary[0] ??
     null;
+  const selectedChapter =
+    selectedManga?.chapters.find((entry) => entry.id === selectedChapterId) ??
+    selectedManga?.chapters[0] ??
+    null;
+
+  const handleMangaSelectionChange = (mangaId: string) => {
+    const nextManga =
+      mangaLibrary.find((entry) => entry.id === mangaId) ?? mangaLibrary[0] ?? null;
+    const nextChapter = nextManga?.chapters[0] ?? null;
+
+    setSelectedMangaId(mangaId);
+    setSelectedChapterId(nextChapter?.id ?? "");
+    setPageDraft(nextChapter ? getSortedPages(nextChapter) : []);
+  };
+
+  const handleChapterSelectionChange = (chapterId: string) => {
+    const nextChapter =
+      selectedManga?.chapters.find((entry) => entry.id === chapterId) ?? null;
+
+    setSelectedChapterId(chapterId);
+    setPageDraft(nextChapter ? getSortedPages(nextChapter) : []);
+  };
 
   const activeState = driveState.message
     ? driveState
     : manualState.message
       ? manualState
+      : chapterDeleteState.message
+        ? chapterDeleteState
+        : chapterOrderState.message
+          ? chapterOrderState
       : manageState;
 
   const statusTone = useMemo(() => {
@@ -134,6 +207,13 @@ export function AdminConsole({
                 <Sparkles size={14} />
                 Admin Console
               </div>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-300 transition hover:border-orange-400/40 hover:text-white"
+              >
+                <ArrowLeft size={14} />
+                Back To Home
+              </Link>
               <div className="space-y-3">
                 <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-5xl">
                   Manage series, upload chapters, and edit metadata from one
@@ -196,6 +276,12 @@ export function AdminConsole({
                   onClick={() => setActiveView("upload")}
                 />
                 <ViewButton
+                  active={activeView === "chapters"}
+                  icon={GripVertical}
+                  label="Chapters"
+                  onClick={() => setActiveView("chapters")}
+                />
+                <ViewButton
                   active={activeView === "drive"}
                   icon={FolderSync}
                   label="Drive Import"
@@ -230,7 +316,9 @@ export function AdminConsole({
                     <SelectField
                       label="Choose Manga"
                       value={selectedManga.id}
-                      onChange={(event) => setSelectedMangaId(event.target.value)}
+                      onChange={(event) =>
+                        handleMangaSelectionChange(event.target.value)
+                      }
                     >
                       {mangaLibrary.map((entry) => (
                         <option key={entry.id} value={entry.id}>
@@ -277,6 +365,217 @@ export function AdminConsole({
                   <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
                     No manga rows yet. Upload a series first, then you can edit
                     it here.
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            {activeView === "chapters" ? (
+              <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+                <div className="mb-6 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
+                    Chapter Control
+                  </p>
+                  <h2 className="text-2xl font-semibold text-white">
+                    Reorder page panels or remove a broken chapter
+                  </h2>
+                  <p className="text-sm leading-6 text-zinc-400">
+                    The reader follows page order by ascending{" "}
+                    <span className="font-semibold text-zinc-200">
+                      pageNumber
+                    </span>
+                    . Use the controls below to change that order without
+                    touching the image files themselves.
+                  </p>
+                </div>
+
+                {selectedManga ? (
+                  <div className="space-y-6">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <SelectField
+                      label="Choose Manga"
+                      value={selectedManga.id}
+                      onChange={(event) =>
+                        handleMangaSelectionChange(event.target.value)
+                      }
+                    >
+                        {mangaLibrary.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.mangaName}
+                          </option>
+                        ))}
+                      </SelectField>
+
+                      <SelectField
+                        label="Choose Chapter"
+                        value={selectedChapter?.id ?? ""}
+                        onChange={(event) =>
+                          handleChapterSelectionChange(event.target.value)
+                        }
+                        disabled={!selectedManga.chapters.length}
+                      >
+                        {selectedManga.chapters.length === 0 ? (
+                          <option value="">No chapters yet</option>
+                        ) : null}
+                        {selectedManga.chapters.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            Chapter {entry.chapterNumber}
+                            {entry.title ? ` • ${entry.title}` : ""}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </div>
+
+                    {selectedChapter ? (
+                      <>
+                        <div className="rounded-3xl border border-white/10 bg-black/30 p-4 sm:p-5">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
+                                Current chapter
+                              </p>
+                              <h3 className="mt-2 text-xl font-semibold text-white">
+                                Chapter {selectedChapter.chapterNumber}
+                                {selectedChapter.title
+                                  ? ` • ${selectedChapter.title}`
+                                  : ""}
+                              </h3>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
+                              {selectedChapter.pageCount} pages •{" "}
+                              {new Date(
+                                selectedChapter.publishedAt,
+                              ).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <form action={chapterOrderFormAction} className="space-y-4">
+                          <input
+                            type="hidden"
+                            name="chapterId"
+                            value={selectedChapter.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="pageOrder"
+                            value={JSON.stringify(pageDraft.map((page) => page.id))}
+                          />
+
+                          <div className="space-y-3">
+                            {pageDraft.map((page, index) => (
+                              <div
+                                key={page.id}
+                                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-black/25 p-3 sm:p-4"
+                              >
+                                <div className="flex h-16 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+                                  <img
+                                    src={page.imageUrl}
+                                    alt={`Page ${index + 1}`}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
+                                    Page slot
+                                  </p>
+                                  <p className="mt-1 text-base font-semibold text-white">
+                                    #{index + 1}
+                                  </p>
+                                  <p className="mt-1 truncate text-xs text-zinc-500">
+                                    Stored number: {page.pageNumber}
+                                  </p>
+                                </div>
+
+                                <div className="flex shrink-0 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPageDraft((current) =>
+                                        moveDraftItem(current, index, index - 1),
+                                      )
+                                    }
+                                    disabled={index === 0}
+                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <MoveUp size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPageDraft((current) =>
+                                        moveDraftItem(current, index, index + 1),
+                                      )
+                                    }
+                                    disabled={index === pageDraft.length - 1}
+                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <MoveDown size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <button
+                              type="submit"
+                              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300"
+                            >
+                              <GripVertical size={18} />
+                              Save Page Order
+                            </button>
+                            {chapterOrderPending ? (
+                              <p className="text-sm text-zinc-400">
+                                Updating chapter page order...
+                              </p>
+                            ) : null}
+                          </div>
+                        </form>
+
+                        <form action={chapterDeleteFormAction} className="space-y-4">
+                          <input
+                            type="hidden"
+                            name="chapterId"
+                            value={selectedChapter.id}
+                          />
+                          <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-4 sm:p-5">
+                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-200/80">
+                              Destructive Action
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-red-100/85">
+                              Deleting a chapter here removes its row from Neon
+                              and deletes its page files from R2. This does not
+                              remove the manga itself.
+                            </p>
+                            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <button
+                                type="submit"
+                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-red-300"
+                              >
+                                <Trash2 size={18} />
+                                Delete This Chapter
+                              </button>
+                              {chapterDeletePending ? (
+                                <p className="text-sm text-red-100/80">
+                                  Removing chapter rows and R2 files...
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </form>
+                      </>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
+                        This manga does not have any chapters yet.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
+                    No manga rows yet. Upload a series first, then you can edit
+                    its chapters here.
                   </div>
                 )}
               </section>
@@ -367,7 +666,73 @@ export function AdminConsole({
                 </div>
 
                 <form action={driveFormAction} className="space-y-6">
-                  <MetadataFields />
+                  <input
+                    type="hidden"
+                    name="driveImportMode"
+                    value={driveImportMode}
+                  />
+
+                  <SelectField
+                    label="Import Mode"
+                    value={driveImportMode}
+                    onChange={(event) =>
+                      setDriveImportMode(event.target.value as DriveImportMode)
+                    }
+                  >
+                    <option value="new_manga_from_chapter">
+                      Create new manga from one chapter folder
+                    </option>
+                    <option value="existing_manga_chapter">
+                      Add chapter to existing manga
+                    </option>
+                    <option value="bulk_parent_folder">
+                      Bulk import parent folder with chapter subfolders
+                    </option>
+                  </SelectField>
+
+                  {driveImportMode === "existing_manga_chapter" ? (
+                    <>
+                      <SelectField
+                        label="Existing Manga"
+                        name="existingMangaId"
+                        defaultValue={selectedManga?.id ?? ""}
+                      >
+                        <option value="" disabled>
+                          Select a manga
+                        </option>
+                        {mangaLibrary.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.mangaName}
+                          </option>
+                        ))}
+                      </SelectField>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                          label="Chapter Number"
+                          name="chapterNumber"
+                          type="number"
+                          placeholder="2"
+                          step="0.1"
+                          min="0.1"
+                          required
+                        />
+                        <Field
+                          label="Chapter Title"
+                          name="chapterTitle"
+                          placeholder="New chapter title"
+                        />
+                      </div>
+                    </>
+                  ) : null}
+
+                  {driveImportMode === "new_manga_from_chapter" ? (
+                    <MetadataFields />
+                  ) : null}
+
+                  {driveImportMode === "bulk_parent_folder" ? (
+                    <MetadataFields includeChapterFields={false} />
+                  ) : null}
 
                   <Field
                     label="Drive Folder URL Or ID"
@@ -389,8 +754,11 @@ export function AdminConsole({
                   </label>
 
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
-                    This uses the Google Drive API server-side. The folder must
-                    be visible to your configured service account.
+                    {driveImportMode === "bulk_parent_folder"
+                      ? "Use the parent manga folder here. Each subfolder inside it should represent one chapter."
+                      : driveImportMode === "existing_manga_chapter"
+                        ? "Use a single chapter folder here. Its images will be appended as a new chapter to the manga you selected."
+                        : "Use a single chapter folder here to create a new manga with its first chapter."}
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -750,5 +1118,28 @@ function InfoRow({ label, value }: { label: string; value: string }) {
         {value}
       </span>
     </div>
+  );
+}
+
+function moveDraftItem<T>(items: T[], fromIndex: number, toIndex: number) {
+  if (toIndex < 0 || toIndex >= items.length || fromIndex === toIndex) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, movedItem);
+  return nextItems;
+}
+
+function getSortedPages(chapter: {
+  pages: Array<{
+    id: string;
+    pageNumber: number;
+    imageUrl: string;
+  }>;
+}) {
+  return [...chapter.pages].sort(
+    (left, right) => left.pageNumber - right.pageNumber,
   );
 }

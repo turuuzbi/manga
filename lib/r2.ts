@@ -64,3 +64,18 @@ export function getR2PublicUrl(key: string) {
 
   return `${publicBaseUrl.replace(/\/$/, "")}/${key}`;
 }
+
+export function getR2KeyFromUrl(url: string) {
+  const publicBaseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+
+  if (publicBaseUrl && url.startsWith(`${publicBaseUrl}/`)) {
+    return url.slice(publicBaseUrl.length + 1);
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.pathname.replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}

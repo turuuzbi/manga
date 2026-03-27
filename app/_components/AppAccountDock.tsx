@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, UserButton } from "@clerk/nextjs";
-import { BookOpenText } from "lucide-react";
+import { BookOpenText, Shield } from "lucide-react";
 
-export function AppAccountDock() {
+export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const isReader = pathname.startsWith("/reader");
+  const isAdminPage = pathname.startsWith("/admin");
 
   if (isReader) {
     return null;
@@ -28,6 +29,20 @@ export function AppAccountDock() {
 
         <SignedIn>
           <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-zinc-100">
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                  isAdminPage
+                    ? "border-orange-400/40 bg-orange-500/15 text-orange-200"
+                    : "border-white/10 bg-white/5 text-zinc-100 hover:bg-white/10"
+                }`}
+              >
+                <Shield size={14} />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            ) : null}
+
             <UserButton
               showName={!isReader}
               appearance={{
