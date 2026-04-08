@@ -128,8 +128,9 @@ export function AdminConsole({
     );
   const [coverName, setCoverName] = useState("");
   const [pageCount, setPageCount] = useState(0);
-  const [driveImportMode, setDriveImportMode] =
-    useState<DriveImportMode>("new_manga_from_chapter");
+  const [driveImportMode, setDriveImportMode] = useState<DriveImportMode>(
+    "new_manga_from_chapter",
+  );
   const [pageDraft, setPageDraft] = useState<
     Array<{
       id: string;
@@ -149,7 +150,9 @@ export function AdminConsole({
 
   const handleMangaSelectionChange = (mangaId: string) => {
     const nextManga =
-      mangaLibrary.find((entry) => entry.id === mangaId) ?? mangaLibrary[0] ?? null;
+      mangaLibrary.find((entry) => entry.id === mangaId) ??
+      mangaLibrary[0] ??
+      null;
     const nextChapter = nextManga?.chapters[0] ?? null;
 
     setSelectedMangaId(mangaId);
@@ -173,7 +176,7 @@ export function AdminConsole({
         ? chapterDeleteState
         : chapterOrderState.message
           ? chapterOrderState
-      : manageState;
+          : manageState;
 
   const statusTone = useMemo(() => {
     if (!activeState.message) {
@@ -183,8 +186,7 @@ export function AdminConsole({
     return activeState.ok
       ? {
           icon: CheckCircle2,
-          className:
-            "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+          className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
         }
       : {
           icon: AlertCircle,
@@ -311,7 +313,11 @@ export function AdminConsole({
                     action={manageFormAction}
                     className="space-y-6"
                   >
-                    <input type="hidden" name="mangaId" value={selectedManga.id} />
+                    <input
+                      type="hidden"
+                      name="mangaId"
+                      value={selectedManga.id}
+                    />
 
                     <SelectField
                       label="Choose Manga"
@@ -393,12 +399,12 @@ export function AdminConsole({
                   <div className="space-y-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <SelectField
-                      label="Choose Manga"
-                      value={selectedManga.id}
-                      onChange={(event) =>
-                        handleMangaSelectionChange(event.target.value)
-                      }
-                    >
+                        label="Choose Manga"
+                        value={selectedManga.id}
+                        onChange={(event) =>
+                          handleMangaSelectionChange(event.target.value)
+                        }
+                      >
                         {mangaLibrary.map((entry) => (
                           <option key={entry.id} value={entry.id}>
                             {entry.mangaName}
@@ -450,7 +456,10 @@ export function AdminConsole({
                           </div>
                         </div>
 
-                        <form action={chapterOrderFormAction} className="space-y-4">
+                        <form
+                          action={chapterOrderFormAction}
+                          className="space-y-4"
+                        >
                           <input
                             type="hidden"
                             name="chapterId"
@@ -459,7 +468,9 @@ export function AdminConsole({
                           <input
                             type="hidden"
                             name="pageOrder"
-                            value={JSON.stringify(pageDraft.map((page) => page.id))}
+                            value={JSON.stringify(
+                              pageDraft.map((page) => page.id),
+                            )}
                           />
 
                           <div className="space-y-3">
@@ -493,7 +504,11 @@ export function AdminConsole({
                                     type="button"
                                     onClick={() =>
                                       setPageDraft((current) =>
-                                        moveDraftItem(current, index, index - 1),
+                                        moveDraftItem(
+                                          current,
+                                          index,
+                                          index - 1,
+                                        ),
                                       )
                                     }
                                     disabled={index === 0}
@@ -505,7 +520,11 @@ export function AdminConsole({
                                     type="button"
                                     onClick={() =>
                                       setPageDraft((current) =>
-                                        moveDraftItem(current, index, index + 1),
+                                        moveDraftItem(
+                                          current,
+                                          index,
+                                          index + 1,
+                                        ),
                                       )
                                     }
                                     disabled={index === pageDraft.length - 1}
@@ -534,7 +553,10 @@ export function AdminConsole({
                           </div>
                         </form>
 
-                        <form action={chapterDeleteFormAction} className="space-y-4">
+                        <form
+                          action={chapterDeleteFormAction}
+                          className="space-y-4"
+                        >
                           <input
                             type="hidden"
                             name="chapterId"
@@ -660,8 +682,8 @@ export function AdminConsole({
                     Pull an entire folder directly from Google Drive
                   </h2>
                   <p className="text-sm leading-6 text-zinc-400">
-                    Share the folder with your Google service account email, then
-                    paste the folder URL or ID here.
+                    Share the folder with your Google service account email,
+                    then paste the folder URL or ID here.
                   </p>
                 </div>
 

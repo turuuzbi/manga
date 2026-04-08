@@ -36,6 +36,7 @@ model Manga {
   genres          MangaGenre[]
   ratings         Rating[]
   bookmarks       Bookmark[]
+  comments        Comment[]
   readingProgress ReadingProgress[]
 }
 
@@ -101,7 +102,27 @@ model User {
 
   ratings         Rating[]
   bookmarks       Bookmark[]
+  comments        Comment[]
   readingProgress ReadingProgress[]
+}
+
+model Comment {
+  id        String   @id @default(nanoid())
+  mangaId   String
+  userId    String
+  parentId  String?
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  manga   Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([mangaId])
+  @@index([userId])
+  @@index([parentId])
 }
 
 // ─── User activity ────────────────────────────────────────────────────────────

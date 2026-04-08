@@ -1,8 +1,71 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fffdf8;
+  --foreground: #1a1108;
+  --manga-bg: #fffdf8;
+  --manga-paper: #fffaf1;
+  --manga-paper-2: #f6f0e3;
+  --manga-paper-3: #fff7ea;
+  --manga-border: #1a1108;
+  --manga-text: #1a1108;
+  --manga-muted: #6a584c;
+  --manga-muted-2: #8a6a57;
+  --manga-accent: #e8637e;
+  --manga-gold: #f5c518;
+  --manga-shadow: #1a1108;
+  --manga-nav-bg: rgba(255, 253, 248, 0.92);
+  --manga-grid: rgba(38, 31, 25, 0.03);
+  --manga-radial-a: rgba(255, 255, 255, 0.94);
+  --manga-radial-b: rgba(243, 239, 233, 0.45);
+  --manga-brand-a: #ff9fb7;
+  --manga-brand-b: #ea6b85;
+  --manga-brand-c: #f8ccd5;
+  --manga-highlight: #f5c518;
+  --manga-highlight-text: #1a1108;
+  --manga-accent-shadow: #e8637e;
+  --manga-hero-overlay: rgba(26, 17, 8, 0.88);
+  --manga-hero-overlay-soft: rgba(255, 255, 255, 0.22);
+  --manga-card-overlay: rgba(26, 17, 8, 0.8);
+  --skeleton-tone-1: #f3ebdf;
+  --skeleton-tone-2: #fffaf1;
+  --skeleton-strong-1: #ebdfca;
+  --skeleton-strong-2: #fff7ea;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.62);
+}
+
+html[data-theme="light"] {
+  --background: #fffdf8;
+  --foreground: #1a1108;
+  --manga-bg: #fffdf8;
+  --manga-paper: #fffaf1;
+  --manga-paper-2: #f6f0e3;
+  --manga-paper-3: #fff7ea;
+  --manga-border: #1a1108;
+  --manga-text: #1a1108;
+  --manga-muted: #6a584c;
+  --manga-muted-2: #8a6a57;
+  --manga-accent: #e8637e;
+  --manga-gold: #f5c518;
+  --manga-shadow: #1a1108;
+  --manga-nav-bg: rgba(255, 253, 248, 0.92);
+  --manga-grid: rgba(38, 31, 25, 0.03);
+  --manga-radial-a: rgba(255, 255, 255, 0.94);
+  --manga-radial-b: rgba(243, 239, 233, 0.45);
+  --manga-brand-a: #ff9fb7;
+  --manga-brand-b: #ea6b85;
+  --manga-brand-c: #f8ccd5;
+  --manga-highlight: #f5c518;
+  --manga-highlight-text: #1a1108;
+  --manga-accent-shadow: #e8637e;
+  --manga-hero-overlay: rgba(26, 17, 8, 0.88);
+  --manga-hero-overlay-soft: rgba(255, 255, 255, 0.22);
+  --manga-card-overlay: rgba(26, 17, 8, 0.8);
+  --skeleton-tone-1: #f3ebdf;
+  --skeleton-tone-2: #fffaf1;
+  --skeleton-strong-1: #ebdfca;
+  --skeleton-strong-2: #fff7ea;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.62);
 }
 
 @theme inline {
@@ -24,11 +87,38 @@ html {
   overflow-x: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html[data-theme="dark"] {
+  --background: #0b0a10;
+  --foreground: #f5f1ff;
+  --manga-bg: #0b0a10;
+  --manga-paper: #14111d;
+  --manga-paper-2: #1d1829;
+  --manga-paper-3: #261f35;
+  --manga-border: #ece4ff;
+  --manga-text: #f5f1ff;
+  --manga-muted: #c9bde3;
+  --manga-muted-2: #a89bc7;
+  --manga-accent: #8d6bff;
+  --manga-gold: #d4aa52;
+  --manga-shadow: #000000;
+  --manga-nav-bg: rgba(11, 10, 16, 0.94);
+  --manga-grid: rgba(208, 194, 255, 0.055);
+  --manga-radial-a: rgba(125, 93, 255, 0.12);
+  --manga-radial-b: rgba(37, 28, 63, 0.34);
+  --manga-brand-a: #5f45c9;
+  --manga-brand-b: #7a59ec;
+  --manga-brand-c: #b7a2ff;
+  --manga-highlight: #d4aa52;
+  --manga-highlight-text: #120d07;
+  --manga-accent-shadow: #6d4de2;
+  --manga-hero-overlay: rgba(6, 5, 12, 0.92);
+  --manga-hero-overlay-soft: rgba(140, 111, 255, 0.1);
+  --manga-card-overlay: rgba(8, 7, 14, 0.86);
+  --skeleton-tone-1: rgba(255, 255, 255, 0.08);
+  --skeleton-tone-2: rgba(255, 255, 255, 0.03);
+  --skeleton-strong-1: rgba(141, 107, 255, 0.2);
+  --skeleton-strong-2: rgba(255, 255, 255, 0.07);
+  --skeleton-shimmer: rgba(255, 255, 255, 0.14);
 }
 
 body {
@@ -37,8 +127,137 @@ body {
   font-family: var(--font-sans);
   min-width: 320px;
   overflow-x: hidden;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
 }
 
 img {
   max-width: 100%;
+}
+
+@keyframes ink-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ink-fade {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ink-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+@keyframes ink-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.motion-ink-fade {
+  animation: ink-fade 0.55s ease both;
+}
+
+.motion-ink-up {
+  animation: ink-rise 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.motion-ink-up-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.motion-ink-up-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.motion-ink-up-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.motion-ink-up-delay-4 {
+  animation-delay: 0.32s;
+}
+
+.motion-ink-float {
+  animation: ink-float 5.5s ease-in-out infinite;
+}
+
+.ink-skeleton,
+.ink-skeleton-dark {
+  position: relative;
+  overflow: hidden;
+}
+
+.ink-skeleton {
+  background: linear-gradient(
+    180deg,
+    var(--skeleton-tone-1) 0%,
+    var(--skeleton-tone-2) 100%
+  );
+}
+
+.ink-skeleton-dark {
+  background: linear-gradient(
+    180deg,
+    var(--skeleton-strong-1) 0%,
+    var(--skeleton-strong-2) 100%
+  );
+}
+
+.ink-skeleton::after,
+.ink-skeleton-dark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--skeleton-shimmer) 48%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: ink-shimmer 1.8s ease-in-out infinite;
+}
+
+.ink-skeleton-line {
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-ink-fade,
+  .motion-ink-up,
+  .motion-ink-up-delay-1,
+  .motion-ink-up-delay-2,
+  .motion-ink-up-delay-3,
+  .motion-ink-up-delay-4,
+  .motion-ink-float,
+  .ink-skeleton::after,
+  .ink-skeleton-dark::after {
+    animation: none !important;
+  }
 }

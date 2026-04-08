@@ -6,6 +6,7 @@ import prisma from "@/lib/db";
 import {
   downloadGoogleDriveFile,
   extractGoogleDriveFolderId,
+  inspectGoogleDriveFolder,
   listGoogleDriveFolders,
   listGoogleDriveImages,
 } from "@/lib/google-drive";
@@ -376,6 +377,34 @@ async function buildDrivePageAssets(folderId: string) {
   return { driveImages, pageAssets };
 }
 
+function formatDriveFolderDebugMessage(summary: {
+  folderName: string;
+  childCount: number;
+  folderCount: number;
+  imageCount: number;
+  sampleItems: Array<{
+    name: string;
+    mimeType: string;
+  }>;
+}) {
+  const sampleItems =
+    summary.sampleItems.length > 0
+      ? summary.sampleItems
+          .map((item) => `${item.name} (${item.mimeType})`)
+          .join(", ")
+      : "none";
+
+  if (summary.folderCount === 0 && summary.imageCount > 0) {
+    return `Google Drive can read "${summary.folderName}", but it contains direct image files instead of chapter folders. Use the single-chapter import mode for this folder. Visible items: ${sampleItems}.`;
+  }
+
+  if (summary.childCount === 0) {
+    return `Google Drive can open "${summary.folderName}", but the service account cannot see any child items inside it. Re-share the copied parent folder with the service account email and make sure the chapter folders are not private-only shortcuts.`;
+  }
+
+  return `Google Drive can read "${summary.folderName}", but none of the visible child items resolved to chapter folders. Visible items: ${sampleItems}.`;
+}
+
 async function deleteR2AssetsFromUrls(urls: string[]) {
   const keys = urls
     .map((url) => getR2KeyFromUrl(url))
@@ -495,9 +524,11 @@ export async function importGoogleDriveFolderAction(
       const chapterFolders = await listGoogleDriveFolders(folderId);
 
       if (chapterFolders.length === 0) {
+        const summary = await inspectGoogleDriveFolder(folderId);
+
         return {
           ok: false,
-          message: "No chapter folders were found inside that parent folder.",
+          message: formatDriveFolderDebugMessage(summary),
         };
       }
 
@@ -540,6 +571,20 @@ export async function importGoogleDriveFolderAction(
 
         importedChapters += 1;
         importedPages += pageAssets.length;
+      }
+
+      if (importedChapters === 0) {
+        await prisma.manga.delete({
+          where: {
+            id: manga.id,
+          },
+        });
+
+        return {
+          ok: false,
+          message:
+            "Google Drive found chapter folders, but none of them contained readable images for import.",
+        };
       }
 
       revalidatePath("/");

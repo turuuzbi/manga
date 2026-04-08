@@ -3,16 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  Search,
   TrendingUp,
   ChevronRight,
   BookOpen,
   Flame,
   ArrowUpRight,
-  Menu,
-  X,
 } from "lucide-react";
-import { SignInButton, SignUpButton, SignedOut } from "@clerk/nextjs";
+import { MangaTopNav } from "@/app/_components/MangaTopNav";
 
 interface MangaSeries {
   id: string;
@@ -24,6 +21,7 @@ interface MangaSeries {
 }
 
 interface TrendingEntry {
+  id: string;
   rank: number;
   title: string;
   delta: string;
@@ -44,14 +42,14 @@ const STYLES = `
   opacity: 0.035;
   mix-blend-mode: multiply;
 }
-.ink-panel { border: 3px solid #1a1108; position: relative; box-shadow: 5px 5px 0 #1a1108; background: #fffaf1; }
-.ink-panel-sm { border: 2px solid #1a1108; position: relative; box-shadow: 3px 3px 0 #1a1108; }
+.ink-panel { border: 3px solid var(--manga-border); position: relative; box-shadow: 5px 5px 0 var(--manga-shadow); background: var(--manga-paper); }
+.ink-panel-sm { border: 2px solid var(--manga-border); position: relative; box-shadow: 3px 3px 0 var(--manga-shadow); }
 @keyframes spin-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 .speed-spin { animation: spin-slow 80s linear infinite; transform-origin: 50% 50%; }
 @keyframes badge-rock { 0%,100%{transform:rotate(-5deg) scale(1)} 50%{transform:rotate(5deg) scale(1.06)} }
 .badge-rock { animation: badge-rock 4s ease-in-out infinite; }
 .screentone-layer {
-  background-image: radial-gradient(circle, #1a1108 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--manga-border) 1px, transparent 1px);
   background-size: 6px 6px;
   position: absolute; inset: 0; z-index: 10;
   pointer-events: none;
@@ -61,53 +59,67 @@ const STYLES = `
 .manga-card:hover .screentone-layer { opacity: 0.08; }
 .card-overlay {
   position: absolute; inset: 0; z-index: 11;
-  background: rgba(26,17,8,0.8);
+  background: var(--manga-card-overlay);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity 0.2s;
 }
 .manga-card:hover .card-overlay { opacity: 1; }
 .manga-card { transition: transform 0.15s ease, filter 0.15s ease; cursor: pointer; }
 .manga-card:hover { transform: translate(-2px,-3px); }
-.manga-card:hover .ink-panel-sm { box-shadow: 6px 6px 0 #1a1108 !important; }
-.trend-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1.5px solid #ddd1bb; transition:transform 0.12s; }
+.manga-card:hover .ink-panel-sm { box-shadow: 6px 6px 0 var(--manga-shadow) !important; }
+.trend-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1.5px solid color-mix(in srgb, var(--manga-border) 18%, transparent); transition:transform 0.12s; }
 .trend-row:last-child { border-bottom:none; }
 .trend-row:hover { transform:translateX(4px); }
-.trend-row:hover .trend-title { color: #e8637e !important; }
+.trend-row:hover .trend-title { color: var(--manga-accent) !important; }
 .genre-pill {
-  border: 2px solid #1a1108;
+  border: 2px solid var(--manga-border);
   padding: 4px 10px;
   font-size: 10px; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
-  background: transparent; color: #1a1108;
+  background: transparent; color: var(--manga-text);
   cursor: pointer; transition: all 0.1s;
 }
-.genre-pill:hover { background: #1a1108; color: #fffaf1; }
-.genre-pill.active { background: #e8637e; border-color: #e8637e; color: #fff; box-shadow: 2px 2px 0 #1a1108; }
+.genre-pill:hover { background: var(--manga-border); color: var(--manga-bg); }
+.genre-pill.active { background: var(--manga-accent); border-color: var(--manga-accent); color: #fff; box-shadow: 2px 2px 0 var(--manga-shadow); }
 .yu-btn {
-  border: 2px solid #1a1108;
+  border: 2px solid var(--manga-border);
   font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase;
   cursor: pointer; transition: all 0.1s; border-radius: 0;
   display: inline-flex; align-items: center; gap: 6px;
 }
 .yu-btn:hover { transform:translate(-1px,-1px); }
-.yu-btn-ink { background:#1a1108; color:#fffaf1; box-shadow:3px 3px 0 #e8637e; font-size:11px; padding:8px 20px; }
-.yu-btn-paper { background:#fffaf1; color:#e8637e; box-shadow:3px 3px 0 #1a1108; font-size:11px; padding:10px 24px; }
-.yu-btn-full { width:100%; justify-content:center; font-size:11px; padding:12px; background:#e8637e; color:#fff; box-shadow:3px 3px 0 #1a1108; }
+.yu-btn-ink { background:var(--manga-text); color:var(--manga-bg); box-shadow:3px 3px 0 var(--manga-accent); font-size:11px; padding:8px 20px; }
+.yu-btn-paper { background:var(--manga-paper); color:var(--manga-accent); box-shadow:3px 3px 0 var(--manga-shadow); font-size:11px; padding:10px 24px; }
+.yu-btn-full { width:100%; justify-content:center; font-size:11px; padding:12px; background:var(--manga-accent); color:#fff; box-shadow:3px 3px 0 var(--manga-shadow); }
 .yu-search {
-  background: #f6f0e3; border: 2px solid #1a1108;
+  background: var(--manga-paper-2); border: 2px solid var(--manga-border);
   padding: 7px 12px 7px 32px;
-  font-size: 12px; outline: none; color: #1a1108;
+  font-size: 12px; outline: none; color: var(--manga-text);
 }
-.yu-search::placeholder { color: #8a7a6a; }
-.yu-search:focus { background: #fff; box-shadow: 3px 3px 0 #e8637e; }
-.section-title { display:inline-block; background:#1a1108; padding:6px 14px; }
-.section-title span { font-family:'Bangers',cursive; font-size:22px; color:#fffaf1; letter-spacing:0.06em; }
+.yu-search::placeholder { color: var(--manga-muted-2); }
+.yu-search:focus { background: var(--manga-bg); box-shadow: 3px 3px 0 var(--manga-accent); }
+.section-title { display:inline-block; background:var(--manga-border); padding:6px 14px; }
+.section-title span { font-family:'Bangers',cursive; font-size:22px; color:var(--manga-bg); letter-spacing:0.06em; }
 .sfx-bg { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
-.sfx { font-family:'Bangers',cursive; position:absolute; opacity:0.024; color:#1a1108; white-space:nowrap; user-select:none; }
-.corner-tri { position:absolute; top:0; right:0; width:0; height:0; border-top:64px solid #e8637e; border-left:64px solid transparent; z-index:20; }
+.sfx { font-family:'Bangers',cursive; position:absolute; opacity:0.024; color:var(--manga-border); white-space:nowrap; user-select:none; }
+.corner-tri { position:absolute; top:0; right:0; width:0; height:0; border-top:64px solid var(--manga-accent); border-left:64px solid transparent; z-index:20; }
 .corner-tri-icon { position:absolute; top:4px; right:5px; z-index:21; }
-.stat-icon { width:36px; height:36px; background:#e8637e; border:2px solid #1a1108; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; position:relative; z-index:1; }
+.stat-icon { width:36px; height:36px; background:var(--manga-accent); border:2px solid var(--manga-border); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; position:relative; z-index:1; }
 .sidebar-sticky { position:sticky; top:80px; display:flex; flex-direction:column; gap:20px; }
+.nav-link { position:relative; transition:color 0.2s ease; }
+.nav-link::after {
+  content:'';
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-8px;
+  height:2px;
+  background:var(--manga-accent);
+  transform:scaleX(0);
+  transform-origin:left;
+  transition:transform 0.2s ease;
+}
+.nav-link:hover::after { transform:scaleX(1); }
 `;
 
 function SpeedLines() {
@@ -141,7 +153,7 @@ function SpeedLines() {
           y1={line.y1}
           x2={line.x2}
           y2={line.y2}
-          stroke="#1a1108"
+          stroke="var(--manga-border)"
           strokeWidth={line.thick}
           opacity={line.op}
         />
@@ -155,7 +167,7 @@ function Halftone({
   size = 8,
   r = 2.2,
   opacity = 0.12,
-  color = "#1a1108",
+  color = "var(--manga-border)",
 }: {
   uid: string;
   size?: number;
@@ -195,7 +207,7 @@ function Halftone({
 function StarBurst({
   label,
   size = 60,
-  bg = "#f5c518",
+  bg = "var(--manga-highlight)",
 }: {
   label: string;
   size?: number;
@@ -216,15 +228,20 @@ function StarBurst({
       <svg
         viewBox={`0 0 ${size} ${size}`}
         className="absolute inset-0 h-full w-full"
-        style={{ filter: "drop-shadow(2px 2px 0 #1a1108)" }}
+        style={{ filter: "drop-shadow(2px 2px 0 var(--manga-shadow))" }}
       >
-        <polygon points={pts} fill={bg} stroke="#1a1108" strokeWidth="1.5" />
+        <polygon
+          points={pts}
+          fill={bg}
+          stroke="var(--manga-border)"
+          strokeWidth="1.5"
+        />
       </svg>
       <span
         className="font-manga relative z-10 text-center leading-none"
         style={{
           fontSize: size * 0.16,
-          color: "#1a1108",
+          color: "var(--manga-highlight-text)",
           whiteSpace: "pre-line",
         }}
       >
@@ -236,9 +253,9 @@ function StarBurst({
 
 const genres = ["Action", "Fantasy", "Drama", "Romance", "Comedy", "Mystery"];
 const headerLinks = [
-  { label: "Library", href: "#library" },
+  { label: "Library", href: "/#library" },
   { label: "Mangas", href: "/manga" },
-  { label: "Hot Pick", href: "#featured" },
+  { label: "Hot Pick", href: "/#featured" },
 ];
 
 type HomeLandingProps = {
@@ -250,22 +267,22 @@ type HomeLandingProps = {
   };
   latestSeries?: MangaSeries[];
   trending?: TrendingEntry[];
+  isAdmin?: boolean;
 };
 
 export function HomeLanding({
   featuredTitle,
   latestSeries = [],
   trending = [],
+  isAdmin = false,
 }: HomeLandingProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeGenre, setActiveGenre] = useState<string | null>(null);
-  const [searchFocused, setSearchFocused] = useState(false);
   const filteredSeries = activeGenre
     ? latestSeries.filter((manga) => manga.genre === activeGenre)
     : latestSeries;
   const filteredTrending = activeGenre
     ? trending.filter((entry) =>
-        filteredSeries.some((series) => series.title === entry.title),
+        filteredSeries.some((series) => series.id === entry.id),
       )
     : trending;
 
@@ -275,8 +292,8 @@ export function HomeLanding({
       <div
         className="yu-root min-h-screen"
         style={{
-          background: "#fffdf8",
-          color: "#1a1108",
+          background: "var(--manga-bg)",
+          color: "var(--manga-text)",
           overflowX: "hidden",
         }}
       >
@@ -316,178 +333,26 @@ export function HomeLanding({
           </span>
         </div>
 
-        <nav
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 50,
-            background: "#fffdf8",
-            borderBottom: "3px solid #1a1108",
-          }}
-        >
-          <div
-            className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8"
-            style={{ position: "relative", zIndex: 1 }}
-          >
-            <Link
-              href="/"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  background: "#e8637e",
-                  border: "2px solid #1a1108",
-                  padding: "2px 10px",
-                  boxShadow: "2px 2px 0 #1a1108",
-                }}
-              >
-                <span
-                  className="font-manga"
-                  style={{
-                    color: "#fff",
-                    fontSize: 22,
-                    lineHeight: 1.3,
-                    display: "block",
-                  }}
-                >
-                  ユーメ
-                </span>
-              </div>
-              <span
-                className="font-manga"
-                style={{ fontSize: 21, color: "#1a1108" }}
-              >
-                MANGA
-              </span>
-            </Link>
-
-            <div
-              className="hidden items-center gap-8 md:flex"
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-              }}
-            >
-              {headerLinks.map((entry) => (
-                <Link
-                  key={entry.label}
-                  href={entry.href}
-                  style={{ color: "#5a4a3a", textDecoration: "none" }}
-                >
-                  {entry.label}
-                </Link>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="relative hidden items-center md:flex">
-                <Search
-                  size={13}
-                  style={{
-                    position: "absolute",
-                    left: 10,
-                    color: "#8a7a6a",
-                    pointerEvents: "none",
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Search series…"
-                  onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
-                  className="yu-search"
-                  style={{
-                    width: searchFocused ? 200 : 150,
-                    transition: "all 0.25s",
-                  }}
-                />
-              </div>
-
-              <SignedOut>
-                <div className="hidden items-center gap-2 md:flex">
-                  <SignInButton>
-                    <button className="yu-btn yu-btn-paper">Sign In</button>
-                  </SignInButton>
-                  <SignUpButton>
-                    <button className="yu-btn yu-btn-ink">Join Free</button>
-                  </SignUpButton>
-                </div>
-              </SignedOut>
-
-              <button
-                className="p-2 md:hidden"
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#1a1108",
-                }}
-                onClick={() => setMobileMenuOpen((value) => !value)}
-              >
-                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </div>
-          </div>
-
-          {mobileMenuOpen ? (
-            <div
-              className="flex flex-col gap-4 px-5 py-4 md:hidden"
-              style={{ borderTop: "2px solid #1a1108" }}
-            >
-              {headerLinks.map((entry) => (
-                <Link
-                  key={entry.label}
-                  href={entry.href}
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#5a4a3a",
-                    textDecoration: "none",
-                  }}
-                >
-                  {entry.label}
-                </Link>
-              ))}
-              <SignedOut>
-                <div className="flex gap-3 pt-1">
-                  <SignInButton>
-                    <button className="yu-btn yu-btn-paper">Sign In</button>
-                  </SignInButton>
-                  <SignUpButton>
-                    <button className="yu-btn yu-btn-ink">Join Free</button>
-                  </SignUpButton>
-                </div>
-              </SignedOut>
-            </div>
-          ) : null}
-        </nav>
+        <MangaTopNav navLinks={headerLinks} isAdmin={isAdmin} />
 
         <main
-          className="mx-auto max-w-7xl px-4 py-8 md:px-8"
+          className="motion-ink-fade mx-auto max-w-7xl px-4 py-8 md:px-8"
           style={{ position: "relative", zIndex: 1 }}
         >
           <section
             id="featured"
-            className="mb-12 grid grid-cols-1 lg:grid-cols-5"
+            className="motion-ink-up mb-12 grid grid-cols-1 lg:grid-cols-5"
             style={{
-              border: "3px solid #1a1108",
-              boxShadow: "7px 7px 0 #1a1108",
+              border: "3px solid var(--manga-border)",
+              boxShadow: "7px 7px 0 var(--manga-shadow)",
             }}
           >
             <div
               className="relative overflow-hidden lg:col-span-3"
               style={{
                 minHeight: 420,
-                background: "#fffaf2",
-                borderRight: "3px solid #1a1108",
+                background: "var(--manga-paper)",
+                borderRight: "3px solid var(--manga-border)",
               }}
             >
               <div className="absolute inset-0 overflow-hidden">
@@ -512,10 +377,10 @@ export function HomeLanding({
                   >
                     <div
                       style={{
-                        background: "#f5c518",
-                        border: "2px solid #1a1108",
+                        background: "var(--manga-highlight)",
+                        border: "2px solid var(--manga-border)",
                         padding: "3px 12px",
-                        boxShadow: "2px 2px 0 #1a1108",
+                        boxShadow: "2px 2px 0 var(--manga-shadow)",
                         display: "inline-block",
                       }}
                     >
@@ -523,7 +388,7 @@ export function HomeLanding({
                         className="font-manga"
                         style={{
                           fontSize: 12,
-                          color: "#1a1108",
+                          color: "var(--manga-highlight-text)",
                           letterSpacing: "0.12em",
                         }}
                       >
@@ -553,7 +418,7 @@ export function HomeLanding({
                       zIndex: 10,
                       padding: "32px 24px",
                       background:
-                        "linear-gradient(to top, rgba(26,17,8,0.9) 55%, transparent)",
+                        "linear-gradient(to top, var(--manga-hero-overlay) 55%, transparent)",
                     }}
                   >
                     <h2
@@ -563,7 +428,8 @@ export function HomeLanding({
                         color: "#fff",
                         lineHeight: 0.95,
                         marginBottom: 8,
-                        textShadow: "4px 4px 0 #e8637e",
+                        textShadow:
+                          "4px 4px 0 var(--manga-accent-shadow)",
                       }}
                     >
                       {featuredTitle.title}
@@ -593,7 +459,7 @@ export function HomeLanding({
             <div className="flex flex-col lg:col-span-2">
               <div
                 className="grid grid-cols-2"
-                style={{ borderBottom: "3px solid #1a1108" }}
+                style={{ borderBottom: "3px solid var(--manga-border)" }}
               >
                 {[
                   {
@@ -611,7 +477,8 @@ export function HomeLanding({
                     key={label}
                     style={{
                       padding: 20,
-                      borderRight: index === 0 ? "3px solid #1a1108" : "none",
+                      borderRight:
+                        index === 0 ? "3px solid var(--manga-border)" : "none",
                       position: "relative",
                       overflow: "hidden",
                     }}
@@ -629,7 +496,7 @@ export function HomeLanding({
                       className="font-manga"
                       style={{
                         fontSize: 34,
-                        color: "#1a1108",
+                        color: "var(--manga-text)",
                         lineHeight: 1,
                         position: "relative",
                         zIndex: 1,
@@ -643,7 +510,7 @@ export function HomeLanding({
                         fontWeight: 700,
                         letterSpacing: "0.15em",
                         textTransform: "uppercase",
-                        color: "#8a7a6a",
+                        color: "var(--manga-muted-2)",
                         marginTop: 3,
                         position: "relative",
                         zIndex: 1,
@@ -661,7 +528,7 @@ export function HomeLanding({
                   padding: "20px 22px",
                   position: "relative",
                   overflow: "hidden",
-                  background: "#fffdf8",
+                  background: "var(--manga-bg)",
                 }}
               >
                 <Halftone uid="trend-ht" size={9} r={2} opacity={0.05} />
@@ -682,11 +549,14 @@ export function HomeLanding({
                       style={{
                         width: 4,
                         height: 18,
-                        background: "#e8637e",
+                        background: "var(--manga-accent)",
                         flexShrink: 0,
                       }}
                     />
-                    <TrendingUp size={14} style={{ color: "#e8637e" }} />
+                    <TrendingUp
+                      size={14}
+                      style={{ color: "var(--manga-accent)" }}
+                    />
                     <span
                       style={{
                         fontSize: 10,
@@ -702,12 +572,20 @@ export function HomeLanding({
 
                 <div style={{ position: "relative", zIndex: 1 }}>
                   {filteredTrending.map((entry) => (
-                    <div key={entry.rank} className="trend-row">
+                    <Link
+                      key={entry.id}
+                      href={`/manga/${entry.id}`}
+                      className="trend-row"
+                      style={{ textDecoration: "none" }}
+                    >
                       <span
                         className="font-manga"
                         style={{
                           fontSize: 36,
-                          color: entry.rank <= 3 ? "#e8637e" : "#d4c9b0",
+                          color:
+                            entry.rank <= 3
+                              ? "var(--manga-accent)"
+                              : "var(--manga-muted-2)",
                           width: 36,
                           flexShrink: 0,
                           lineHeight: 1,
@@ -721,7 +599,7 @@ export function HomeLanding({
                           style={{
                             fontSize: 13,
                             fontWeight: 700,
-                            color: "#1a1108",
+                            color: "var(--manga-text)",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -733,7 +611,7 @@ export function HomeLanding({
                           style={{
                             fontSize: 10,
                             fontWeight: 600,
-                            color: "#e8637e",
+                            color: "var(--manga-accent)",
                             marginTop: 1,
                           }}
                         >
@@ -742,9 +620,9 @@ export function HomeLanding({
                       </div>
                       <ArrowUpRight
                         size={11}
-                        style={{ color: "#d4c9b0", flexShrink: 0 }}
+                        style={{ color: "var(--manga-muted-2)", flexShrink: 0 }}
                       />
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -752,7 +630,11 @@ export function HomeLanding({
           </section>
 
           <div className="flex flex-col gap-10 lg:flex-row">
-            <div id="library" style={{ flex: 1, minWidth: 0 }}>
+            <div
+              id="library"
+              className="motion-ink-up motion-ink-up-delay-1"
+              style={{ flex: 1, minWidth: 0 }}
+            >
               <div className="mb-8 flex items-center justify-between">
                 <div className="section-title">
                   <span>Latest Updates</span>
@@ -761,7 +643,7 @@ export function HomeLanding({
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#e8637e",
+                    color: "var(--manga-accent)",
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
                   }}
@@ -775,14 +657,20 @@ export function HomeLanding({
                   <Link
                     key={manga.id}
                     href={`/manga/${manga.id}`}
-                    className="manga-card"
+                    className="manga-card motion-ink-up"
+                    style={{
+                      animationDelay: `${Math.min(
+                        filteredSeries.findIndex((entry) => entry.id === manga.id),
+                        7,
+                      ) * 70}ms`,
+                    }}
                   >
                     <div
                       className="ink-panel-sm relative overflow-hidden"
                       style={{
                         aspectRatio: "3/4",
                         marginBottom: 10,
-                        background: "#fffaf0",
+                        background: "var(--manga-paper)",
                       }}
                     >
                       <div className="screentone-layer" />
@@ -805,10 +693,13 @@ export function HomeLanding({
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: "#fffdf5",
+                            background: "var(--manga-bg)",
                           }}
                         >
-                          <BookOpen size={32} style={{ color: "#d4c9b0" }} />
+                          <BookOpen
+                            size={32}
+                            style={{ color: "var(--manga-muted-2)" }}
+                          />
                         </div>
                       )}
 
@@ -828,7 +719,7 @@ export function HomeLanding({
                       <div className="card-overlay">
                         <div
                           style={{
-                            border: "2px solid #fff",
+                            border: "2px solid rgba(255,255,255,0.86)",
                             padding: "6px 16px",
                           }}
                         >
@@ -854,7 +745,7 @@ export function HomeLanding({
                           position: "absolute",
                           bottom: 0,
                           left: 0,
-                          background: "#1a1108",
+                          background: "var(--manga-border)",
                           padding: "2px 8px",
                           zIndex: 12,
                         }}
@@ -863,7 +754,7 @@ export function HomeLanding({
                           style={{
                             fontSize: 9,
                             fontWeight: 700,
-                            color: "#fffaf1",
+                            color: "var(--manga-bg)",
                             letterSpacing: "0.08em",
                           }}
                         >
@@ -878,7 +769,7 @@ export function HomeLanding({
                         fontWeight: 800,
                         letterSpacing: "0.18em",
                         textTransform: "uppercase",
-                        color: "#e8637e",
+                        color: "var(--manga-accent)",
                       }}
                     >
                       {manga.genre}
@@ -887,7 +778,7 @@ export function HomeLanding({
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: "#1a1108",
+                        color: "var(--manga-text)",
                         lineHeight: 1.3,
                         marginTop: 2,
                       }}
@@ -900,7 +791,7 @@ export function HomeLanding({
             </div>
 
             <aside
-              className="mx-auto w-full lg:mx-0"
+              className="motion-ink-up motion-ink-up-delay-2 mx-auto w-full lg:mx-0"
               style={{ width: "100%", maxWidth: 264, flexShrink: 0 }}
             >
               <div className="sidebar-sticky">
@@ -917,7 +808,7 @@ export function HomeLanding({
                       gap: 6,
                     }}
                   >
-                    <span style={{ color: "#e8637e" }}>✦</span> Browse by Genre
+                    <span style={{ color: "var(--manga-accent)" }}>✦</span> Browse by Genre
                   </p>
                   <div
                     style={{

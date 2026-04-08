@@ -23,8 +23,19 @@ export default async function RootLayout({
       afterSignOutUrl="/"
       localization={mongolianLocalization as never}
     >
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body className="antialiased">
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                try {
+                  var savedTheme = window.localStorage.getItem("yume-theme");
+                  var theme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+                  document.documentElement.dataset.theme = theme;
+                } catch (error) {}
+              `,
+            }}
+          />
           <AppAccountDock isAdmin={isAdmin} />
           {children}
         </body>

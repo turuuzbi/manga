@@ -2,6 +2,8 @@ import { AdminConsole } from "@/app/admin/AdminConsole";
 import prisma from "@/lib/db";
 import { requireAdminUser } from "@/lib/auth";
 
+export const maxDuration = 300;
+
 export default async function AdminPage() {
   const dbUser = await requireAdminUser();
 

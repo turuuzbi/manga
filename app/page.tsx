@@ -1,9 +1,11 @@
 import prisma from "@/lib/db";
 import { HomeLanding } from "@/app/_components/HomeLanding";
+import { getCurrentDbUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const currentUser = await getCurrentDbUser();
   const mangas = await prisma.manga.findMany({
     orderBy: {
       createdAt: "desc",
@@ -36,6 +38,7 @@ export default async function HomePage() {
 
   return (
     <HomeLanding
+      isAdmin={currentUser?.role === "ADMIN"}
       featuredTitle={
         featured
           ? {
@@ -57,6 +60,7 @@ export default async function HomePage() {
         isHot: index === 0,
       }))}
       trending={mangas.slice(0, 4).map((manga, index) => ({
+        id: manga.id,
         rank: index + 1,
         title: manga.mangaName,
         delta: `${manga._count.chapters} chapters`,

@@ -38,6 +38,7 @@ type ReaderExperienceProps = {
 };
 
 const readerModeStorageKey = "manga-reader-mode";
+const mobileChromeHideDelayMs = 2600;
 
 function formatChapterLabel(number: number, title: string | null) {
   return title ? `Chapter ${number} • ${title}` : `Chapter ${number}`;
@@ -117,10 +118,46 @@ export function ReaderExperience({
   const [currentPage, setCurrentPage] = useState(0);
   const [showChrome, setShowChrome] = useState(true);
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const chromeHideTimeoutRef = useRef<number | null>(null);
+
+  function clearChromeHideTimeout() {
+    if (chromeHideTimeoutRef.current) {
+      window.clearTimeout(chromeHideTimeoutRef.current);
+      chromeHideTimeoutRef.current = null;
+    }
+  }
+
+  function isTouchDevice() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.matchMedia("(pointer: coarse)").matches;
+  }
+
+  function toggleChrome() {
+    setShowChrome((value) => !value);
+  }
 
   useEffect(() => {
     window.localStorage.setItem(readerModeStorageKey, readerMode);
   }, [readerMode]);
+
+  useEffect(() => {
+    if (!showChrome || !isTouchDevice()) {
+      clearChromeHideTimeout();
+      return;
+    }
+
+    clearChromeHideTimeout();
+    chromeHideTimeoutRef.current = window.setTimeout(() => {
+      setShowChrome(false);
+    }, mobileChromeHideDelayMs);
+
+    return () => clearChromeHideTimeout();
+  }, [showChrome, readerMode, currentPage, chapter.id]);
+
+  useEffect(() => () => clearChromeHideTimeout(), []);
 
   useEffect(() => {
     if (readerMode !== "paged") {
@@ -247,7 +284,7 @@ export function ReaderExperience({
       {readerMode === "scroll" ? (
         <main
           className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl flex-col px-0 pb-40 pt-20 sm:pt-24"
-          onClick={() => setShowChrome((value) => !value)}
+          onClick={toggleChrome}
         >
           <div className="mx-3 mb-4 flex items-center justify-between rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400 sm:mx-0">
             <span>Vertical Scroll</span>
@@ -335,7 +372,7 @@ export function ReaderExperience({
 
             <button
               type="button"
-              onClick={() => setShowChrome((value) => !value)}
+              onClick={toggleChrome}
               className="absolute inset-y-0 left-[24%] z-20 w-[52%]"
               aria-label="Toggle reader controls"
             />
