@@ -30,9 +30,12 @@ import {
 } from "lucide-react";
 import {
   deleteChapterAction,
+  deleteChapterPageAction,
   importGoogleDriveFolderAction,
   ingestMangaAction,
   reorderChapterPagesAction,
+  replaceChapterPageImageAction,
+  updateChapterMetadataAction,
   updateMangaMetadataAction,
   type AdminActionState,
 } from "@/app/admin/actions";
@@ -41,6 +44,13 @@ const initialAdminActionState: AdminActionState = {
   ok: false,
   message: "",
 };
+
+type MangaStatusValue =
+  | "ONGOING"
+  | "COMPLETED"
+  | "CATCHING_UP"
+  | "FINISHED_RELEASING"
+  | "HIATUS";
 
 type AdminConsoleProps = {
   dbUser: {
@@ -57,22 +67,26 @@ type AdminConsoleProps = {
   recentManga: Array<{
     id: string;
     mangaName: string;
-    status: "ONGOING" | "COMPLETED" | "HIATUS";
+    status: MangaStatusValue;
     chapterCount: number;
   }>;
   mangaLibrary: Array<{
     id: string;
     mangaName: string;
     description: string;
+    coverImage: string;
+    homeCoverImage: string;
+    detailCoverImage: string;
     author: string;
     artist: string;
-    status: "ONGOING" | "COMPLETED" | "HIATUS";
+    status: MangaStatusValue;
     genres: string[];
     chapterCount: number;
     chapters: Array<{
       id: string;
       chapterNumber: number;
       title: string;
+      coverImage: string;
       publishedAt: string;
       pageCount: number;
       pages: Array<{
@@ -89,6 +103,13 @@ type DriveImportMode =
   | "new_manga_from_chapter"
   | "existing_manga_chapter"
   | "bulk_parent_folder";
+type ChapterOption =
+  AdminConsoleProps["mangaLibrary"][number]["chapters"][number];
+type PageDraftItem = {
+  id: string;
+  pageNumber: number;
+  imageUrl: string;
+};
 
 export function AdminConsole({
   dbUser,
@@ -126,18 +147,44 @@ export function AdminConsole({
       deleteChapterAction,
       initialAdminActionState,
     );
+  const [chapterMetaState, chapterMetaFormAction, chapterMetaPending] =
+    useActionState<AdminActionState, FormData>(
+      updateChapterMetadataAction,
+      initialAdminActionState,
+    );
+  const [pageImageState, pageImageFormAction, pageImagePending] =
+    useActionState<AdminActionState, FormData>(
+      replaceChapterPageImageAction,
+      initialAdminActionState,
+    );
+  const [pageDeleteState, pageDeleteFormAction, pageDeletePending] =
+    useActionState<AdminActionState, FormData>(
+      deleteChapterPageAction,
+      initialAdminActionState,
+    );
   const [coverName, setCoverName] = useState("");
+  const [homeCoverName, setHomeCoverName] = useState("");
+  const [detailCoverName, setDetailCoverName] = useState("");
+  const [chapterCoverName, setChapterCoverName] = useState("");
   const [pageCount, setPageCount] = useState(0);
   const [driveImportMode, setDriveImportMode] = useState<DriveImportMode>(
     "new_manga_from_chapter",
   );
-  const [pageDraft, setPageDraft] = useState<
-    Array<{
-      id: string;
-      pageNumber: number;
-      imageUrl: string;
-    }>
-  >(initialChapter ? getSortedPages(initialChapter) : []);
+  const initialChapterSignature = getChapterPageSignature(initialChapter);
+  const [replacementFileState, setReplacementFileState] = useState<{
+    signature: string;
+    names: Record<string, string>;
+  }>({
+    signature: initialChapterSignature,
+    names: {},
+  });
+  const [pageDraftState, setPageDraftState] = useState<{
+    signature: string;
+    pages: PageDraftItem[];
+  }>({
+    signature: initialChapterSignature,
+    pages: initialChapter ? getSortedPages(initialChapter) : [],
+  });
 
   const selectedManga =
     mangaLibrary.find((entry) => entry.id === selectedMangaId) ??
@@ -147,6 +194,40 @@ export function AdminConsole({
     selectedManga?.chapters.find((entry) => entry.id === selectedChapterId) ??
     selectedManga?.chapters[0] ??
     null;
+  const selectedChapterPageSignature = getChapterPageSignature(selectedChapter);
+  const pageDraft =
+    pageDraftState.signature === selectedChapterPageSignature
+      ? pageDraftState.pages
+      : selectedChapter
+        ? getSortedPages(selectedChapter)
+        : [];
+  const replacementFileNames =
+    replacementFileState.signature === selectedChapterPageSignature
+      ? replacementFileState.names
+      : {};
+
+  const resetPageEditDraft = (chapter: ChapterOption | null) => {
+    const signature = getChapterPageSignature(chapter);
+
+    setPageDraftState({
+      signature,
+      pages: chapter ? getSortedPages(chapter) : [],
+    });
+    setReplacementFileState({
+      signature,
+      names: {},
+    });
+    setChapterCoverName("");
+  };
+
+  const updatePageDraft = (
+    updater: (current: PageDraftItem[]) => PageDraftItem[],
+  ) => {
+    setPageDraftState({
+      signature: selectedChapterPageSignature,
+      pages: updater(pageDraft),
+    });
+  };
 
   const handleMangaSelectionChange = (mangaId: string) => {
     const nextManga =
@@ -157,7 +238,9 @@ export function AdminConsole({
 
     setSelectedMangaId(mangaId);
     setSelectedChapterId(nextChapter?.id ?? "");
-    setPageDraft(nextChapter ? getSortedPages(nextChapter) : []);
+    setHomeCoverName("");
+    setDetailCoverName("");
+    resetPageEditDraft(nextChapter);
   };
 
   const handleChapterSelectionChange = (chapterId: string) => {
@@ -165,18 +248,48 @@ export function AdminConsole({
       selectedManga?.chapters.find((entry) => entry.id === chapterId) ?? null;
 
     setSelectedChapterId(chapterId);
-    setPageDraft(nextChapter ? getSortedPages(nextChapter) : []);
+    resetPageEditDraft(nextChapter);
+  };
+
+  const handleReplacementFileChange = (
+    pageId: string,
+    files: FileList | null,
+  ) => {
+    setReplacementFileState((current) => {
+      const nextNames =
+        current.signature === selectedChapterPageSignature
+          ? { ...current.names }
+          : {};
+      const fileName = files?.[0]?.name;
+
+      if (fileName) {
+        nextNames[pageId] = fileName;
+      } else {
+        delete nextNames[pageId];
+      }
+
+      return {
+        signature: selectedChapterPageSignature,
+        names: nextNames,
+      };
+    });
   };
 
   const activeState = driveState.message
     ? driveState
     : manualState.message
       ? manualState
-      : chapterDeleteState.message
-        ? chapterDeleteState
-        : chapterOrderState.message
-          ? chapterOrderState
-          : manageState;
+      : pageDeleteState.message
+        ? pageDeleteState
+        : pageImageState.message
+          ? pageImageState
+          : chapterMetaState.message
+            ? chapterMetaState
+            : chapterDeleteState.message
+              ? chapterDeleteState
+              : chapterOrderState.message
+                ? chapterOrderState
+                : manageState;
 
   const statusTone = useMemo(() => {
     if (!activeState.message) {
@@ -205,26 +318,20 @@ export function AdminConsole({
         <header className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-orange-200">
-                <Sparkles size={14} />
-                Admin Console
-              </div>
               <Link
                 href="/"
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-300 transition hover:border-orange-400/40 hover:text-white"
               >
                 <ArrowLeft size={14} />
-                Back To Home
+                Нүүр рүү буцах
               </Link>
               <div className="space-y-3">
-                <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-                  Manage series, upload chapters, and edit metadata from one
-                  place.
+                <h1 className="max-w-3xl text-2xl font-semibold tracking-tight text-white sm:text-5xl">
+                  Манга, бүлэг, зураг, постерыг нэг дор удирдана.
                 </h1>
-                <p className="max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-                  This panel keeps the same backend functionality, but it is now
-                  split into clearer mobile-friendly workflows for editing,
-                  manual uploads, and Google Drive imports.
+                <p className="max-w-2xl text-[12px] leading-6 text-zinc-400 sm:text-base">
+                  Эндээс мэдээлэл засах, зураг солих, бүлэг шинэчлэх, Drive-аас
+                  импортлох үйлдлүүдийг хийж болно.
                 </p>
               </div>
             </div>
@@ -232,21 +339,21 @@ export function AdminConsole({
             <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px] lg:grid-cols-1">
               <StatusTile
                 icon={UserRound}
-                label="Admin User"
+                label="Админ хэрэглэгч"
                 value={dbUser.email}
-                detail={dbUser.username ?? "No username set in Clerk"}
+                detail={dbUser.username ?? "Clerk дээр нэр тохируулаагүй"}
               />
               <StatusTile
                 icon={ShieldCheck}
-                label="Current Role"
+                label="Эрхийн түвшин"
                 value={dbUser.role}
-                detail="Admin access confirmed"
+                detail="Админ эрх баталгаажсан"
               />
               <StatusTile
                 icon={Database}
-                label="Library Rows"
+                label="Дата мөрүүд"
                 value={stats.pageCount.toLocaleString()}
-                detail={`${stats.mangaCount} series • ${stats.chapterCount} chapters`}
+                detail={`${stats.mangaCount} манга • ${stats.chapterCount} бүлэг`}
               />
             </div>
           </div>
@@ -268,25 +375,25 @@ export function AdminConsole({
                 <ViewButton
                   active={activeView === "manage"}
                   icon={PencilLine}
-                  label="Edit Manga"
+                  label="Манга засах"
                   onClick={() => setActiveView("manage")}
                 />
                 <ViewButton
                   active={activeView === "upload"}
                   icon={CloudUpload}
-                  label="Manual Upload"
+                  label="Гараар оруулах"
                   onClick={() => setActiveView("upload")}
                 />
                 <ViewButton
                   active={activeView === "chapters"}
                   icon={GripVertical}
-                  label="Chapters"
+                  label="Бүлгүүд"
                   onClick={() => setActiveView("chapters")}
                 />
                 <ViewButton
                   active={activeView === "drive"}
                   icon={FolderSync}
-                  label="Drive Import"
+                  label="Drive импорт"
                   onClick={() => setActiveView("drive")}
                 />
               </div>
@@ -296,14 +403,14 @@ export function AdminConsole({
               <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
                 <div className="mb-6 space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Manage Existing Series
+                    Одоо байгаа манга
                   </p>
                   <h2 className="text-2xl font-semibold text-white">
-                    Edit title, description, status, or credits
+                    Гарчиг, тайлбар, төлөв, постерыг засах
                   </h2>
                   <p className="text-sm leading-6 text-zinc-400">
-                    Updating a manga here changes the Neon metadata used by your
-                    site. It does not touch the actual panel image files.
+                    Нүүр хуудас болон дэлгэрэнгүй хуудасны постерыг тусад нь
+                    сольж болно.
                   </p>
                 </div>
 
@@ -311,6 +418,7 @@ export function AdminConsole({
                   <form
                     key={selectedManga.id}
                     action={manageFormAction}
+                    encType="multipart/form-data"
                     className="space-y-6"
                   >
                     <input
@@ -320,7 +428,7 @@ export function AdminConsole({
                     />
 
                     <SelectField
-                      label="Choose Manga"
+                      label="Манга сонгох"
                       value={selectedManga.id}
                       onChange={(event) =>
                         handleMangaSelectionChange(event.target.value)
@@ -345,8 +453,56 @@ export function AdminConsole({
                       includeChapterFields={false}
                     />
 
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <UploadField
+                        label="Нүүр хуудасны постер"
+                        helper={
+                          homeCoverName ||
+                          (selectedManga.homeCoverImage ||
+                          selectedManga.coverImage
+                            ? "Одоогийн нүүр постер хадгалагдсан."
+                            : "Нүүр хуудасны картанд харагдах босоо зураг.")
+                        }
+                      >
+                        <input
+                          type="file"
+                          name="homeCoverImage"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) =>
+                            setHomeCoverName(
+                              event.target.files?.[0]?.name ?? "",
+                            )
+                          }
+                        />
+                      </UploadField>
+
+                      <UploadField
+                        label="Дэлгэрэнгүй хуудасны постер"
+                        helper={
+                          detailCoverName ||
+                          (selectedManga.detailCoverImage ||
+                          selectedManga.coverImage
+                            ? "Одоогийн дэлгэрэнгүй постер хадгалагдсан."
+                            : "Манганы дэлгэрэнгүй хуудсанд томоор харагдана.")
+                        }
+                      >
+                        <input
+                          type="file"
+                          name="detailCoverImage"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) =>
+                            setDetailCoverName(
+                              event.target.files?.[0]?.name ?? "",
+                            )
+                          }
+                        />
+                      </UploadField>
+                    </div>
+
                     <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
-                      Current chapter count:{" "}
+                      Одоогийн бүлгийн тоо:{" "}
                       <span className="font-semibold text-zinc-200">
                         {selectedManga.chapterCount}
                       </span>
@@ -358,19 +514,19 @@ export function AdminConsole({
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300"
                       >
                         <PencilLine size={18} />
-                        Save Manga Changes
+                        Манга хадгалах
                       </button>
                       {managePending ? (
                         <p className="text-sm text-zinc-400">
-                          Updating manga details in Neon...
+                          Манганы мэдээллийг хадгалж байна...
                         </p>
                       ) : null}
                     </div>
                   </form>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
-                    No manga rows yet. Upload a series first, then you can edit
-                    it here.
+                    Одоогоор манга алга. Эхлээд манга оруулаад дараа нь эндээс
+                    засна.
                   </div>
                 )}
               </section>
@@ -380,18 +536,18 @@ export function AdminConsole({
               <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
                 <div className="mb-6 space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Chapter Control
+                    Бүлгийн удирдлага
                   </p>
                   <h2 className="text-2xl font-semibold text-white">
-                    Reorder page panels or remove a broken chapter
+                    Бүлэг, зураг, дарааллыг засах
                   </h2>
                   <p className="text-sm leading-6 text-zinc-400">
-                    The reader follows page order by ascending{" "}
+                    Уншигч хуудасны дарааллыг өсөх{" "}
                     <span className="font-semibold text-zinc-200">
                       pageNumber
                     </span>
-                    . Use the controls below to change that order without
-                    touching the image files themselves.
+                    -оор харуулна. Эндээс бүлгийн нэр, дугаар, thumbnail болон
+                    хуудсуудыг засна.
                   </p>
                 </div>
 
@@ -399,7 +555,7 @@ export function AdminConsole({
                   <div className="space-y-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <SelectField
-                        label="Choose Manga"
+                        label="Манга сонгох"
                         value={selectedManga.id}
                         onChange={(event) =>
                           handleMangaSelectionChange(event.target.value)
@@ -413,7 +569,7 @@ export function AdminConsole({
                       </SelectField>
 
                       <SelectField
-                        label="Choose Chapter"
+                        label="Бүлэг сонгох"
                         value={selectedChapter?.id ?? ""}
                         onChange={(event) =>
                           handleChapterSelectionChange(event.target.value)
@@ -421,11 +577,11 @@ export function AdminConsole({
                         disabled={!selectedManga.chapters.length}
                       >
                         {selectedManga.chapters.length === 0 ? (
-                          <option value="">No chapters yet</option>
+                          <option value="">Бүлэг алга</option>
                         ) : null}
                         {selectedManga.chapters.map((entry) => (
                           <option key={entry.id} value={entry.id}>
-                            Chapter {entry.chapterNumber}
+                            Бүлэг {entry.chapterNumber}
                             {entry.title ? ` • ${entry.title}` : ""}
                           </option>
                         ))}
@@ -438,22 +594,217 @@ export function AdminConsole({
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
-                                Current chapter
+                                Одоогийн бүлэг
                               </p>
                               <h3 className="mt-2 text-xl font-semibold text-white">
-                                Chapter {selectedChapter.chapterNumber}
+                                Бүлэг {selectedChapter.chapterNumber}
                                 {selectedChapter.title
                                   ? ` • ${selectedChapter.title}`
                                   : ""}
                               </h3>
                             </div>
                             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
-                              {selectedChapter.pageCount} pages •{" "}
+                              {selectedChapter.pageCount} хуудас •{" "}
                               {new Date(
                                 selectedChapter.publishedAt,
                               ).toLocaleDateString()}
                             </div>
                           </div>
+                        </div>
+
+                        <form
+                          action={chapterMetaFormAction}
+                          encType="multipart/form-data"
+                          className="rounded-3xl border border-white/10 bg-black/25 p-4 sm:p-5"
+                        >
+                          <input
+                            type="hidden"
+                            name="chapterId"
+                            value={selectedChapter.id}
+                          />
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Field
+                              label="Бүлгийн дугаар"
+                              name="chapterNumber"
+                              type="number"
+                              step="0.1"
+                              min="0.1"
+                              required
+                              defaultValue={selectedChapter.chapterNumber}
+                            />
+                            <Field
+                              label="Бүлгийн нэр"
+                              name="chapterTitle"
+                              placeholder="Бүлгийн нэр"
+                              defaultValue={selectedChapter.title}
+                            />
+                          </div>
+                          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                            <UploadField
+                              label="Бүлгийн thumbnail"
+                              helper={
+                                chapterCoverName ||
+                                (selectedChapter.coverImage
+                                  ? "Одоогийн thumbnail хадгалагдсан."
+                                  : "Бүлгийн жагсаалтад харагдах зураг.")
+                              }
+                            >
+                              <input
+                                type="file"
+                                name="chapterCoverImage"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(event) =>
+                                  setChapterCoverName(
+                                    event.target.files?.[0]?.name ?? "",
+                                  )
+                                }
+                              />
+                            </UploadField>
+                            <button
+                              type="submit"
+                              disabled={chapterMetaPending}
+                              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 lg:self-end"
+                            >
+                              <PencilLine size={18} />
+                              Бүлэг хадгалах
+                            </button>
+                          </div>
+                          {chapterMetaPending ? (
+                            <p className="mt-3 text-sm text-zinc-400">
+                              Бүлгийн мэдээллийг хадгалж байна...
+                            </p>
+                          ) : null}
+                        </form>
+
+                        <div className="space-y-3">
+                          {pageDraft.map((page, index) => (
+                            <div
+                              key={page.id}
+                              className="rounded-3xl border border-white/10 bg-black/25 p-3 sm:p-4"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-16 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+                                  <img
+                                    src={page.imageUrl}
+                                    alt={`Page ${index + 1}`}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
+                                    Хуудасны байрлал
+                                  </p>
+                                  <p className="mt-1 text-base font-semibold text-white">
+                                    #{index + 1}
+                                  </p>
+                                  <p className="mt-1 truncate text-xs text-zinc-500">
+                                    Хадгалсан дугаар: {page.pageNumber}
+                                  </p>
+                                </div>
+
+                                <div className="flex shrink-0 gap-2">
+                                  <button
+                                    type="button"
+                                    aria-label={`${index + 1}-р хуудсыг дээш зөөх`}
+                                    title="Дээш"
+                                    onClick={() =>
+                                      updatePageDraft((current) =>
+                                        moveDraftItem(
+                                          current,
+                                          index,
+                                          index - 1,
+                                        ),
+                                      )
+                                    }
+                                    disabled={index === 0}
+                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <MoveUp size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label={`${index + 1}-р хуудсыг доош зөөх`}
+                                    title="Доош"
+                                    onClick={() =>
+                                      updatePageDraft((current) =>
+                                        moveDraftItem(
+                                          current,
+                                          index,
+                                          index + 1,
+                                        ),
+                                      )
+                                    }
+                                    disabled={index === pageDraft.length - 1}
+                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <MoveDown size={16} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid gap-2 border-t border-white/5 pt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                                <form
+                                  action={pageImageFormAction}
+                                  encType="multipart/form-data"
+                                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+                                >
+                                  <input
+                                    type="hidden"
+                                    name="pageId"
+                                    value={page.id}
+                                  />
+                                  <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-zinc-300 transition hover:bg-white/10">
+                                    <FileImage
+                                      size={16}
+                                      className="shrink-0 text-zinc-400"
+                                    />
+                                    <span className="truncate">
+                                      {replacementFileNames[page.id] ??
+                                        "Солих зураг сонгох"}
+                                    </span>
+                                    <input
+                                      type="file"
+                                      name="pageImage"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(event) =>
+                                        handleReplacementFileChange(
+                                          page.id,
+                                          event.target.files,
+                                        )
+                                      }
+                                    />
+                                  </label>
+                                  <button
+                                    type="submit"
+                                    disabled={pageImagePending}
+                                    className="flex items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/15 px-4 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    <CloudUpload size={16} />
+                                    Солих
+                                  </button>
+                                </form>
+
+                                <form action={pageDeleteFormAction}>
+                                  <input
+                                    type="hidden"
+                                    name="pageId"
+                                    value={page.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={pageDeletePending}
+                                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    <Trash2 size={16} />
+                                    Устгах
+                                  </button>
+                                </form>
+                              </div>
+                            </div>
+                          ))}
                         </div>
 
                         <form
@@ -473,81 +824,27 @@ export function AdminConsole({
                             )}
                           />
 
-                          <div className="space-y-3">
-                            {pageDraft.map((page, index) => (
-                              <div
-                                key={page.id}
-                                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-black/25 p-3 sm:p-4"
-                              >
-                                <div className="flex h-16 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
-                                  <img
-                                    src={page.imageUrl}
-                                    alt={`Page ${index + 1}`}
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
-                                    Page slot
-                                  </p>
-                                  <p className="mt-1 text-base font-semibold text-white">
-                                    #{index + 1}
-                                  </p>
-                                  <p className="mt-1 truncate text-xs text-zinc-500">
-                                    Stored number: {page.pageNumber}
-                                  </p>
-                                </div>
-
-                                <div className="flex shrink-0 gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPageDraft((current) =>
-                                        moveDraftItem(
-                                          current,
-                                          index,
-                                          index - 1,
-                                        ),
-                                      )
-                                    }
-                                    disabled={index === 0}
-                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                    <MoveUp size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPageDraft((current) =>
-                                        moveDraftItem(
-                                          current,
-                                          index,
-                                          index + 1,
-                                        ),
-                                      )
-                                    }
-                                    disabled={index === pageDraft.length - 1}
-                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                    <MoveDown size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                             <button
                               type="submit"
                               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300"
                             >
                               <GripVertical size={18} />
-                              Save Page Order
+                              Дараалал хадгалах
                             </button>
                             {chapterOrderPending ? (
                               <p className="text-sm text-zinc-400">
-                                Updating chapter page order...
+                                Хуудасны дарааллыг шинэчилж байна...
+                              </p>
+                            ) : null}
+                            {pageImagePending ? (
+                              <p className="text-sm text-zinc-400">
+                                Сонгосон хуудсыг сольж байна...
+                              </p>
+                            ) : null}
+                            {pageDeletePending ? (
+                              <p className="text-sm text-zinc-400">
+                                Хуудсыг устгаж, дугаарлаж байна...
                               </p>
                             ) : null}
                           </div>
@@ -564,12 +861,11 @@ export function AdminConsole({
                           />
                           <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-4 sm:p-5">
                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-200/80">
-                              Destructive Action
+                              Устгах үйлдэл
                             </p>
                             <p className="mt-2 text-sm leading-6 text-red-100/85">
-                              Deleting a chapter here removes its row from Neon
-                              and deletes its page files from R2. This does not
-                              remove the manga itself.
+                              Энэ бүлгийг устгавал Neon дахь мөр болон R2 дахь
+                              хуудасны файлууд устна. Манга өөрөө үлдэнэ.
                             </p>
                             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                               <button
@@ -577,11 +873,11 @@ export function AdminConsole({
                                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-red-300"
                               >
                                 <Trash2 size={18} />
-                                Delete This Chapter
+                                Энэ бүлгийг устгах
                               </button>
                               {chapterDeletePending ? (
                                 <p className="text-sm text-red-100/80">
-                                  Removing chapter rows and R2 files...
+                                  Бүлэг болон R2 файлуудыг устгаж байна...
                                 </p>
                               ) : null}
                             </div>
@@ -590,14 +886,14 @@ export function AdminConsole({
                       </>
                     ) : (
                       <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
-                        This manga does not have any chapters yet.
+                        Энэ мангад одоогоор бүлэг алга.
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
-                    No manga rows yet. Upload a series first, then you can edit
-                    its chapters here.
+                    Одоогоор манга алга. Эхлээд манга оруулаад бүлгүүдийг нь
+                    эндээс засна.
                   </div>
                 )}
               </section>
@@ -607,10 +903,10 @@ export function AdminConsole({
               <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
                 <div className="mb-6 flex flex-col gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Manual Upload
+                    Гараар оруулах
                   </p>
                   <h2 className="text-2xl font-semibold text-white">
-                    Create a manga, chapter, and page rows from local files
+                    Local файлаас манга, бүлэг, хуудсууд үүсгэх
                   </h2>
                 </div>
 
@@ -619,8 +915,8 @@ export function AdminConsole({
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <UploadField
-                      label="Cover Image"
-                      helper={coverName || "Optional. JPG, PNG, or WEBP."}
+                      label="Постер зураг"
+                      helper={coverName || "Сонголттой. JPG, PNG, WEBP."}
                     >
                       <input
                         type="file"
@@ -634,11 +930,11 @@ export function AdminConsole({
                     </UploadField>
 
                     <UploadField
-                      label="Chapter Pages"
+                      label="Бүлгийн хуудсууд"
                       helper={
                         pageCount > 0
-                          ? `${pageCount} files ready for upload`
-                          : "Required. Select every page in reading order."
+                          ? `${pageCount} файл upload-д бэлэн`
+                          : "Заавал. Унших дарааллаар бүх хуудсаа сонгоно."
                       }
                     >
                       <input
@@ -656,15 +952,15 @@ export function AdminConsole({
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
-                    Files are uploaded to Cloudflare R2 first, then their public
-                    URLs are stored in Neon through Prisma.
+                    Файлууд эхлээд Cloudflare R2 руу орж, public URL нь
+                    Prisma-аар Neon-д хадгалагдана.
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <SubmitButton />
                     {manualPending ? (
                       <p className="text-sm text-zinc-400">
-                        Uploading pages and writing DB rows...
+                        Хуудсуудыг upload хийж, DB-д бичиж байна...
                       </p>
                     ) : null}
                   </div>
@@ -676,14 +972,14 @@ export function AdminConsole({
               <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
                 <div className="mb-6 flex flex-col gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Google Drive Import
+                    Google Drive импорт
                   </p>
                   <h2 className="text-2xl font-semibold text-white">
-                    Pull an entire folder directly from Google Drive
+                    Google Drive хавтсаас шууд татах
                   </h2>
                   <p className="text-sm leading-6 text-zinc-400">
-                    Share the folder with your Google service account email,
-                    then paste the folder URL or ID here.
+                    Хавтсаа Google service account имэйлтэй share хийгээд URL
+                    эсвэл ID-г энд оруулна.
                   </p>
                 </div>
 
@@ -695,32 +991,32 @@ export function AdminConsole({
                   />
 
                   <SelectField
-                    label="Import Mode"
+                    label="Импортын горим"
                     value={driveImportMode}
                     onChange={(event) =>
                       setDriveImportMode(event.target.value as DriveImportMode)
                     }
                   >
                     <option value="new_manga_from_chapter">
-                      Create new manga from one chapter folder
+                      Нэг бүлгийн хавтсаас шинэ манга үүсгэх
                     </option>
                     <option value="existing_manga_chapter">
-                      Add chapter to existing manga
+                      Одоо байгаа мангад бүлэг нэмэх
                     </option>
                     <option value="bulk_parent_folder">
-                      Bulk import parent folder with chapter subfolders
+                      Дотроо бүлгийн хавтастай parent folder импортлох
                     </option>
                   </SelectField>
 
                   {driveImportMode === "existing_manga_chapter" ? (
                     <>
                       <SelectField
-                        label="Existing Manga"
+                        label="Одоо байгаа манга"
                         name="existingMangaId"
                         defaultValue={selectedManga?.id ?? ""}
                       >
                         <option value="" disabled>
-                          Select a manga
+                          Манга сонгох
                         </option>
                         {mangaLibrary.map((entry) => (
                           <option key={entry.id} value={entry.id}>
@@ -731,7 +1027,7 @@ export function AdminConsole({
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Field
-                          label="Chapter Number"
+                          label="Бүлгийн дугаар"
                           name="chapterNumber"
                           type="number"
                           placeholder="2"
@@ -740,9 +1036,9 @@ export function AdminConsole({
                           required
                         />
                         <Field
-                          label="Chapter Title"
+                          label="Бүлгийн нэр"
                           name="chapterTitle"
-                          placeholder="New chapter title"
+                          placeholder="Шинэ бүлгийн нэр"
                         />
                       </div>
                     </>
@@ -757,7 +1053,7 @@ export function AdminConsole({
                   ) : null}
 
                   <Field
-                    label="Drive Folder URL Or ID"
+                    label="Drive хавтасны URL эсвэл ID"
                     name="driveFolder"
                     placeholder="https://drive.google.com/drive/folders/..."
                     required
@@ -771,23 +1067,23 @@ export function AdminConsole({
                       className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent text-orange-400"
                     />
                     <span>
-                      Use the first Google Drive image as the manga cover.
+                      Google Drive-ийн эхний зургийг манганы постер болгох.
                     </span>
                   </label>
 
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
                     {driveImportMode === "bulk_parent_folder"
-                      ? "Use the parent manga folder here. Each subfolder inside it should represent one chapter."
+                      ? "Энд parent manga хавтсаа ашиглана. Доторх subfolder бүр нэг бүлэг байна."
                       : driveImportMode === "existing_manga_chapter"
-                        ? "Use a single chapter folder here. Its images will be appended as a new chapter to the manga you selected."
-                        : "Use a single chapter folder here to create a new manga with its first chapter."}
+                        ? "Энд нэг бүлгийн хавтас ашиглана. Зургууд нь сонгосон мангад шинэ бүлэг болж нэмэгдэнэ."
+                        : "Энд нэг бүлгийн хавтас ашиглаж шинэ манга болон эхний бүлгийг үүсгэнэ."}
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <DriveSubmitButton />
                     {drivePending ? (
                       <p className="text-sm text-zinc-400">
-                        Pulling images from Drive and saving them to R2...
+                        Drive-аас зураг татаж R2-д хадгалж байна...
                       </p>
                     ) : null}
                   </div>
@@ -801,23 +1097,23 @@ export function AdminConsole({
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                    Access Control
+                    Хандалтын эрх
                   </p>
                   <h3 className="mt-2 text-xl font-semibold text-white">
-                    Admin verification
+                    Админ баталгаажуулалт
                   </h3>
                 </div>
                 <UserRound className="text-zinc-500" size={20} />
               </div>
               <div className="space-y-4 text-sm text-zinc-300">
-                <InfoRow label="Email" value={dbUser.email} />
+                <InfoRow label="Имэйл" value={dbUser.email} />
                 <InfoRow
-                  label="Username"
-                  value={dbUser.username ?? "No username set in Clerk"}
+                  label="Нэр"
+                  value={dbUser.username ?? "Clerk дээр нэр тохируулаагүй"}
                 />
-                <InfoRow label="Role" value={dbUser.role} />
+                <InfoRow label="Эрх" value={dbUser.role} />
                 <InfoRow
-                  label="Created"
+                  label="Үүссэн"
                   value={new Date(dbUser.createdAt).toLocaleDateString()}
                 />
               </div>
@@ -827,10 +1123,10 @@ export function AdminConsole({
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                    Recent Series
+                    Сүүлийн манга
                   </p>
                   <h3 className="mt-2 text-xl font-semibold text-white">
-                    Latest ingested rows
+                    Шинээр нэмэгдсэн мөрүүд
                   </h3>
                 </div>
                 <Layers3 className="text-zinc-500" size={20} />
@@ -848,19 +1144,18 @@ export function AdminConsole({
                             {entry.mangaName}
                           </p>
                           <p className="mt-1 text-xs uppercase tracking-[0.24em] text-zinc-500">
-                            {entry.status}
+                            {getStatusLabel(entry.status)}
                           </p>
                         </div>
                         <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
-                          {entry.chapterCount} chapters
+                          {entry.chapterCount} бүлэг
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-4 text-sm text-zinc-400">
-                    No manga rows yet. Your first upload here will populate this
-                    panel.
+                    Одоогоор манга алга. Эхний upload хийсний дараа энд гарна.
                   </div>
                 )}
               </div>
@@ -890,38 +1185,40 @@ function MetadataFields({
     <>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          label="Series Title"
+          label="Манганы нэр"
           name="mangaName"
           placeholder="Omniscient Reader"
           required
           defaultValue={defaults?.mangaName}
         />
         <SelectField
-          label="Status"
+          label="Төлөв"
           name="status"
           defaultValue={defaults?.status ?? "ONGOING"}
         >
-          <option value="ONGOING">Ongoing</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="HIATUS">Hiatus</option>
+          <option value="ONGOING">Гарч байгаа</option>
+          <option value="COMPLETED">Дууссан</option>
+          <option value="CATCHING_UP">Орчуулж гүйцэж байна</option>
+          <option value="FINISHED_RELEASING">Эх хувилбар дууссан</option>
+          <option value="HIATUS">Завсарласан</option>
         </SelectField>
         <Field
-          label="Author"
+          label="Зохиолч"
           name="author"
-          placeholder="Author name"
+          placeholder="Зохиолчийн нэр"
           defaultValue={defaults?.author}
         />
         <Field
-          label="Artist"
+          label="Зураач"
           name="artist"
-          placeholder="Artist name"
+          placeholder="Зураачийн нэр"
           defaultValue={defaults?.artist}
         />
 
         {includeChapterFields ? (
           <>
             <Field
-              label="Chapter Number"
+              label="Бүлгийн дугаар"
               name="chapterNumber"
               type="number"
               placeholder="1"
@@ -930,25 +1227,25 @@ function MetadataFields({
               required
             />
             <Field
-              label="Chapter Title"
+              label="Бүлгийн нэр"
               name="chapterTitle"
-              placeholder="The Beginning"
+              placeholder="Эхлэл"
             />
           </>
         ) : null}
       </div>
 
       <TextAreaField
-        label="Description"
+        label="Тайлбар"
         name="description"
-        placeholder="Short synopsis for the series page..."
+        placeholder="Манганы товч тайлбар..."
         defaultValue={defaults?.description}
       />
 
       <TextAreaField
-        label="Genres"
+        label="Төрлүүд"
         name="genres"
-        placeholder="Action, Fantasy, Drama"
+        placeholder="Action, Fantasy, Romance"
         rows={3}
         defaultValue={defaults?.genres}
       />
@@ -990,7 +1287,7 @@ function SubmitButton() {
       className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f97316] px-5 py-4 text-sm font-semibold text-black transition hover:bg-[#fb923c]"
     >
       <CloudUpload size={18} />
-      Upload To R2 And Save To Neon
+      R2 руу upload хийж Neon-д хадгалах
     </button>
   );
 }
@@ -1002,7 +1299,7 @@ function DriveSubmitButton() {
       className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-sky-300"
     >
       <FolderSync size={18} />
-      Import Drive Folder
+      Drive хавтас импортлох
     </button>
   );
 }
@@ -1092,9 +1389,7 @@ function UploadField({
             <FileImage size={20} />
           </div>
           <div>
-            <p className="text-sm font-medium text-white">
-              Tap to choose images
-            </p>
+            <p className="text-sm font-medium text-white">Зураг сонгох</p>
             <p className="mt-1 text-xs text-zinc-500">{helper}</p>
           </div>
         </div>
@@ -1154,14 +1449,37 @@ function moveDraftItem<T>(items: T[], fromIndex: number, toIndex: number) {
   return nextItems;
 }
 
-function getSortedPages(chapter: {
-  pages: Array<{
-    id: string;
-    pageNumber: number;
-    imageUrl: string;
-  }>;
-}) {
+function getChapterPageSignature(
+  chapter: {
+    id?: string;
+    pages: PageDraftItem[];
+  } | null,
+) {
+  if (!chapter) {
+    return "no-chapter";
+  }
+
+  const pageSignature = chapter.pages
+    .map((page) => `${page.id}:${page.pageNumber}:${page.imageUrl}`)
+    .join("|");
+
+  return `${chapter.id ?? "chapter"}:${pageSignature}`;
+}
+
+function getSortedPages(chapter: { pages: PageDraftItem[] }) {
   return [...chapter.pages].sort(
     (left, right) => left.pageNumber - right.pageNumber,
   );
+}
+
+function getStatusLabel(status: MangaStatusValue) {
+  const labels: Record<MangaStatusValue, string> = {
+    ONGOING: "Гарч байгаа",
+    COMPLETED: "Дууссан",
+    CATCHING_UP: "Орчуулж гүйцэж байна",
+    FINISHED_RELEASING: "Эх хувилбар дууссан",
+    HIATUS: "Завсарласан",
+  };
+
+  return labels[status];
 }

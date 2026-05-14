@@ -11,6 +11,8 @@ datasource db {
 enum MangaStatus {
   ONGOING
   COMPLETED
+  CATCHING_UP
+  FINISHED_RELEASING
   HIATUS
 }
 
@@ -26,6 +28,8 @@ model Manga {
   mangaName   String
   description String?
   coverImage  String?
+  homeCoverImage   String?
+  detailCoverImage String?
   author      String?
   artist      String?
   status      MangaStatus @default(ONGOING)
@@ -63,6 +67,7 @@ model Chapter {
   mangaId       String
   chapterNumber Float
   title         String?
+  coverImage    String?
   publishedAt   DateTime @default(now())
   createdAt     DateTime @default(now())
 

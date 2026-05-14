@@ -18,7 +18,20 @@ export type AdminActionState = {
   createdMangaId?: string;
 };
 
-const allowedStatuses = new Set(["ONGOING", "COMPLETED", "HIATUS"]);
+const allowedStatuses = new Set([
+  "ONGOING",
+  "COMPLETED",
+  "CATCHING_UP",
+  "FINISHED_RELEASING",
+  "HIATUS",
+]);
+
+type MangaStatusValue =
+  | "ONGOING"
+  | "COMPLETED"
+  | "CATCHING_UP"
+  | "FINISHED_RELEASING"
+  | "HIATUS";
 
 type IngestionInput = {
   mangaName: string;
@@ -173,7 +186,7 @@ async function createMangaRecord(input: IngestionInput) {
       description: input.description || null,
       author: input.author || null,
       artist: input.artist || null,
-      status: input.rawStatus as "ONGOING" | "COMPLETED" | "HIATUS",
+      status: input.rawStatus as MangaStatusValue,
       genres:
         genres.length > 0
           ? {
@@ -195,26 +208,64 @@ async function attachCoverToManga({
   mangaId,
   mangaName,
   coverAsset,
+  target = "all",
 }: {
   mangaId: string;
   mangaName: string;
   coverAsset?: UploadAsset | null;
+  target?: "all" | "home" | "detail";
 }) {
   if (!coverAsset) {
     return null;
   }
 
-  const coverKey = `manga/${mangaId}/cover/${slugifySegment(coverAsset.name || mangaName) || "cover"}`;
+  const url = await uploadMangaCoverAsset({
+    mangaId,
+    mangaName,
+    coverAsset,
+    target,
+  });
+
+  const data =
+    target === "home"
+      ? { coverImage: url, homeCoverImage: url }
+      : target === "detail"
+        ? { detailCoverImage: url }
+        : { coverImage: url, homeCoverImage: url, detailCoverImage: url };
+
+  await prisma.manga.update({
+    where: { id: mangaId },
+    data,
+  });
+
+  return url;
+}
+
+async function uploadAssetFromFile(file: File): Promise<UploadAsset> {
+  return {
+    name: file.name,
+    contentType: file.type || "application/octet-stream",
+    buffer: Buffer.from(await file.arrayBuffer()),
+  };
+}
+
+async function uploadMangaCoverAsset({
+  mangaId,
+  mangaName,
+  coverAsset,
+  target,
+}: {
+  mangaId: string;
+  mangaName: string;
+  coverAsset: UploadAsset;
+  target: "all" | "home" | "detail";
+}) {
+  const coverKey = `manga/${mangaId}/cover/${target}-${Date.now()}-${slugifySegment(coverAsset.name || mangaName) || "cover"}`;
   const { url } = await uploadToR2(
     coverAsset.buffer,
     coverKey,
     coverAsset.contentType || "application/octet-stream",
   );
-
-  await prisma.manga.update({
-    where: { id: mangaId },
-    data: { coverImage: url },
-  });
 
   return url;
 }
@@ -701,7 +752,55 @@ export async function updateMangaMetadataAction(
       };
     }
 
+    const manga = await prisma.manga.findUnique({
+      where: {
+        id: input.mangaId,
+      },
+      select: {
+        id: true,
+        mangaName: true,
+        coverImage: true,
+        homeCoverImage: true,
+        detailCoverImage: true,
+      },
+    });
+
+    if (!manga) {
+      return {
+        ok: false,
+        message: "That manga could not be found.",
+      };
+    }
+
     const genres = parseGenres(input.genreInput);
+    const homeCoverFile = formData.get("homeCoverImage");
+    const detailCoverFile = formData.get("detailCoverImage");
+    const posterData: {
+      coverImage?: string;
+      homeCoverImage?: string;
+      detailCoverImage?: string;
+    } = {};
+
+    if (isUploadFile(homeCoverFile)) {
+      const homeCoverUrl = await uploadMangaCoverAsset({
+        mangaId: input.mangaId,
+        mangaName: input.mangaName,
+        coverAsset: await uploadAssetFromFile(homeCoverFile),
+        target: "home",
+      });
+
+      posterData.coverImage = homeCoverUrl;
+      posterData.homeCoverImage = homeCoverUrl;
+    }
+
+    if (isUploadFile(detailCoverFile)) {
+      posterData.detailCoverImage = await uploadMangaCoverAsset({
+        mangaId: input.mangaId,
+        mangaName: input.mangaName,
+        coverAsset: await uploadAssetFromFile(detailCoverFile),
+        target: "detail",
+      });
+    }
 
     await prisma.manga.update({
       where: {
@@ -712,7 +811,8 @@ export async function updateMangaMetadataAction(
         description: input.description || null,
         author: input.author || null,
         artist: input.artist || null,
-        status: input.rawStatus as "ONGOING" | "COMPLETED" | "HIATUS",
+        status: input.rawStatus as MangaStatusValue,
+        ...posterData,
         genres: {
           deleteMany: {},
           create:
@@ -729,6 +829,27 @@ export async function updateMangaMetadataAction(
         },
       },
     });
+
+    const currentPosterUrls = new Set([
+      posterData.coverImage ?? manga.coverImage,
+      posterData.homeCoverImage ?? manga.homeCoverImage,
+      posterData.detailCoverImage ?? manga.detailCoverImage,
+    ]);
+    const replacedPosterUrls = [
+      manga.coverImage,
+      manga.homeCoverImage,
+      manga.detailCoverImage,
+    ].filter(
+      (url): url is string => Boolean(url) && !currentPosterUrls.has(url),
+    );
+
+    if (replacedPosterUrls.length > 0) {
+      try {
+        await deleteR2AssetsFromUrls([...new Set(replacedPosterUrls)]);
+      } catch {
+        // The DB update is already complete; stale poster files can be cleaned up later.
+      }
+    }
 
     revalidatePath("/");
     revalidatePath("/admin");
@@ -859,6 +980,370 @@ export async function reorderChapterPagesAction(
   }
 }
 
+export async function updateChapterMetadataAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return {
+        ok: false,
+        message: "Бүлэг засахад админ эрх шаардлагатай.",
+      };
+    }
+
+    const chapterId = String(formData.get("chapterId") ?? "").trim();
+    const chapterTitle = String(formData.get("chapterTitle") ?? "").trim();
+    const chapterNumber = Number(formData.get("chapterNumber"));
+    const chapterCoverFile = formData.get("chapterCoverImage");
+
+    if (!chapterId) {
+      return {
+        ok: false,
+        message: "Засах бүлгээ сонгоно уу.",
+      };
+    }
+
+    if (!Number.isFinite(chapterNumber) || chapterNumber <= 0) {
+      return {
+        ok: false,
+        message: "Бүлгийн дугаар 0-ээс их байх ёстой.",
+      };
+    }
+
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: chapterId },
+      select: {
+        id: true,
+        mangaId: true,
+        chapterNumber: true,
+        title: true,
+        coverImage: true,
+        manga: {
+          select: {
+            mangaName: true,
+          },
+        },
+      },
+    });
+
+    if (!chapter) {
+      return {
+        ok: false,
+        message: "Тэр бүлэг олдсонгүй.",
+      };
+    }
+
+    const duplicateChapter = await prisma.chapter.findFirst({
+      where: {
+        mangaId: chapter.mangaId,
+        chapterNumber,
+        NOT: {
+          id: chapter.id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (duplicateChapter) {
+      return {
+        ok: false,
+        message: `Энэ мангад ${chapterNumber} дугаартай бүлэг аль хэдийн байна.`,
+      };
+    }
+
+    let chapterCoverImage: string | undefined;
+
+    if (isUploadFile(chapterCoverFile)) {
+      const coverAsset = await uploadAssetFromFile(chapterCoverFile);
+      const coverKey = `manga/${chapter.mangaId}/chapters/${chapter.id}/cover/${Date.now()}-${slugifySegment(coverAsset.name) || "chapter-cover"}`;
+      const { url } = await uploadToR2(
+        coverAsset.buffer,
+        coverKey,
+        coverAsset.contentType || "application/octet-stream",
+      );
+      chapterCoverImage = url;
+    }
+
+    await prisma.chapter.update({
+      where: {
+        id: chapter.id,
+      },
+      data: {
+        chapterNumber,
+        title: chapterTitle || null,
+        ...(chapterCoverImage ? { coverImage: chapterCoverImage } : {}),
+      },
+    });
+
+    if (chapterCoverImage && chapter.coverImage) {
+      try {
+        await deleteR2AssetsFromUrls([chapter.coverImage]);
+      } catch {
+        // The chapter update succeeded; stale thumbnail cleanup can happen later.
+      }
+    }
+
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${chapter.mangaId}`);
+    revalidatePath(`/reader/${chapter.id}`);
+
+    return {
+      ok: true,
+      message: `Бүлэг ${chapterNumber} шинэчлэгдлээ.`,
+      createdMangaId: chapter.mangaId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Бүлэг шинэчлэхэд алдаа гарлаа.",
+    };
+  }
+}
+
+export async function replaceChapterPageImageAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return {
+        ok: false,
+        message: "Admin access is required for page image replacement.",
+      };
+    }
+
+    const pageId = String(formData.get("pageId") ?? "").trim();
+    const pageImage = formData.get("pageImage");
+
+    if (!pageId) {
+      return {
+        ok: false,
+        message: "Choose a page before replacing its image.",
+      };
+    }
+
+    if (!isUploadFile(pageImage)) {
+      return {
+        ok: false,
+        message: "Choose a replacement image before saving the page.",
+      };
+    }
+
+    const page = await prisma.page.findUnique({
+      where: { id: pageId },
+      select: {
+        id: true,
+        chapterId: true,
+        pageNumber: true,
+        imageUrl: true,
+        chapter: {
+          select: {
+            id: true,
+            mangaId: true,
+            chapterNumber: true,
+            coverImage: true,
+          },
+        },
+      },
+    });
+
+    if (!page) {
+      return {
+        ok: false,
+        message: "That page could not be found.",
+      };
+    }
+
+    const replacementBuffer = Buffer.from(await pageImage.arrayBuffer());
+    const replacementKey = `manga/${page.chapter.mangaId}/chapters/${page.chapterId}/${String(page.pageNumber).padStart(3, "0")}-${Date.now()}-${slugifySegment(pageImage.name) || "replacement"}`;
+    const { url } = await uploadToR2(
+      replacementBuffer,
+      replacementKey,
+      pageImage.type || "application/octet-stream",
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.page.update({
+        where: { id: page.id },
+        data: {
+          imageUrl: url,
+          width: null,
+          height: null,
+        },
+      });
+
+      if (page.chapter.coverImage === page.imageUrl) {
+        await tx.chapter.update({
+          where: { id: page.chapter.id },
+          data: {
+            coverImage: url,
+          },
+        });
+      }
+    });
+
+    let removedOldFile = true;
+
+    try {
+      await deleteR2AssetsFromUrls([page.imageUrl]);
+    } catch {
+      removedOldFile = false;
+    }
+
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${page.chapter.mangaId}`);
+    revalidatePath(`/reader/${page.chapter.id}`);
+
+    return {
+      ok: true,
+      message: removedOldFile
+        ? `Replaced page ${page.pageNumber} in chapter ${page.chapter.chapterNumber}.`
+        : `Replaced page ${page.pageNumber} in chapter ${page.chapter.chapterNumber}, but the old R2 file could not be deleted automatically.`,
+      createdMangaId: page.chapter.mangaId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Page image replacement failed.",
+    };
+  }
+}
+
+export async function deleteChapterPageAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return {
+        ok: false,
+        message: "Admin access is required for page deletion.",
+      };
+    }
+
+    const pageId = String(formData.get("pageId") ?? "").trim();
+
+    if (!pageId) {
+      return {
+        ok: false,
+        message: "Choose a page before deleting it.",
+      };
+    }
+
+    const page = await prisma.page.findUnique({
+      where: { id: pageId },
+      select: {
+        id: true,
+        chapterId: true,
+        pageNumber: true,
+        imageUrl: true,
+        chapter: {
+          select: {
+            id: true,
+            mangaId: true,
+            chapterNumber: true,
+            coverImage: true,
+            pages: {
+              orderBy: {
+                pageNumber: "asc",
+              },
+              select: {
+                id: true,
+                pageNumber: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!page) {
+      return {
+        ok: false,
+        message: "That page could not be found.",
+      };
+    }
+
+    if (page.chapter.pages.length <= 1) {
+      return {
+        ok: false,
+        message: "A chapter needs at least one page. Delete the whole chapter instead.",
+      };
+    }
+
+    const remainingPageIds = page.chapter.pages
+      .filter((chapterPage) => chapterPage.id !== page.id)
+      .map((chapterPage) => chapterPage.id);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.page.delete({
+        where: { id: page.id },
+      });
+
+      if (page.chapter.coverImage === page.imageUrl) {
+        await tx.chapter.update({
+          where: { id: page.chapter.id },
+          data: { coverImage: null },
+        });
+      }
+
+      for (const [index, remainingPageId] of remainingPageIds.entries()) {
+        await tx.page.update({
+          where: { id: remainingPageId },
+          data: {
+            pageNumber: 10_000 + index + 1,
+          },
+        });
+      }
+
+      for (const [index, remainingPageId] of remainingPageIds.entries()) {
+        await tx.page.update({
+          where: { id: remainingPageId },
+          data: {
+            pageNumber: index + 1,
+          },
+        });
+      }
+    });
+
+    let removedFile = true;
+
+    try {
+      await deleteR2AssetsFromUrls([page.imageUrl]);
+    } catch {
+      removedFile = false;
+    }
+
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${page.chapter.mangaId}`);
+    revalidatePath(`/reader/${page.chapter.id}`);
+
+    return {
+      ok: true,
+      message: removedFile
+        ? `Deleted page ${page.pageNumber} from chapter ${page.chapter.chapterNumber} and renumbered the remaining pages.`
+        : `Deleted page ${page.pageNumber} from chapter ${page.chapter.chapterNumber}, but its R2 file could not be removed automatically.`,
+      createdMangaId: page.chapter.mangaId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Page deletion failed.",
+    };
+  }
+}
+
 export async function deleteChapterAction(
   _prevState: AdminActionState,
   formData: FormData,
@@ -889,6 +1374,7 @@ export async function deleteChapterAction(
         mangaId: true,
         chapterNumber: true,
         title: true,
+        coverImage: true,
         manga: {
           select: {
             mangaName: true,
@@ -909,7 +1395,10 @@ export async function deleteChapterAction(
       };
     }
 
-    await deleteR2AssetsFromUrls(chapter.pages.map((page) => page.imageUrl));
+    await deleteR2AssetsFromUrls([
+      ...chapter.pages.map((page) => page.imageUrl),
+      ...(chapter.coverImage ? [chapter.coverImage] : []),
+    ]);
 
     await prisma.chapter.delete({
       where: {

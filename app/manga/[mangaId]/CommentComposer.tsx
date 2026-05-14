@@ -42,10 +42,7 @@ export function CommentComposer({
           </div>
           <div>
             <p className="text-sm font-semibold text-[#1a1108]">
-              Sign in to join the discussion.
-            </p>
-            <p className="mt-1 text-sm leading-6 text-[#6f5c50]">
-              Readers can leave reviews, reactions, and chapter thoughts here.
+              Хаягаараа нэвтэрч сэтгэгдэлээ хуваалцана уу.
             </p>
             <Link
               href="/sign-in"
@@ -61,28 +58,18 @@ export function CommentComposer({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="panel-box bg-[#fffaf1] p-5">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="panel-box bg-[#fffaf1] p-5"
+    >
       <input type="hidden" name="mangaId" value={mangaId} />
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-[#1a1108] bg-[#f5c518] text-[#1a1108]">
-          <MessageCircleMore size={18} />
-        </div>
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#8a6a57]">
-            Reader Comments
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[#6f5c50]">
-            Drop a quick review, what you liked, or what chapter hit hardest.
-          </p>
-        </div>
-      </div>
-
       <label className="mt-5 block">
         <textarea
           name="body"
           rows={4}
           maxLength={1000}
-          placeholder="Write your thoughts about this manga..."
+          placeholder="Энэ цувралын талаар бодлоо бичнэ үү..."
           className="w-full border-2 border-[#1a1108] bg-[#fffdf8] px-4 py-3 text-sm text-[#1f1a16] outline-none transition placeholder:text-[#9c8b7f] focus:bg-white"
           required
         />
@@ -99,16 +86,14 @@ export function CommentComposer({
       ) : null}
 
       <div className="mt-4 flex items-center justify-between gap-4">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a6a57]">
-          1000 character max
-        </span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a6a57]"></span>
         <button
           type="submit"
           disabled={pending}
           className="inline-flex items-center gap-2 border-2 border-[#1a1108] bg-[#1a1108] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#fffaf1] shadow-[3px_3px_0_#e8637e] transition hover:-translate-x-px hover:-translate-y-px hover:shadow-[5px_5px_0_#e8637e] disabled:cursor-wait disabled:opacity-70"
         >
           <SendHorizontal size={14} />
-          {pending ? "Posting..." : "Post Comment"}
+          {pending ? "Нийтэлж байна..." : "Сэтгэгдэл нийтлэх"}
         </button>
       </div>
     </form>

@@ -3,14 +3,7 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Menu,
-  Moon,
-  Search,
-  Shield,
-  Sun,
-  X,
-} from "lucide-react";
+import { Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -25,9 +18,9 @@ type NavLink = {
 };
 
 const defaultLinks: NavLink[] = [
-  { label: "Library", href: "/#library" },
-  { label: "Mangas", href: "/manga" },
-  { label: "Hot Pick", href: "/#featured" },
+  { label: "Сан", href: "/#library" },
+  { label: "Цувралууд", href: "/manga" },
+  { label: "Онцголсон", href: "/#featured" },
 ];
 
 function isLinkActive(pathname: string, href: string) {
@@ -44,7 +37,7 @@ function isLinkActive(pathname: string, href: string) {
 
 export function MangaTopNav({
   navLinks = defaultLinks,
-  searchPlaceholder = "Search series…",
+  searchPlaceholder = "Цуврал, зохиолч хайх...",
   showSearch = true,
   isAdmin = false,
 }: {

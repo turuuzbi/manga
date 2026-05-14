@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Columns2,
-  Home,
-  Rows3,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Columns2, Home, Rows3 } from "lucide-react";
 
 type ReaderMode = "scroll" | "paged";
 
@@ -41,7 +35,7 @@ const readerModeStorageKey = "manga-reader-mode";
 const mobileChromeHideDelayMs = 2600;
 
 function formatChapterLabel(number: number, title: string | null) {
-  return title ? `Chapter ${number} • ${title}` : `Chapter ${number}`;
+  return title ? `Бүлэг ${number} • ${title}` : `Бүлэг ${number}`;
 }
 
 function ReaderChapterSwitch({
@@ -72,7 +66,7 @@ function ReaderChapterSwitch({
 
         <div className="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center">
           <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#b69a64]">
-            Chapter
+            Бүлэг
           </span>
           <span className="text-lg font-semibold text-white">
             {currentChapterNumber}
@@ -242,7 +236,6 @@ export function ReaderExperience({
               >
                 <Home size={16} />
               </Link>
-              <span className="hidden sm:inline">Reader</span>
             </div>
             <p className="mt-2 truncate text-base font-semibold text-white sm:text-lg">
               {manga.name}
@@ -313,25 +306,21 @@ export function ReaderExperience({
 
           <div className="mx-auto mt-0 w-full max-w-4xl bg-[#1a1a1d] px-6 py-10 text-center shadow-[0_-10px_30px_rgba(0,0,0,0.25)]">
             <p className="text-2xl font-semibold text-white sm:text-3xl">
-              You finished chapter {chapter.number}
+              Та {chapter.number}-р бүлгийг дуусгалаа.
             </p>
             <p className="mt-3 text-sm leading-6 text-zinc-400">
-              Jump straight into the previous or next chapter without leaving
-              the reader.
+              Бүлгийн сонголт
             </p>
-
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               {previousChapter ? (
                 <Link
                   href={`/reader/${previousChapter.id}`}
                   className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#28282d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#34343a]"
                 >
-                  Previous
+                  Өмнөх бүлэг
                 </Link>
               ) : (
-                <span className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#242429] px-5 py-3 text-sm font-semibold text-zinc-600">
-                  Previous
-                </span>
+                <div></div>
               )}
 
               {nextChapter ? (
@@ -339,12 +328,10 @@ export function ReaderExperience({
                   href={`/reader/${nextChapter.id}`}
                   className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
                 >
-                  Next Chapter
+                  Дараагын бүлэг
                 </Link>
               ) : (
-                <span className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/20 bg-[#2d281f] px-5 py-3 text-sm font-semibold text-[#7f7253]">
-                  Latest Chapter
-                </span>
+                <div></div>
               )}
             </div>
 
@@ -353,7 +340,7 @@ export function ReaderExperience({
                 href={`/manga/${manga.id}`}
                 className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b69a64] transition hover:text-[#e1c98b]"
               >
-                Back to series
+                Цувралын хуудас руу буцах
               </Link>
             </div>
           </div>
@@ -394,7 +381,7 @@ export function ReaderExperience({
 
             <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center">
               <div className="rounded-full border border-white/10 bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-200 backdrop-blur">
-                Page {pageLabel}
+                Хуудас {pageLabel}
               </div>
             </div>
           </div>
@@ -414,8 +401,8 @@ export function ReaderExperience({
           />
           <div className="text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
             {readerMode === "scroll"
-              ? "Scroll to read"
-              : "Tap left or right side to turn pages"}
+              ? "Scroll хийн уншина"
+              : "Баруун, зүүн даран хуудас эргүүлнэ"}
           </div>
         </div>
       </div>

@@ -1,20 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import {
-  TrendingUp,
-  ChevronRight,
-  BookOpen,
-  Flame,
-  ArrowUpRight,
-} from "lucide-react";
+import { TrendingUp, ChevronRight, BookOpen, ArrowUpRight } from "lucide-react";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 
 interface MangaSeries {
   id: string;
   title: string;
-  genre: string;
+  genres: string[];
   latestChapter: number;
   coverUrl?: string;
   isHot?: boolean;
@@ -25,6 +19,11 @@ interface TrendingEntry {
   rank: number;
   title: string;
   delta: string;
+}
+
+interface GenreFilter {
+  name: string;
+  mangaCount: number;
 }
 
 const STYLES = `
@@ -251,11 +250,10 @@ function StarBurst({
   );
 }
 
-const genres = ["Action", "Fantasy", "Drama", "Romance", "Comedy", "Mystery"];
 const headerLinks = [
-  { label: "Library", href: "/#library" },
-  { label: "Mangas", href: "/manga" },
-  { label: "Hot Pick", href: "/#featured" },
+  { label: "Сан", href: "/#library" },
+  { label: "Цувралууд", href: "/manga" },
+  { label: "Онцгойлсон", href: "/#featured" },
 ];
 
 type HomeLandingProps = {
@@ -267,6 +265,7 @@ type HomeLandingProps = {
   };
   latestSeries?: MangaSeries[];
   trending?: TrendingEntry[];
+  genreFilters?: GenreFilter[];
   isAdmin?: boolean;
 };
 
@@ -274,17 +273,25 @@ export function HomeLanding({
   featuredTitle,
   latestSeries = [],
   trending = [],
+  genreFilters = [],
   isAdmin = false,
 }: HomeLandingProps) {
   const [activeGenre, setActiveGenre] = useState<string | null>(null);
+  const dynamicGenreFilters =
+    genreFilters.length > 0
+      ? genreFilters
+      : getGenreFiltersFromSeries(latestSeries);
   const filteredSeries = activeGenre
-    ? latestSeries.filter((manga) => manga.genre === activeGenre)
+    ? latestSeries.filter((manga) => manga.genres.includes(activeGenre))
     : latestSeries;
   const filteredTrending = activeGenre
     ? trending.filter((entry) =>
         filteredSeries.some((series) => series.id === entry.id),
       )
     : trending;
+  const libraryStatus = activeGenre
+    ? `${filteredSeries.length} shown`
+    : "Welcome :D";
 
   return (
     <>
@@ -307,7 +314,7 @@ export function HomeLanding({
               transform: "rotate(-14deg)",
             }}
           >
-            ZOOM!!
+            TURUU
           </span>
           <span
             className="sfx font-jp"
@@ -392,7 +399,7 @@ export function HomeLanding({
                           letterSpacing: "0.12em",
                         }}
                       >
-                        ✦ FEATURED TODAY ✦
+                        ✦✦✦
                       </span>
                     </div>
                   </div>
@@ -400,7 +407,7 @@ export function HomeLanding({
                     className="absolute"
                     style={{ top: 14, right: 20, zIndex: 10 }}
                   >
-                    <StarBurst label={"HOT\nPICK"} size={70} />
+                    <StarBurst label={"онцлох\nсонголт"} size={70} />
                   </div>
                   <div className="corner-tri" />
                   <div className="corner-tri-icon">
@@ -428,8 +435,7 @@ export function HomeLanding({
                         color: "#fff",
                         lineHeight: 0.95,
                         marginBottom: 8,
-                        textShadow:
-                          "4px 4px 0 var(--manga-accent-shadow)",
+                        textShadow: "4px 4px 0 var(--manga-accent-shadow)",
                       }}
                     >
                       {featuredTitle.title}
@@ -449,7 +455,8 @@ export function HomeLanding({
                       href={`/manga/${featuredTitle.id}`}
                       className="yu-btn yu-btn-paper"
                     >
-                      Read Ch.{featuredTitle.chapter} <ChevronRight size={13} />
+                      Ch.{featuredTitle.chapter} Унших
+                      <ChevronRight size={13} />
                     </Link>
                   </div>
                 </>
@@ -457,19 +464,11 @@ export function HomeLanding({
             </div>
 
             <div className="flex flex-col lg:col-span-2">
-              <div
-                className="grid grid-cols-2"
-                style={{ borderBottom: "3px solid var(--manga-border)" }}
-              >
+              <div style={{ borderBottom: "3px solid var(--manga-border)" }}>
                 {[
                   {
                     icon: <BookOpen size={17} />,
-                    label: "Series",
-                    value: filteredSeries.length || "—",
-                  },
-                  {
-                    icon: <Flame size={17} />,
-                    label: "Active Today",
+                    label: "Манга",
                     value: filteredSeries.length || "—",
                   },
                 ].map(({ icon, label, value }, index) => (
@@ -565,7 +564,7 @@ export function HomeLanding({
                         textTransform: "uppercase",
                       }}
                     >
-                      Trending This Week
+                      Долоо хоногийн трэнд
                     </span>
                   </div>
                 </div>
@@ -637,7 +636,7 @@ export function HomeLanding({
             >
               <div className="mb-8 flex items-center justify-between">
                 <div className="section-title">
-                  <span>Latest Updates</span>
+                  <span>Шинээр нэмэгдсэн</span>
                 </div>
                 <span
                   style={{
@@ -648,7 +647,7 @@ export function HomeLanding({
                     textTransform: "uppercase",
                   }}
                 >
-                  All manga live
+                  {libraryStatus}
                 </span>
               </div>
 
@@ -659,10 +658,14 @@ export function HomeLanding({
                     href={`/manga/${manga.id}`}
                     className="manga-card motion-ink-up"
                     style={{
-                      animationDelay: `${Math.min(
-                        filteredSeries.findIndex((entry) => entry.id === manga.id),
-                        7,
-                      ) * 70}ms`,
+                      animationDelay: `${
+                        Math.min(
+                          filteredSeries.findIndex(
+                            (entry) => entry.id === manga.id,
+                          ),
+                          7,
+                        ) * 70
+                      }ms`,
                     }}
                   >
                     <div
@@ -772,7 +775,7 @@ export function HomeLanding({
                         color: "var(--manga-accent)",
                       }}
                     >
-                      {manga.genre}
+                      {getGenreLabel(manga, activeGenre)}
                     </span>
                     <h4
                       style={{
@@ -788,6 +791,22 @@ export function HomeLanding({
                   </Link>
                 ))}
               </div>
+
+              {filteredSeries.length === 0 ? (
+                <div
+                  className="ink-panel-sm mt-8"
+                  style={{
+                    padding: 20,
+                    background: "var(--manga-paper)",
+                    color: "var(--manga-muted-2)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    textAlign: "center",
+                  }}
+                >
+                  No manga found for {activeGenre ?? "this genre"}.
+                </div>
+              ) : null}
             </div>
 
             <aside
@@ -795,7 +814,10 @@ export function HomeLanding({
               style={{ width: "100%", maxWidth: 264, flexShrink: 0 }}
             >
               <div className="sidebar-sticky">
-                <div className="ink-panel mx-auto w-full" style={{ padding: 20 }}>
+                <div
+                  className="ink-panel mx-auto w-full"
+                  style={{ padding: 20 }}
+                >
                   <p
                     style={{
                       fontSize: 10,
@@ -808,7 +830,8 @@ export function HomeLanding({
                       gap: 6,
                     }}
                   >
-                    <span style={{ color: "var(--manga-accent)" }}>✦</span> Browse by Genre
+                    <span style={{ color: "var(--manga-accent)" }}>✦</span>{" "}
+                    Browse by Genre
                   </p>
                   <div
                     style={{
@@ -818,15 +841,27 @@ export function HomeLanding({
                       justifyContent: "center",
                     }}
                   >
-                    {genres.map((genre) => (
+                    <button
+                      type="button"
+                      onClick={() => setActiveGenre(null)}
+                      className={`genre-pill${activeGenre === null ? " active" : ""}`}
+                    >
+                      All
+                    </button>
+                    {dynamicGenreFilters.map((genre) => (
                       <button
-                        key={genre}
+                        key={genre.name}
+                        type="button"
+                        title={`${genre.mangaCount} manga`}
+                        aria-pressed={activeGenre === genre.name}
                         onClick={() =>
-                          setActiveGenre(activeGenre === genre ? null : genre)
+                          setActiveGenre(
+                            activeGenre === genre.name ? null : genre.name,
+                          )
                         }
-                        className={`genre-pill${activeGenre === genre ? " active" : ""}`}
+                        className={`genre-pill${activeGenre === genre.name ? " active" : ""}`}
                       >
-                        {genre}
+                        {genre.name}
                       </button>
                     ))}
                   </div>
@@ -838,4 +873,26 @@ export function HomeLanding({
       </div>
     </>
   );
+}
+
+function getGenreLabel(manga: MangaSeries, activeGenre: string | null) {
+  if (activeGenre && manga.genres.includes(activeGenre)) {
+    return activeGenre;
+  }
+
+  return manga.genres[0] ?? "Manga";
+}
+
+function getGenreFiltersFromSeries(series: MangaSeries[]) {
+  const counts = new Map<string, number>();
+
+  for (const manga of series) {
+    for (const genre of manga.genres) {
+      counts.set(genre, (counts.get(genre) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, mangaCount]) => ({ name, mangaCount }))
+    .sort((left, right) => left.name.localeCompare(right.name));
 }

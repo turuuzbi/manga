@@ -54,15 +54,14 @@ export function CommentsSection({
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="section-block">
-            <span>Reader Comments</span>
+            <span>Уншигчдын сэтгэгдэл</span>
           </div>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-[#5f5146] sm:text-base">
-            Let readers leave reviews, reactions, and quick thoughts about the
-            manga. Replies keep the conversation tied to each comment thread.
+            Уншсан цувралын талаарх сэтгэгдэлээ үлдээж бусад уншигчдадтай санал бодолоо хуваалцаарай!
           </p>
         </div>
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8a6a57]">
-          {totalMessages} total messages
+          {totalMessages} нийт сэтгэгдэл
         </p>
       </div>
 
@@ -75,17 +74,23 @@ export function CommentsSection({
               <MessageSquareMore size={24} />
             </div>
             <p className="mt-4 text-lg font-semibold text-[#1a1108]">
-              No comments yet.
+              Одоогоор сэтгэгдэл алга.
             </p>
             <p className="mt-2 text-sm leading-6 text-[#6f5c50]">
-              Be the first reader to leave a quick review for this series.
+              Энэ цувралын анхны сэтгэгдэлээ үлдээсэн уншигч болоорой!
             </p>
           </div>
         ) : (
           comments.map((comment) => (
-            <article key={comment.id} className="panel-box overflow-hidden bg-[#fffaf1]">
+            <article
+              key={comment.id}
+              className="panel-box overflow-hidden bg-[#fffaf1]"
+            >
               <div className="border-b-2 border-[#1a1108] bg-[#fff7ea] px-4 py-4 sm:px-5">
-                <CommentHeader user={comment.user} createdAt={comment.createdAt} />
+                <CommentHeader
+                  user={comment.user}
+                  createdAt={comment.createdAt}
+                />
               </div>
               <div className="px-4 py-4 sm:px-5">
                 <p className="text-sm leading-7 text-[#2a211b] sm:text-[15px]">

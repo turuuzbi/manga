@@ -46,9 +46,7 @@ type MangaPreviewPageProps = {
 };
 
 function formatChapterLabel(chapterNumber: number, title: string | null) {
-  return title
-    ? `Chapter ${chapterNumber} • ${title}`
-    : `Chapter ${chapterNumber}`;
+  return title ? `Бүлэг ${chapterNumber} • ${title}` : `Бүлэг ${chapterNumber}`;
 }
 
 function formatStatusLabel(status: string) {
@@ -249,7 +247,7 @@ export default async function MangaPreviewPage({
           style={{ color: "var(--manga-muted)" }}
         >
           <ArrowLeft size={16} />
-          Back to home
+          Нүүр
         </Link>
 
         <section className="panel-frame motion-ink-up motion-ink-up-delay-1 overflow-hidden">
@@ -296,17 +294,10 @@ export default async function MangaPreviewPage({
                   boxShadow: "2px 2px 0 var(--manga-shadow)",
                 }}
               >
-                <Sparkles size={13} style={{ color: "var(--manga-highlight-text)" }} />
-                <span
-                  className="font-manga-preview text-xs"
+                <Sparkles
+                  size={13}
                   style={{ color: "var(--manga-highlight-text)" }}
-                >
-                  Series Preview
-                </span>
-              </div>
-
-              <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
-                <StarBurst label={"HOT\nPICK"} />
+                />
               </div>
 
               <div className="absolute inset-x-0 bottom-0 z-20 p-4 sm:p-7">
@@ -319,15 +310,13 @@ export default async function MangaPreviewPage({
                     style={{
                       fontSize: "clamp(2.5rem, 7vw, 5rem)",
                       lineHeight: 0.95,
-                      textShadow:
-                        "4px 4px 0 var(--manga-accent-shadow)",
+                      textShadow: "4px 4px 0 var(--manga-accent-shadow)",
                     }}
                   >
                     {manga.mangaName}
                   </h1>
                   <p className="mt-4 line-clamp-5 max-w-xl text-sm leading-6 text-white/78 sm:line-clamp-none sm:text-base sm:leading-7">
-                    {manga.description ??
-                      "Choose a chapter below to start reading."}
+                    {manga.description ?? "Бүлгүүдээс сонгоод уншиж эхэлээрэй."}
                   </p>
                   <div className="mt-5 flex flex-wrap gap-2">
                     {(manga.genres.length > 0
@@ -355,19 +344,16 @@ export default async function MangaPreviewPage({
                 style={{ borderColor: "var(--manga-border)" }}
               >
                 <MetricPanel
-                  label="Chapters"
+                  label="Бүлгийн тоо"
                   value={String(manga.chapters.length)}
                   borderRight
                 />
                 <MetricPanel
-                  label="Author"
+                  label="Зохиолч"
                   value={manga.author ?? "Unknown"}
                   borderRight
                 />
-                <MetricPanel
-                  label="Artist"
-                  value={manga.artist ?? "Unknown"}
-                />
+                <MetricPanel label="Зураач" value={manga.artist ?? "Unknown"} />
               </div>
 
               <div className="flex flex-col justify-between gap-6 p-5 sm:p-6">
@@ -386,12 +372,12 @@ export default async function MangaPreviewPage({
                       className="text-[11px] font-extrabold uppercase tracking-[0.24em]"
                       style={{ color: "var(--manga-text)" }}
                     >
-                      Read Flow
+                      Унших дараалал
                     </p>
                   </div>
                   <div className="grid sm:grid-cols-2">
                     <InfoCell
-                      label="First Chapter"
+                      label="Эхний бүлэг"
                       value={
                         firstReadableChapter
                           ? `Ch. ${firstReadableChapter.chapterNumber}`
@@ -400,7 +386,7 @@ export default async function MangaPreviewPage({
                       borderRight
                     />
                     <InfoCell
-                      label="Latest Drop"
+                      label="Сүүлийн бүлэг"
                       value={
                         manga.chapters[0]
                           ? `Ch. ${manga.chapters[0].chapterNumber}`
@@ -422,7 +408,7 @@ export default async function MangaPreviewPage({
                         boxShadow: "3px 3px 0 var(--manga-accent)",
                       }}
                     >
-                      Start Reading
+                      Уншиж эхлэх
                       <ChevronRight size={16} />
                     </Link>
                   ) : (
@@ -434,7 +420,7 @@ export default async function MangaPreviewPage({
                         color: "var(--manga-muted)",
                       }}
                     >
-                      No readable chapters yet
+                      Уншах боломжтой бүлэг алга
                     </span>
                   )}
 
@@ -448,7 +434,7 @@ export default async function MangaPreviewPage({
                       boxShadow: "3px 3px 0 var(--manga-shadow)",
                     }}
                   >
-                    Browse More
+                    Илүү ихийг унших
                     <ArrowUpRight size={16} />
                   </Link>
                 </div>
@@ -461,21 +447,14 @@ export default async function MangaPreviewPage({
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="section-block">
-                <span>Chapter Select</span>
+                <span>Бүлгийн Сонголт</span>
               </div>
-              <p
-                className="mt-4 max-w-2xl text-sm leading-7 sm:text-base"
-                style={{ color: "var(--manga-muted)" }}
-              >
-                Pick where you want to start reading. Every chapter routes into
-                the responsive reader with scroll mode and side-tap paging.
-              </p>
             </div>
             <p
               className="text-xs font-semibold uppercase tracking-[0.24em]"
               style={{ color: "var(--manga-muted-2)" }}
             >
-              {manga.chapters.length} total chapters
+              {manga.chapters.length} нийт бүлгүүд
             </p>
           </div>
 
@@ -488,11 +467,11 @@ export default async function MangaPreviewPage({
                 background: "var(--manga-paper-2)",
               }}
             >
-              <p className="text-lg font-semibold" style={{ color: "var(--manga-text)" }}>
-                No chapters yet.
-              </p>
-              <p className="mt-2 text-sm leading-6" style={{ color: "var(--manga-muted)" }}>
-                Add a chapter from the admin panel and it will appear here.
+              <p
+                className="text-lg font-semibold"
+                style={{ color: "var(--manga-text)" }}
+              >
+                Одоогоор бүлэг алга
               </p>
             </div>
           ) : (
@@ -511,15 +490,7 @@ export default async function MangaPreviewPage({
                         borderColor: "var(--manga-border)",
                         background: "var(--manga-highlight)",
                       }}
-                    >
-                      <span
-                        className="font-manga-preview text-[1.9rem] leading-none sm:text-[2.3rem]"
-                        style={{ color: "var(--manga-highlight-text)" }}
-                      >
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                    </div>
-
+                    ></div>
                     <div
                       className="relative overflow-hidden px-3 py-3 sm:px-5 sm:py-4"
                       style={{ background: "var(--manga-bg)" }}
@@ -563,11 +534,11 @@ export default async function MangaPreviewPage({
                         >
                           <span className="inline-flex items-center gap-2">
                             <BookOpen size={14} />
-                            {chapter._count.pages} pages
+                            {chapter._count.pages} хуудас
                           </span>
                           <span className="inline-flex items-center gap-2">
                             <Clock3 size={14} />
-                            {chapter.publishedAt.toLocaleDateString()}
+                            {chapter.publishedAt.toLocaleDateString()}нд оруулав
                           </span>
                         </div>
                       </div>
@@ -584,7 +555,7 @@ export default async function MangaPreviewPage({
                         className="text-[11px] font-extrabold uppercase tracking-[0.22em]"
                         style={{ color: "var(--manga-muted-2)" }}
                       >
-                        Read now
+                        Унших
                       </span>
                       <ChevronRight
                         size={18}
@@ -663,7 +634,10 @@ function InfoCell({
       >
         {label}
       </p>
-      <p className="mt-2 text-base font-semibold" style={{ color: "var(--manga-text)" }}>
+      <p
+        className="mt-2 text-base font-semibold"
+        style={{ color: "var(--manga-text)" }}
+      >
         {value}
       </p>
     </div>
