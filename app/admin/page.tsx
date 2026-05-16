@@ -103,6 +103,7 @@ export default async function AdminPage() {
         coverImage: entry.coverImage ?? "",
         homeCoverImage: entry.homeCoverImage ?? "",
         detailCoverImage: entry.detailCoverImage ?? "",
+        titleFont: entry.titleFont ?? "",
         author: entry.author ?? "",
         artist: entry.artist ?? "",
         status: entry.status,

@@ -5,13 +5,77 @@ import Link from "next/link";
 import { TrendingUp, ChevronRight, BookOpen, ArrowUpRight } from "lucide-react";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 
+type MangaStatusValue =
+  | "ONGOING"
+  | "COMPLETED"
+  | "CATCHING_UP"
+  | "FINISHED_RELEASING"
+  | "HIATUS";
+
 interface MangaSeries {
   id: string;
   title: string;
   genres: string[];
   latestChapter: number;
   coverUrl?: string;
+  status?: MangaStatusValue;
+  titleFont?: string | null;
   isHot?: boolean;
+}
+
+const STATUS_LABELS: Record<MangaStatusValue, string> = {
+  ONGOING: "Ongoing",
+  COMPLETED: "Completed",
+  CATCHING_UP: "Catching Up",
+  FINISHED_RELEASING: "Finished Releasing",
+  HIATUS: "Hiatus",
+};
+
+const STATUS_BG: Record<MangaStatusValue, string> = {
+  ONGOING: "#22c55e",
+  COMPLETED: "#3b82f6",
+  CATCHING_UP: "#f97316",
+  FINISHED_RELEASING: "#a855f7",
+  HIATUS: "#ef4444",
+};
+
+const STATUS_TEXT: Record<MangaStatusValue, string> = {
+  ONGOING: "#06120a",
+  COMPLETED: "#0c1a33",
+  CATCHING_UP: "#1f1206",
+  FINISHED_RELEASING: "#1a0a2e",
+  HIATUS: "#330505",
+};
+
+const DEFAULT_TITLE_FONT = "Bangers";
+const FONT_FAMILY_FALLBACKS: Record<string, string> = {
+  Bangers: "cursive",
+  "Permanent Marker": "cursive",
+  "Special Elite": "cursive",
+  Anton: "sans-serif",
+  Bungee: "cursive",
+  "Bowlby One": "cursive",
+  Creepster: "cursive",
+  "Black Ops One": "cursive",
+  Rubik: "sans-serif",
+};
+
+function formatFontFamily(fontName: string | null | undefined) {
+  const family = (fontName ?? DEFAULT_TITLE_FONT).trim() || DEFAULT_TITLE_FONT;
+  const fallback = FONT_FAMILY_FALLBACKS[family] ?? "sans-serif";
+  return `'${family.replaceAll("'", "")}', ${fallback}`;
+}
+
+function buildGoogleFontsHref(fontNames: string[]) {
+  const families = [...new Set(fontNames.filter(Boolean))]
+    .map((font) => `family=${encodeURIComponent(font.trim()).replace(/%20/g, "+")}:wght@400;500;600;700;800;900`)
+    .join("&");
+
+  if (!families) {
+    return null;
+  }
+
+  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }
 
 interface TrendingEntry {
@@ -27,12 +91,22 @@ interface GenreFilter {
 }
 
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Noto+Sans+JP:wght@700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Anton&family=Bungee&family=Bowlby+One&family=Creepster&family=Black+Ops+One&family=Special+Elite&family=Rubik:wght@400;600;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Noto+Sans+JP:wght@700;900&display=swap');
 
 .yu-root * { box-sizing: border-box; }
 .yu-root { font-family: 'Plus Jakarta Sans', sans-serif; }
 .font-manga { font-family: 'Bangers', cursive !important; letter-spacing: 0.05em; }
 .font-jp { font-family: 'Noto Sans JP', sans-serif; }
+.manga-title { font-weight: 800; letter-spacing: 0.02em; line-height: 1.18; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  border: 2px solid var(--manga-border);
+  box-shadow: 2px 2px 0 var(--manga-shadow);
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.85; }
 .yu-root::before {
   content: '';
   position: fixed; inset: 0; z-index: 0;
@@ -262,6 +336,7 @@ type HomeLandingProps = {
     title: string;
     subtitle: string;
     chapter: number;
+    titleFont?: string | null;
   };
   latestSeries?: MangaSeries[];
   trending?: TrendingEntry[];
@@ -293,8 +368,18 @@ export function HomeLanding({
     ? `${filteredSeries.length} shown`
     : "Welcome :D";
 
+  const fontsToLoad = [
+    DEFAULT_TITLE_FONT,
+    featuredTitle?.titleFont ?? "",
+    ...latestSeries.map((manga) => manga.titleFont ?? ""),
+  ].filter(Boolean) as string[];
+  const customFontsHref = buildGoogleFontsHref(fontsToLoad);
+
   return (
     <>
+      {customFontsHref ? (
+        <link rel="stylesheet" href={customFontsHref} />
+      ) : null}
       <style>{STYLES}</style>
       <div
         className="yu-root min-h-screen"
@@ -429,12 +514,13 @@ export function HomeLanding({
                     }}
                   >
                     <h2
-                      className="font-manga"
                       style={{
+                        fontFamily: formatFontFamily(featuredTitle.titleFont),
                         fontSize: "clamp(2.5rem, 7vw, 4.5rem)",
                         color: "#fff",
                         lineHeight: 0.95,
                         marginBottom: 8,
+                        letterSpacing: "0.04em",
                         textShadow: "4px 4px 0 var(--manga-accent-shadow)",
                       }}
                     >
@@ -706,6 +792,28 @@ export function HomeLanding({
                         </div>
                       )}
 
+                      {manga.status ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            left: 8,
+                            zIndex: 20,
+                          }}
+                        >
+                          <span
+                            className="status-badge"
+                            style={{
+                              background: STATUS_BG[manga.status],
+                              color: STATUS_TEXT[manga.status],
+                            }}
+                          >
+                            <span className="status-dot" />
+                            {STATUS_LABELS[manga.status]}
+                          </span>
+                        </div>
+                      ) : null}
+
                       {manga.isHot ? (
                         <div
                           style={{
@@ -778,12 +886,14 @@ export function HomeLanding({
                       {getGenreLabel(manga, activeGenre)}
                     </span>
                     <h4
+                      className="manga-title"
                       style={{
-                        fontSize: 13,
-                        fontWeight: 700,
+                        fontFamily: formatFontFamily(manga.titleFont),
+                        fontSize: manga.titleFont ? 18 : 14,
                         color: "var(--manga-text)",
-                        lineHeight: 1.3,
-                        marginTop: 2,
+                        lineHeight: 1.18,
+                        marginTop: 4,
+                        letterSpacing: manga.titleFont ? "0.03em" : "0.01em",
                       }}
                     >
                       {manga.title}

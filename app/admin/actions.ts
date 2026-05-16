@@ -103,6 +103,7 @@ function parseMangaMetadataInput(formData: FormData) {
     artist: String(formData.get("artist") ?? "").trim(),
     genreInput: String(formData.get("genres") ?? ""),
     rawStatus: String(formData.get("status") ?? "ONGOING").toUpperCase(),
+    titleFont: String(formData.get("titleFont") ?? "").trim(),
   };
 }
 
@@ -812,6 +813,7 @@ export async function updateMangaMetadataAction(
         author: input.author || null,
         artist: input.artist || null,
         status: input.rawStatus as MangaStatusValue,
+        titleFont: input.titleFont || null,
         ...posterData,
         genres: {
           deleteMany: {},

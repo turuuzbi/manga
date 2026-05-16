@@ -77,6 +77,7 @@ type AdminConsoleProps = {
     coverImage: string;
     homeCoverImage: string;
     detailCoverImage: string;
+    titleFont: string;
     author: string;
     artist: string;
     status: MangaStatusValue;
@@ -449,6 +450,7 @@ export function AdminConsole({
                         artist: selectedManga.artist,
                         genres: selectedManga.genres.join(", "),
                         status: selectedManga.status,
+                        titleFont: selectedManga.titleFont,
                       }}
                       includeChapterFields={false}
                     />
@@ -1167,6 +1169,19 @@ export function AdminConsole({
   );
 }
 
+const TITLE_FONT_OPTIONS = [
+  { value: "", label: "Үндсэн (Bangers)" },
+  { value: "Bangers", label: "Bangers" },
+  { value: "Permanent Marker", label: "Permanent Marker" },
+  { value: "Anton", label: "Anton" },
+  { value: "Bungee", label: "Bungee" },
+  { value: "Bowlby One", label: "Bowlby One" },
+  { value: "Creepster", label: "Creepster" },
+  { value: "Black Ops One", label: "Black Ops One" },
+  { value: "Special Elite", label: "Special Elite" },
+  { value: "Rubik", label: "Rubik" },
+];
+
 function MetadataFields({
   defaults,
   includeChapterFields = true,
@@ -1178,6 +1193,7 @@ function MetadataFields({
     artist?: string;
     genres?: string;
     status?: string;
+    titleFont?: string;
   };
   includeChapterFields?: boolean;
 }) {
@@ -1249,6 +1265,18 @@ function MetadataFields({
         rows={3}
         defaultValue={defaults?.genres}
       />
+
+      <SelectField
+        label="Нүүр хуудасны нэрийн фонт"
+        name="titleFont"
+        defaultValue={defaults?.titleFont ?? ""}
+      >
+        {TITLE_FONT_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </SelectField>
     </>
   );
 }

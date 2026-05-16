@@ -30,6 +30,7 @@ model Manga {
   coverImage  String?
   homeCoverImage   String?
   detailCoverImage String?
+  titleFont   String?
   author      String?
   artist      String?
   status      MangaStatus @default(ONGOING)

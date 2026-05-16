@@ -60,6 +60,7 @@ export default async function HomePage() {
               title: featured.mangaName,
               subtitle: featured.description ?? "Манга санд бүх манга бий.",
               chapter: featured.chapters[0]?.chapterNumber ?? 1,
+              titleFont: featured.titleFont ?? null,
             }
           : undefined
       }
@@ -68,7 +69,10 @@ export default async function HomePage() {
         title: manga.mangaName,
         genres: manga.genres.map((entry) => entry.genre.name),
         latestChapter: manga.chapters[0]?.chapterNumber ?? 0,
-        coverUrl: manga.coverImage ?? undefined,
+        coverUrl:
+          manga.homeCoverImage ?? manga.coverImage ?? undefined,
+        status: manga.status,
+        titleFont: manga.titleFont ?? null,
         isHot: index === 0,
       }))}
       trending={mangas.slice(0, 4).map((manga, index) => ({

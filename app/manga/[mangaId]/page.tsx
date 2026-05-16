@@ -161,6 +161,7 @@ export default async function MangaPreviewPage({
           id: true,
           chapterNumber: true,
           title: true,
+          coverImage: true,
           publishedAt: true,
           _count: {
             select: {
@@ -260,9 +261,9 @@ export default async function MangaPreviewPage({
               }}
             >
               <div className="absolute inset-0">
-                {manga.coverImage ? (
+                {manga.detailCoverImage || manga.coverImage ? (
                   <img
-                    src={manga.coverImage}
+                    src={manga.detailCoverImage ?? manga.coverImage ?? ""}
                     alt={manga.mangaName}
                     className="h-full w-full object-cover"
                   />
@@ -483,14 +484,29 @@ export default async function MangaPreviewPage({
                   className="group panel-box motion-ink-up overflow-hidden transition hover:-translate-x-px hover:-translate-y-px"
                   style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
                 >
-                  <div className="grid grid-cols-[72px_1fr] gap-0 sm:grid-cols-[84px_1fr_auto]">
+                  <div className="grid grid-cols-[88px_1fr] gap-0 sm:grid-cols-[120px_1fr_auto]">
                     <div
-                      className="flex min-h-[74px] items-center justify-center border-r-2 px-3 sm:min-h-full sm:px-4"
+                      className="relative flex min-h-28 items-center justify-center overflow-hidden border-r-2 sm:min-h-full"
                       style={{
                         borderColor: "var(--manga-border)",
-                        background: "var(--manga-highlight)",
+                        background: "var(--manga-paper-2)",
                       }}
-                    ></div>
+                    >
+                      {chapter.coverImage ? (
+                        <img
+                          src={chapter.coverImage}
+                          alt={`Бүлэг ${chapter.chapterNumber} thumbnail`}
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span
+                          className="font-manga-preview text-2xl leading-none sm:text-3xl"
+                          style={{ color: "var(--manga-muted-2)" }}
+                        >
+                          {chapter.chapterNumber}
+                        </span>
+                      )}
+                    </div>
                     <div
                       className="relative overflow-hidden px-3 py-3 sm:px-5 sm:py-4"
                       style={{ background: "var(--manga-bg)" }}
