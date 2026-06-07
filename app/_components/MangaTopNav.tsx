@@ -18,9 +18,8 @@ type NavLink = {
 };
 
 const defaultLinks: NavLink[] = [
-  { label: "Сан", href: "/#library" },
-  { label: "Цувралууд", href: "/manga" },
-  { label: "Онцголсон", href: "/#featured" },
+  { label: "Онцлох", href: "/#featured" },
+  { label: "Сан", href: "/#all" },
 ];
 
 function isLinkActive(pathname: string, href: string) {
@@ -119,41 +118,22 @@ export function MangaTopNav({
       >
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 no-underline"
+          className="flex shrink-0 items-center no-underline"
           onClick={() => setMobileMenuOpen(false)}
+          aria-label="ЮУМЭ Орчуулагч — Нүүр"
         >
-          <div
-            className="border-2 px-2.5 py-0.5"
+          <img
+            src="/yume-logo.jpeg"
+            alt="ЮУМЭ Орчуулагч"
+            width={1688}
+            height={2048}
+            className="block h-12 w-auto rounded-xl border-2 object-contain transition hover:-translate-x-px hover:-translate-y-px"
             style={{
+              background: "#000",
               borderColor: "var(--manga-border)",
-              background:
-                "linear-gradient(135deg, var(--manga-brand-a) 0%, var(--manga-brand-b) 58%, var(--manga-brand-c) 100%)",
               boxShadow: "2px 2px 0 var(--manga-shadow)",
             }}
-          >
-            <span
-              style={{
-                color: "#fff",
-                fontSize: 22,
-                lineHeight: 1.3,
-                display: "block",
-                fontFamily: '"Noto Sans JP", sans-serif',
-                fontWeight: 900,
-              }}
-            >
-              ユーメ
-            </span>
-          </div>
-          <span
-            style={{
-              fontSize: 21,
-              color: "var(--manga-text)",
-              fontFamily: '"Bangers", cursive',
-              letterSpacing: "0.05em",
-            }}
-          >
-            MANGA
-          </span>
+          />
         </Link>
 
         <div

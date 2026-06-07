@@ -261,3 +261,92 @@ img {
     animation: none !important;
   }
 }
+
+/* ─── Shared "yume" surface ──────────────────────────────────────────────────
+   The elegant gold/rose/plum palette introduced with the landing page redesign.
+   Any page wrapped in `.yume-surface` inherits the same tokens as the home page
+   (including the shared --manga-* nav tokens and the --skeleton-* shimmer), so
+   detail pages and their loading skeletons stay visually in sync with home. */
+.yume-surface {
+  --home-cream: #fbf2ee;
+  --home-blush: #f6e3e8;
+  --home-rose: #d27d9c;
+  --home-rose-deep: #b9577b;
+  --home-gold: #c8a24c;
+  --home-gold-soft: #e4cd93;
+  --home-plum: #56414c;
+  --home-plum-soft: #8c7681;
+  --home-paper: #fffdfb;
+  --home-paper-2: #f8ecee;
+  --home-line: rgba(200, 162, 76, 0.42);
+  --home-line-strong: rgba(200, 162, 76, 0.7);
+  --home-shadow: rgba(176, 122, 140, 0.22);
+  --home-shadow-strong: rgba(150, 90, 110, 0.32);
+  --home-overlay: linear-gradient(
+    to top,
+    rgba(54, 34, 44, 0.92) 4%,
+    rgba(54, 34, 44, 0.45) 38%,
+    transparent 72%
+  );
+  --home-on-dark-soft: rgba(255, 245, 248, 0.82);
+
+  /* Remap the shared nav/comic tokens onto the soft palette */
+  --manga-border: var(--home-line-strong);
+  --manga-shadow: var(--home-shadow);
+  --manga-text: var(--home-plum);
+  --manga-muted: var(--home-plum-soft);
+  --manga-muted-2: var(--home-plum-soft);
+  --manga-accent: var(--home-rose);
+  --manga-paper: var(--home-paper);
+  --manga-paper-2: var(--home-paper-2);
+  --manga-nav-bg: color-mix(in srgb, var(--home-cream) 86%, transparent);
+
+  /* Tint the shimmer skeletons gold/blush instead of the comic cream */
+  --skeleton-tone-1: #f3e3e6;
+  --skeleton-tone-2: #fffdfb;
+  --skeleton-strong-1: #ecd9b9;
+  --skeleton-strong-2: #f8ecee;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.66);
+
+  color: var(--home-plum);
+  background-color: var(--home-cream);
+  background-image:
+    radial-gradient(circle at 16% 8%, var(--home-blush), transparent 44%),
+    radial-gradient(circle at 88% 2%, rgba(210, 125, 156, 0.12), transparent 40%),
+    radial-gradient(circle at 50% 102%, rgba(200, 162, 76, 0.08), transparent 55%);
+  background-attachment: fixed;
+}
+
+html[data-theme="dark"] .yume-surface {
+  --home-cream: #110b16;
+  --home-blush: #1d1426;
+  --home-rose: #df9fbf;
+  --home-rose-deep: #e7b6cf;
+  --home-gold: #d8b56a;
+  --home-gold-soft: #b89243;
+  --home-plum: #f1e5ee;
+  --home-plum-soft: #b6a3b3;
+  --home-paper: #191222;
+  --home-paper-2: #211830;
+  --home-line: rgba(216, 181, 106, 0.32);
+  --home-line-strong: rgba(216, 181, 106, 0.55);
+  --home-shadow: rgba(0, 0, 0, 0.45);
+  --home-shadow-strong: rgba(0, 0, 0, 0.6);
+  --home-overlay: linear-gradient(
+    to top,
+    rgba(8, 5, 12, 0.94) 4%,
+    rgba(8, 5, 12, 0.5) 38%,
+    transparent 74%
+  );
+
+  --skeleton-tone-1: rgba(216, 181, 106, 0.1);
+  --skeleton-tone-2: rgba(255, 255, 255, 0.03);
+  --skeleton-strong-1: rgba(223, 159, 191, 0.18);
+  --skeleton-strong-2: rgba(255, 255, 255, 0.06);
+  --skeleton-shimmer: rgba(255, 255, 255, 0.12);
+
+  background-image:
+    radial-gradient(circle at 16% 8%, rgba(140, 111, 255, 0.14), transparent 44%),
+    radial-gradient(circle at 88% 2%, rgba(223, 159, 191, 0.1), transparent 40%),
+    radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
+}

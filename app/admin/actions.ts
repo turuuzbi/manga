@@ -1000,6 +1000,12 @@ export async function updateChapterMetadataAction(
     const chapterTitle = String(formData.get("chapterTitle") ?? "").trim();
     const chapterNumber = Number(formData.get("chapterNumber"));
     const chapterCoverFile = formData.get("chapterCoverImage");
+    const chapterBadgeFile = formData.get("chapterBadgeImage");
+    const removeBadge = String(formData.get("removeBadge") ?? "") === "on";
+    const parsedBadgeScale = Number(formData.get("badgeScale"));
+    const badgeScale = Number.isFinite(parsedBadgeScale)
+      ? Math.min(100, Math.max(20, Math.round(parsedBadgeScale)))
+      : 85;
 
     if (!chapterId) {
       return {
@@ -1023,6 +1029,7 @@ export async function updateChapterMetadataAction(
         chapterNumber: true,
         title: true,
         coverImage: true,
+        badgeImage: true,
         manga: {
           select: {
             mangaName: true,
@@ -1071,6 +1078,36 @@ export async function updateChapterMetadataAction(
       chapterCoverImage = url;
     }
 
+    const badgeData: { badgeImage?: string | null; badgeScale?: number | null } =
+      {};
+    let staleBadgeUrl: string | null = null;
+
+    if (isUploadFile(chapterBadgeFile)) {
+      const badgeAsset = await uploadAssetFromFile(chapterBadgeFile);
+      const badgeKey = `manga/${chapter.mangaId}/chapters/${chapter.id}/badge/${Date.now()}-${slugifySegment(badgeAsset.name) || "badge"}`;
+      const { url } = await uploadToR2(
+        badgeAsset.buffer,
+        badgeKey,
+        badgeAsset.contentType || "application/octet-stream",
+      );
+      badgeData.badgeImage = url;
+      badgeData.badgeScale = badgeScale;
+
+      if (chapter.badgeImage) {
+        staleBadgeUrl = chapter.badgeImage;
+      }
+    } else if (removeBadge) {
+      badgeData.badgeImage = null;
+      badgeData.badgeScale = null;
+
+      if (chapter.badgeImage) {
+        staleBadgeUrl = chapter.badgeImage;
+      }
+    } else if (chapter.badgeImage) {
+      // Keep the existing badge, but allow resizing it without re-uploading.
+      badgeData.badgeScale = badgeScale;
+    }
+
     await prisma.chapter.update({
       where: {
         id: chapter.id,
@@ -1079,14 +1116,20 @@ export async function updateChapterMetadataAction(
         chapterNumber,
         title: chapterTitle || null,
         ...(chapterCoverImage ? { coverImage: chapterCoverImage } : {}),
+        ...badgeData,
       },
     });
 
-    if (chapterCoverImage && chapter.coverImage) {
+    const urlsToCleanUp = [
+      ...(chapterCoverImage && chapter.coverImage ? [chapter.coverImage] : []),
+      ...(staleBadgeUrl ? [staleBadgeUrl] : []),
+    ];
+
+    if (urlsToCleanUp.length > 0) {
       try {
-        await deleteR2AssetsFromUrls([chapter.coverImage]);
+        await deleteR2AssetsFromUrls(urlsToCleanUp);
       } catch {
-        // The chapter update succeeded; stale thumbnail cleanup can happen later.
+        // The chapter update succeeded; stale files can be cleaned up later.
       }
     }
 
@@ -1377,6 +1420,7 @@ export async function deleteChapterAction(
         chapterNumber: true,
         title: true,
         coverImage: true,
+        badgeImage: true,
         manga: {
           select: {
             mangaName: true,
@@ -1400,6 +1444,7 @@ export async function deleteChapterAction(
     await deleteR2AssetsFromUrls([
       ...chapter.pages.map((page) => page.imageUrl),
       ...(chapter.coverImage ? [chapter.coverImage] : []),
+      ...(chapter.badgeImage ? [chapter.badgeImage] : []),
     ]);
 
     await prisma.chapter.delete({

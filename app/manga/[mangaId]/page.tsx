@@ -8,6 +8,7 @@ import {
   Clock3,
   Sparkles,
 } from "lucide-react";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
 import { CommentsSection } from "@/app/manga/[mangaId]/CommentsSection";
@@ -16,28 +17,214 @@ import { MangaTopNav } from "@/app/_components/MangaTopNav";
 export const dynamic = "force-dynamic";
 
 const PREVIEW_STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Noto+Sans+JP:wght@700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Marcellus&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
 
-.preview-root { font-family: 'Plus Jakarta Sans', sans-serif; }
-.preview-root * { box-sizing: border-box; }
-.font-manga-preview { font-family: 'Bangers', cursive !important; letter-spacing: 0.05em; }
-.panel-frame { border: 3px solid var(--manga-border); box-shadow: 7px 7px 0 var(--manga-shadow); background: var(--manga-bg); position: relative; }
-.panel-box { border: 2px solid var(--manga-border); box-shadow: 3px 3px 0 var(--manga-shadow); background: var(--manga-paper); position: relative; }
-.dot-tone {
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--manga-border) 12%, transparent) 1px, transparent 1px);
-  background-size: 8px 8px;
+.yume-detail { font-family: 'Plus Jakarta Sans', sans-serif; }
+.yume-detail * { box-sizing: border-box; }
+
+.yume-detail .yd-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'Marcellus', serif;
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--home-plum-soft); text-decoration: none;
+  transition: color 0.2s, transform 0.2s;
 }
-.section-block { display:inline-block; background:var(--manga-border); padding:6px 14px; }
-.section-block span { font-family:'Bangers',cursive; font-size:22px; color:var(--manga-bg); letter-spacing:0.06em; }
-.preview-root::before {
-  content: '';
-  position: fixed; inset: 0; z-index: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.03;
-  mix-blend-mode: multiply;
+.yume-detail .yd-back:hover { color: var(--home-rose-deep); transform: translateX(-2px); }
+
+.yume-detail .yd-eyebrow {
+  font-family: 'Marcellus', serif;
+  font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--home-gold);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+
+.yume-detail .yd-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700; font-style: italic; line-height: 0.98;
+}
+
+/* ── Hero ── */
+.yume-detail .yd-hero {
+  position: relative;
+  border-radius: 26px;
+  overflow: hidden;
+  min-height: clamp(380px, 54vw, 540px);
+  border: 1px solid var(--home-line-strong);
+  box-shadow: 0 30px 60px -28px var(--home-shadow-strong);
+  background: var(--home-paper-2);
+}
+.yume-detail .yd-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.yume-detail .yd-hero-empty {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 28% 26%, color-mix(in srgb, var(--home-rose) 38%, transparent), transparent 56%),
+    radial-gradient(circle at 76% 70%, color-mix(in srgb, var(--home-gold) 30%, transparent), transparent 58%),
+    var(--home-paper-2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--home-gold);
+}
+.yume-detail .yd-hero-overlay { position: absolute; inset: 0; background: var(--home-overlay); }
+.yume-detail .yd-hero-body {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: clamp(22px, 4vw, 48px);
+}
+.yume-detail .yd-hero-eyebrow { color: var(--home-gold-soft); }
+.yume-detail .yd-hero .yd-title {
+  color: #fff;
+  font-size: clamp(2.4rem, 6.4vw, 4.6rem);
+  text-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  max-width: 18ch; margin-top: 14px;
+}
+.yume-detail .yd-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.yume-detail .yd-tag {
+  font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 999px;
+  color: var(--home-on-dark-soft);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(4px);
+}
+.yume-detail .yd-hero-actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* ── Buttons ── */
+.yume-detail .yd-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Marcellus', serif;
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 13px 28px; border-radius: 999px;
+  color: #fff; text-decoration: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%);
+  box-shadow: 0 14px 30px -12px var(--home-rose-deep);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.yume-detail .yd-btn:hover { transform: translateY(-2px); box-shadow: 0 20px 36px -12px var(--home-rose-deep); }
+.yume-detail .yd-btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Marcellus', serif;
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 13px 26px; border-radius: 999px;
+  text-decoration: none; cursor: pointer;
+  color: var(--home-rose-deep); background: var(--home-paper);
+  border: 1px solid var(--home-line);
+  transition: transform 0.2s, border-color 0.2s, color 0.2s;
+}
+.yume-detail .yd-btn-ghost:hover { transform: translateY(-2px); border-color: var(--home-rose); }
+.yume-detail .yd-btn-muted {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Marcellus', serif;
+  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 13px 26px; border-radius: 999px;
+  color: var(--home-on-dark-soft);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+/* ── Panels & stats ── */
+.yume-detail .yd-panel {
+  border-radius: 22px;
+  background: var(--home-paper);
+  border: 1px solid var(--home-line);
+  box-shadow: 0 22px 48px -30px var(--home-shadow-strong);
+  padding: clamp(22px, 3vw, 36px);
+}
+.yume-detail .yd-desc { margin-top: 14px; font-size: 15px; line-height: 1.85; color: var(--home-plum); }
+.yume-detail .yd-stats {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px; border-radius: 16px; overflow: hidden;
+  background: var(--home-line); border: 1px solid var(--home-line);
+}
+.yume-detail .yd-stat { background: var(--home-paper); padding: 16px 18px; }
+.yume-detail .yd-stat-label {
+  font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--home-gold);
+}
+.yume-detail .yd-stat-value {
+  margin-top: 6px;
+  font-family: 'Cormorant Garamond', serif; font-weight: 600;
+  font-size: 20px; color: var(--home-plum);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Section heading ── */
+.yume-detail .yd-section-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700; font-style: italic;
+  font-size: clamp(26px, 3.4vw, 38px); color: var(--home-plum);
+}
+.yume-detail .yd-count {
+  font-family: 'Marcellus', serif;
+  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--home-plum-soft);
+}
+
+/* ── Chapter cards ── */
+.yume-detail .yd-chapter {
+  display: grid; grid-template-columns: 96px 1fr; align-items: stretch;
+  border-radius: 16px; overflow: hidden; text-decoration: none;
+  background: var(--home-paper); border: 1px solid var(--home-line);
+  box-shadow: 0 12px 26px -20px var(--home-shadow-strong);
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+.yume-detail .yd-chapter:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 40px -22px var(--home-shadow-strong);
+  border-color: var(--home-line-strong);
+}
+.yume-detail .yd-chapter-thumb {
+  position: relative; min-height: 104px;
+  background: var(--home-paper-2);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.yume-detail .yd-chapter-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.yume-detail .yd-chapter-thumb .badge { position: relative; z-index: 1; object-fit: contain; }
+.yume-detail .yd-chapter-num {
+  font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700;
+  font-size: 30px; color: var(--home-gold);
+}
+.yume-detail .yd-chapter-body { padding: 14px 18px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.yume-detail .yd-chapter-title {
+  font-family: 'Cormorant Garamond', serif; font-weight: 600;
+  font-size: 19px; line-height: 1.2; color: var(--home-plum);
+}
+.yume-detail .yd-chapter:hover .yd-chapter-title { color: var(--home-rose-deep); }
+.yume-detail .yd-chapter-meta {
+  margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 16px;
+  font-size: 12.5px; color: var(--home-plum-soft);
+}
+.yume-detail .yd-chapter-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.yume-detail .yd-chapter-go {
+  display: none; align-items: center; gap: 8px;
+  padding: 0 22px; border-left: 1px solid var(--home-line);
+  color: var(--home-rose-deep);
+  font-family: 'Marcellus', serif; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.yume-detail .yd-chapter-go svg { transition: transform 0.2s; }
+.yume-detail .yd-chapter:hover .yd-chapter-go svg { transform: translateX(3px); }
+@media (min-width: 640px) {
+  .yume-detail .yd-chapter { grid-template-columns: 124px 1fr auto; }
+  .yume-detail .yd-chapter-go { display: flex; }
+}
+
+.yume-detail .yd-empty {
+  border-radius: 16px; border: 1px dashed var(--home-line-strong);
+  background: var(--home-paper-2); padding: 52px 24px; text-align: center;
+  color: var(--home-plum);
+  font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 22px;
 }
 `;
+
+const STATUS_LABELS: Record<string, string> = {
+  ONGOING: "Гарч байгаа",
+  COMPLETED: "Дууссан",
+  CATCHING_UP: "Гүйцэж байна",
+  FINISHED_RELEASING: "Эх дууссан",
+  HIATUS: "Завсарласан",
+};
 
 type MangaPreviewPageProps = {
   params: Promise<{
@@ -50,91 +237,7 @@ function formatChapterLabel(chapterNumber: number, title: string | null) {
 }
 
 function formatStatusLabel(status: string) {
-  return status.replaceAll("_", " ");
-}
-
-function Halftone({
-  uid,
-  size = 8,
-  r = 2.2,
-  opacity = 0.12,
-  color = "#1a1108",
-}: {
-  uid: string;
-  size?: number;
-  r?: number;
-  opacity?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ zIndex: 0 }}
-    >
-      <defs>
-        <pattern
-          id={uid}
-          x="0"
-          y="0"
-          width={size}
-          height={size}
-          patternUnits="userSpaceOnUse"
-        >
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill={color}
-            opacity={opacity}
-          />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill={`url(#${uid})`} />
-    </svg>
-  );
-}
-
-function StarBurst({
-  label,
-  size = 66,
-  bg = "var(--manga-highlight)",
-}: {
-  label: string;
-  size?: number;
-  bg?: string;
-}) {
-  const points = Array.from({ length: 14 }, (_, index) => {
-    const angle = (index / 14) * Math.PI * 2 - Math.PI / 2;
-    const radius = index % 2 === 0 ? size / 2 - 1 : size * 0.32;
-    return `${size / 2 + Math.cos(angle) * radius},${size / 2 + Math.sin(angle) * radius}`;
-  }).join(" ");
-
-  return (
-    <div
-      className="relative flex items-center justify-center"
-      style={{ width: size, height: size }}
-    >
-      <svg
-        viewBox={`0 0 ${size} ${size}`}
-        className="absolute inset-0 h-full w-full"
-        style={{ filter: "drop-shadow(2px 2px 0 var(--manga-shadow))" }}
-      >
-        <polygon
-          points={points}
-          fill={bg}
-          stroke="var(--manga-border)"
-          strokeWidth="1.5"
-        />
-      </svg>
-      <span
-        className="font-manga-preview relative z-10 text-center leading-none"
-        style={{ fontSize: size * 0.15, whiteSpace: "pre-line" }}
-      >
-        {label}
-      </span>
-    </div>
-  );
+  return STATUS_LABELS[status] ?? status.replaceAll("_", " ");
 }
 
 export default async function MangaPreviewPage({
@@ -162,6 +265,8 @@ export default async function MangaPreviewPage({
           chapterNumber: true,
           title: true,
           coverImage: true,
+          badgeImage: true,
+          badgeScale: true,
           publishedAt: true,
           _count: {
             select: {
@@ -214,374 +319,210 @@ export default async function MangaPreviewPage({
     (left, right) => left.chapterNumber - right.chapterNumber,
   )[0];
 
+  // When a chapter has no custom badge and no thumbnail, fall back to a random
+  // page from the middle of the chapter (skipping the first/last ~30% so we
+  // avoid intro pages and ending spoilers). The random pick is done in the DB
+  // via `random()` so this server render stays pure.
+  const fallbackBandConditions = manga.chapters
+    .filter(
+      (chapter) =>
+        !chapter.badgeImage &&
+        !chapter.coverImage &&
+        chapter._count.pages > 0,
+    )
+    .map((chapter) => {
+      const pageCount = chapter._count.pages;
+      const lowerPage = Math.floor(pageCount * 0.3) + 1;
+      const upperPage = Math.max(lowerPage, Math.ceil(pageCount * 0.7));
+
+      return Prisma.sql`("chapterId" = ${chapter.id} AND "pageNumber" BETWEEN ${lowerPage} AND ${upperPage})`;
+    });
+
+  const fallbackPages =
+    fallbackBandConditions.length > 0
+      ? await prisma.$queryRaw<Array<{ chapterId: string; imageUrl: string }>>(
+          Prisma.sql`
+            SELECT DISTINCT ON ("chapterId") "chapterId", "imageUrl"
+            FROM "public"."Page"
+            WHERE ${Prisma.join(fallbackBandConditions, " OR ")}
+            ORDER BY "chapterId", random()
+          `,
+        )
+      : [];
+
+  const fallbackPageByChapter = new Map(
+    fallbackPages.map((page) => [page.chapterId, page.imageUrl]),
+  );
+
+  const heroCover = manga.detailCoverImage ?? manga.coverImage ?? null;
+  const genreTags =
+    manga.genres.length > 0
+      ? manga.genres.map((entry) => ({ id: entry.genreId, name: entry.genre.name }))
+      : [{ id: "fallback", name: "Манга" }];
+
+  const firstNum = firstReadableChapter?.chapterNumber ?? null;
+  const lastNum = manga.chapters[0]?.chapterNumber ?? null;
+  const rangeLabel =
+    firstNum !== null && lastNum !== null
+      ? firstNum === lastNum
+        ? `Ch. ${lastNum}`
+        : `Ch. ${firstNum}–${lastNum}`
+      : "—";
+
   return (
-    <div
-      className="preview-root min-h-screen"
-      style={{
-        background: "var(--manga-bg)",
-        color: "var(--manga-text)",
-      }}
-    >
+    <div className="yume-surface yume-detail min-h-screen">
       <style>{PREVIEW_STYLES}</style>
-      <div
-        className="fixed inset-0 -z-10"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, var(--manga-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--manga-grid) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-      <div
-        className="fixed inset-0 -z-10"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at top left, var(--manga-radial-a), transparent 38%), radial-gradient(circle at bottom right, var(--manga-radial-b), transparent 30%)",
-        }}
-      />
 
       <MangaTopNav isAdmin={currentDbUser?.role === "ADMIN"} />
 
-      <main className="motion-ink-fade relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="motion-ink-up inline-flex items-center gap-2 text-sm font-semibold transition"
-          style={{ color: "var(--manga-muted)" }}
-        >
-          <ArrowLeft size={16} />
+      <main className="motion-ink-fade relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+        <Link href="/" className="motion-ink-up yd-back">
+          <ArrowLeft size={15} />
           Нүүр
         </Link>
 
-        <section className="panel-frame motion-ink-up motion-ink-up-delay-1 overflow-hidden">
-          <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
-            <div
-              className="relative min-h-[520px] border-b-[3px] lg:min-h-[640px] lg:border-b-0 lg:border-r-[3px]"
-              style={{
-                background: "var(--manga-paper)",
-                borderColor: "var(--manga-border)",
-              }}
-            >
-              <div className="absolute inset-0">
-                {manga.detailCoverImage || manga.coverImage ? (
-                  <img
-                    src={manga.detailCoverImage ?? manga.coverImage ?? ""}
-                    alt={manga.mangaName}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="dot-tone h-full w-full" />
-                )}
-              </div>
-
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to top, var(--manga-hero-overlay), transparent 68%)",
-                }}
-              />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "radial-gradient(circle at top left, var(--manga-hero-overlay-soft), transparent 24%)",
-                }}
-              />
-
-              <div
-                className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 border-2 px-3 py-1 sm:left-6 sm:top-6"
-                style={{
-                  borderColor: "var(--manga-border)",
-                  background: "var(--manga-highlight)",
-                  boxShadow: "2px 2px 0 var(--manga-shadow)",
-                }}
-              >
-                <Sparkles
-                  size={13}
-                  style={{ color: "var(--manga-highlight-text)" }}
-                />
-              </div>
-
-              <div className="absolute inset-x-0 bottom-0 z-20 p-4 sm:p-7">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/65">
-                    {formatStatusLabel(manga.status)}
-                  </p>
-                  <h1
-                    className="font-manga-preview mt-3 text-white"
-                    style={{
-                      fontSize: "clamp(2.5rem, 7vw, 5rem)",
-                      lineHeight: 0.95,
-                      textShadow: "4px 4px 0 var(--manga-accent-shadow)",
-                    }}
-                  >
-                    {manga.mangaName}
-                  </h1>
-                  <p className="mt-4 line-clamp-5 max-w-xl text-sm leading-6 text-white/78 sm:line-clamp-none sm:text-base sm:leading-7">
-                    {manga.description ?? "Бүлгүүдээс сонгоод уншиж эхэлээрэй."}
-                  </p>
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {(manga.genres.length > 0
-                      ? manga.genres
-                      : [{ genreId: "fallback", genre: { name: "Manga" } }]
-                    ).map((entry) => (
-                      <span
-                        key={entry.genreId}
-                        className="border-2 border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur"
-                      >
-                        {entry.genre.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+        {/* Hero */}
+        <section className="motion-ink-up motion-ink-up-delay-1 yd-hero">
+          {heroCover ? (
+            <img src={heroCover} alt={manga.mangaName} className="yd-hero-img" />
+          ) : (
+            <div className="yd-hero-empty">
+              <Sparkles size={42} />
             </div>
+          )}
+          <div className="yd-hero-overlay" />
+          <div className="yd-hero-body">
+            <span className="yd-eyebrow yd-hero-eyebrow">
+              <Sparkles size={13} />
+              {formatStatusLabel(manga.status)}
+            </span>
+            <h1 className="yd-title">{manga.mangaName}</h1>
+            <div className="yd-tags">
+              {genreTags.map((tag) => (
+                <span key={tag.id} className="yd-tag">
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+            <div className="yd-hero-actions">
+              {firstReadableChapter ? (
+                <Link href={`/reader/${firstReadableChapter.id}`} className="yd-btn">
+                  <BookOpen size={15} />
+                  Уншиж эхлэх
+                  <ChevronRight size={15} />
+                </Link>
+              ) : (
+                <span className="yd-btn-muted">Уншах боломжтой бүлэг алга</span>
+              )}
+            </div>
+          </div>
+        </section>
 
-            <div
-              className="grid grid-rows-[auto_1fr]"
-              style={{ background: "var(--manga-bg)" }}
-            >
-              <div
-                className="grid grid-cols-3 border-b-[3px]"
-                style={{ borderColor: "var(--manga-border)" }}
-              >
-                <MetricPanel
-                  label="Бүлгийн тоо"
-                  value={String(manga.chapters.length)}
-                  borderRight
-                />
-                <MetricPanel
-                  label="Зохиолч"
-                  value={manga.author ?? "Unknown"}
-                  borderRight
-                />
-                <MetricPanel label="Зураач" value={manga.artist ?? "Unknown"} />
+        {/* About + stats */}
+        <section className="motion-ink-up motion-ink-up-delay-2 grid gap-7 lg:grid-cols-[1.4fr_1fr]">
+          <div className="yd-panel">
+            <p className="yd-eyebrow">Тойм</p>
+            <p className="yd-desc">
+              {manga.description ?? "Бүлгүүдээс сонгоод уншиж эхэлээрэй."}
+            </p>
+            <div className="mt-7">
+              <Link href="/" className="yd-btn-ghost">
+                Илүү ихийг унших
+                <ArrowUpRight size={15} />
+              </Link>
+            </div>
+          </div>
+
+          <div className="yd-panel">
+            <p className="yd-eyebrow">Мэдээлэл</p>
+            <div className="yd-stats mt-5">
+              <div className="yd-stat">
+                <p className="yd-stat-label">Бүлгийн тоо</p>
+                <p className="yd-stat-value">{manga.chapters.length}</p>
               </div>
-
-              <div className="flex flex-col justify-between gap-6 p-5 sm:p-6">
-                <div
-                  className="panel-box overflow-hidden"
-                  style={{ background: "var(--manga-bg)" }}
-                >
-                  <div
-                    className="border-b-2 px-4 py-3"
-                    style={{
-                      borderColor: "var(--manga-border)",
-                      background: "var(--manga-paper-2)",
-                    }}
-                  >
-                    <p
-                      className="text-[11px] font-extrabold uppercase tracking-[0.24em]"
-                      style={{ color: "var(--manga-text)" }}
-                    >
-                      Унших дараалал
-                    </p>
-                  </div>
-                  <div className="grid sm:grid-cols-2">
-                    <InfoCell
-                      label="Эхний бүлэг"
-                      value={
-                        firstReadableChapter
-                          ? `Ch. ${firstReadableChapter.chapterNumber}`
-                          : "Unavailable"
-                      }
-                      borderRight
-                    />
-                    <InfoCell
-                      label="Сүүлийн бүлэг"
-                      value={
-                        manga.chapters[0]
-                          ? `Ch. ${manga.chapters[0].chapterNumber}`
-                          : "None"
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {firstReadableChapter ? (
-                    <Link
-                      href={`/reader/${firstReadableChapter.id}`}
-                      className="inline-flex items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-extrabold uppercase tracking-[0.18em] transition hover:-translate-x-px hover:-translate-y-px"
-                      style={{
-                        borderColor: "var(--manga-border)",
-                        background: "var(--manga-border)",
-                        color: "var(--manga-bg)",
-                        boxShadow: "3px 3px 0 var(--manga-accent)",
-                      }}
-                    >
-                      Уншиж эхлэх
-                      <ChevronRight size={16} />
-                    </Link>
-                  ) : (
-                    <span
-                      className="inline-flex items-center justify-center border-2 px-5 py-3 text-sm font-semibold"
-                      style={{
-                        borderColor: "var(--manga-border)",
-                        background: "var(--manga-paper-2)",
-                        color: "var(--manga-muted)",
-                      }}
-                    >
-                      Уншах боломжтой бүлэг алга
-                    </span>
-                  )}
-
-                  <Link
-                    href="/"
-                    className="inline-flex items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-extrabold uppercase tracking-[0.18em] transition hover:-translate-x-px hover:-translate-y-px"
-                    style={{
-                      borderColor: "var(--manga-border)",
-                      background: "var(--manga-paper)",
-                      color: "var(--manga-accent)",
-                      boxShadow: "3px 3px 0 var(--manga-shadow)",
-                    }}
-                  >
-                    Илүү ихийг унших
-                    <ArrowUpRight size={16} />
-                  </Link>
-                </div>
+              <div className="yd-stat">
+                <p className="yd-stat-label">Бүлгийн хүрээ</p>
+                <p className="yd-stat-value">{rangeLabel}</p>
+              </div>
+              <div className="yd-stat">
+                <p className="yd-stat-label">Зохиолч</p>
+                <p className="yd-stat-value">{manga.author ?? "Тодорхойгүй"}</p>
+              </div>
+              <div className="yd-stat">
+                <p className="yd-stat-label">Зураач</p>
+                <p className="yd-stat-value">{manga.artist ?? "Тодорхойгүй"}</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="panel-frame motion-ink-up motion-ink-up-delay-2 p-5 sm:p-7">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div className="section-block">
-                <span>Бүлгийн Сонголт</span>
-              </div>
-            </div>
-            <p
-              className="text-xs font-semibold uppercase tracking-[0.24em]"
-              style={{ color: "var(--manga-muted-2)" }}
-            >
-              {manga.chapters.length} нийт бүлгүүд
-            </p>
+        {/* Chapters */}
+        <section className="motion-ink-up motion-ink-up-delay-3 yd-panel">
+          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <h2 className="yd-section-title">Бүлгүүд</h2>
+            <p className="yd-count">{manga.chapters.length} нийт бүлэг</p>
           </div>
 
           {manga.chapters.length === 0 ? (
-            <div
-              className="border-2 border-dashed px-6 py-14 text-center"
-              style={{
-                borderColor:
-                  "color-mix(in srgb, var(--manga-border) 25%, transparent)",
-                background: "var(--manga-paper-2)",
-              }}
-            >
-              <p
-                className="text-lg font-semibold"
-                style={{ color: "var(--manga-text)" }}
-              >
-                Одоогоор бүлэг алга
-              </p>
-            </div>
+            <div className="yd-empty">Одоогоор бүлэг алга</div>
           ) : (
             <div className="grid gap-4">
-              {manga.chapters.map((chapter, index) => (
-                <Link
-                  key={chapter.id}
-                  href={`/reader/${chapter.id}`}
-                  className="group panel-box motion-ink-up overflow-hidden transition hover:-translate-x-px hover:-translate-y-px"
-                  style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
-                >
-                  <div className="grid grid-cols-[88px_1fr] gap-0 sm:grid-cols-[120px_1fr_auto]">
-                    <div
-                      className="relative flex min-h-28 items-center justify-center overflow-hidden border-r-2 sm:min-h-full"
-                      style={{
-                        borderColor: "var(--manga-border)",
-                        background: "var(--manga-paper-2)",
-                      }}
-                    >
-                      {chapter.coverImage ? (
+              {manga.chapters.map((chapter, index) => {
+                const fallbackThumb = fallbackPageByChapter.get(chapter.id);
+
+                return (
+                  <Link
+                    key={chapter.id}
+                    href={`/reader/${chapter.id}`}
+                    className="group motion-ink-up yd-chapter"
+                    style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
+                  >
+                    <div className="yd-chapter-thumb">
+                      {chapter.badgeImage ? (
+                        <img
+                          src={chapter.badgeImage}
+                          alt={`Бүлэг ${chapter.chapterNumber} тэмдэг`}
+                          className="badge"
+                          style={{
+                            width: `${chapter.badgeScale ?? 85}%`,
+                            height: `${chapter.badgeScale ?? 85}%`,
+                          }}
+                        />
+                      ) : chapter.coverImage ? (
                         <img
                           src={chapter.coverImage}
-                          alt={`Бүлэг ${chapter.chapterNumber} thumbnail`}
-                          className="absolute inset-0 h-full w-full object-cover"
+                          alt={`Бүлэг ${chapter.chapterNumber}`}
                         />
+                      ) : fallbackThumb ? (
+                        <img src={fallbackThumb} alt={`Бүлэг ${chapter.chapterNumber}`} />
                       ) : (
-                        <span
-                          className="font-manga-preview text-2xl leading-none sm:text-3xl"
-                          style={{ color: "var(--manga-muted-2)" }}
-                        >
-                          {chapter.chapterNumber}
-                        </span>
+                        <span className="yd-chapter-num">{chapter.chapterNumber}</span>
                       )}
                     </div>
-                    <div
-                      className="relative overflow-hidden px-3 py-3 sm:px-5 sm:py-4"
-                      style={{ background: "var(--manga-bg)" }}
-                    >
-                      <Halftone
-                        uid={`chapter-tone-${chapter.id}`}
-                        size={9}
-                        r={2}
-                        opacity={0.05}
-                      />
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between gap-3">
-                          <p
-                            className="text-base font-semibold leading-6 sm:text-lg"
-                            style={{ color: "var(--manga-text)" }}
-                          >
-                            {formatChapterLabel(
-                              chapter.chapterNumber,
-                              chapter.title,
-                            )}
-                          </p>
-                          <span
-                            className="inline-flex shrink-0 items-center gap-1 border px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] sm:hidden"
-                            style={{
-                              borderColor:
-                                "color-mix(in srgb, var(--manga-border) 20%, transparent)",
-                              background: "var(--manga-paper-2)",
-                              color: "var(--manga-muted-2)",
-                            }}
-                          >
-                            Read
-                            <ChevronRight
-                              size={12}
-                              style={{ color: "var(--manga-text)" }}
-                            />
-                          </span>
-                        </div>
-                        <div
-                          className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm"
-                          style={{ color: "var(--manga-muted)" }}
-                        >
-                          <span className="inline-flex items-center gap-2">
-                            <BookOpen size={14} />
-                            {chapter._count.pages} хуудас
-                          </span>
-                          <span className="inline-flex items-center gap-2">
-                            <Clock3 size={14} />
-                            {chapter.publishedAt.toLocaleDateString()}нд оруулав
-                          </span>
-                        </div>
+
+                    <div className="yd-chapter-body">
+                      <p className="yd-chapter-title">
+                        {formatChapterLabel(chapter.chapterNumber, chapter.title)}
+                      </p>
+                      <div className="yd-chapter-meta">
+                        <span>
+                          <BookOpen size={14} />
+                          {chapter._count.pages} хуудас
+                        </span>
+                        <span>
+                          <Clock3 size={14} />
+                          {chapter.publishedAt.toLocaleDateString()}-нд оруулав
+                        </span>
                       </div>
                     </div>
 
-                    <div
-                      className="hidden items-center justify-between gap-3 border-l-2 px-4 py-4 sm:flex sm:px-5"
-                      style={{
-                        borderColor: "var(--manga-border)",
-                        background: "var(--manga-paper-2)",
-                      }}
-                    >
-                      <span
-                        className="text-[11px] font-extrabold uppercase tracking-[0.22em]"
-                        style={{ color: "var(--manga-muted-2)" }}
-                      >
-                        Унших
-                      </span>
-                      <ChevronRight
-                        size={18}
-                        className="transition group-hover:translate-x-1"
-                        style={{ color: "var(--manga-text)" }}
-                      />
+                    <div className="yd-chapter-go">
+                      Унших
+                      <ChevronRight size={16} />
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </section>
@@ -592,70 +533,6 @@ export default async function MangaPreviewPage({
           comments={manga.comments}
         />
       </main>
-    </div>
-  );
-}
-
-function MetricPanel({
-  label,
-  value,
-  borderRight = false,
-}: {
-  label: string;
-  value: string;
-  borderRight?: boolean;
-}) {
-  return (
-    <div
-      className="p-4 sm:p-5"
-      style={{
-        borderRight: borderRight ? "3px solid var(--manga-border)" : undefined,
-      }}
-    >
-      <p
-        className="text-[11px] font-extrabold uppercase tracking-[0.24em]"
-        style={{ color: "var(--manga-muted-2)" }}
-      >
-        {label}
-      </p>
-      <p
-        className="mt-2 text-lg font-semibold sm:text-xl"
-        style={{ color: "var(--manga-text)" }}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function InfoCell({
-  label,
-  value,
-  borderRight = false,
-}: {
-  label: string;
-  value: string;
-  borderRight?: boolean;
-}) {
-  return (
-    <div
-      className="px-4 py-4"
-      style={{
-        borderRight: borderRight ? "2px solid var(--manga-border)" : undefined,
-      }}
-    >
-      <p
-        className="text-[11px] font-extrabold uppercase tracking-[0.24em]"
-        style={{ color: "var(--manga-muted-2)" }}
-      >
-        {label}
-      </p>
-      <p
-        className="mt-2 text-base font-semibold"
-        style={{ color: "var(--manga-text)" }}
-      >
-        {value}
-      </p>
     </div>
   );
 }

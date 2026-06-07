@@ -19,6 +19,15 @@ export default function SignInPage() {
             Нүүр хуудас руу буцах
           </Link>
           <div className="space-y-4">
+            <div className="inline-flex rounded-[26px] border-2 border-[#1a1108] bg-black p-3 shadow-[6px_6px_0_#1a1108]">
+              <img
+                src="/yume-logo.jpeg"
+                alt="ЮУМЭ Орчуулагч"
+                width={1688}
+                height={2048}
+                className="h-40 w-auto object-contain sm:h-52"
+              />
+            </div>
             <div className="inline-flex border-2 border-[#1a1108] bg-[#e8637e] px-3 py-1 text-white shadow-[3px_3px_0_#1a1108]">
               <span className="text-xs font-extrabold uppercase tracking-[0.24em]">
                 Welcome Back

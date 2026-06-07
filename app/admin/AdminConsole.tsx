@@ -88,6 +88,8 @@ type AdminConsoleProps = {
       chapterNumber: number;
       title: string;
       coverImage: string;
+      badgeImage: string;
+      badgeScale: number | null;
       publishedAt: string;
       pageCount: number;
       pages: Array<{
@@ -167,6 +169,7 @@ export function AdminConsole({
   const [homeCoverName, setHomeCoverName] = useState("");
   const [detailCoverName, setDetailCoverName] = useState("");
   const [chapterCoverName, setChapterCoverName] = useState("");
+  const [chapterBadgeName, setChapterBadgeName] = useState("");
   const [pageCount, setPageCount] = useState(0);
   const [driveImportMode, setDriveImportMode] = useState<DriveImportMode>(
     "new_manga_from_chapter",
@@ -219,6 +222,7 @@ export function AdminConsole({
       names: {},
     });
     setChapterCoverName("");
+    setChapterBadgeName("");
   };
 
   const updatePageDraft = (
@@ -615,6 +619,7 @@ export function AdminConsole({
                         </div>
 
                         <form
+                          key={selectedChapter.id}
                           action={chapterMetaFormAction}
                           encType="multipart/form-data"
                           className="rounded-3xl border border-white/10 bg-black/25 p-4 sm:p-5"
@@ -641,7 +646,7 @@ export function AdminConsole({
                               defaultValue={selectedChapter.title}
                             />
                           </div>
-                          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                          <div className="mt-4 grid gap-4 lg:grid-cols-2">
                             <UploadField
                               label="Бүлгийн thumbnail"
                               helper={
@@ -663,10 +668,62 @@ export function AdminConsole({
                                 }
                               />
                             </UploadField>
+
+                            <UploadField
+                              label="Тусгай тэмдэг (PNG)"
+                              helper={
+                                chapterBadgeName ||
+                                (selectedChapter.badgeImage
+                                  ? "Дугаарын оронд харагдах тэмдэг хадгалагдсан."
+                                  : "Дугаарын оронд харагдах PNG зураг. Тунгалаг дэвсгэр дэмжинэ.")
+                              }
+                            >
+                              <input
+                                type="file"
+                                name="chapterBadgeImage"
+                                accept="image/png,image/webp,image/*"
+                                className="hidden"
+                                onChange={(event) =>
+                                  setChapterBadgeName(
+                                    event.target.files?.[0]?.name ?? "",
+                                  )
+                                }
+                              />
+                            </UploadField>
+                          </div>
+
+                          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                            <label className="space-y-2">
+                              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
+                                Тэмдгийн хэмжээ (%)
+                              </span>
+                              <input
+                                type="number"
+                                name="badgeScale"
+                                min={20}
+                                max={100}
+                                step={5}
+                                defaultValue={selectedChapter.badgeScale ?? 85}
+                                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-orange-400/50 focus:bg-black/60"
+                              />
+                            </label>
+                            {selectedChapter.badgeImage ? (
+                              <label className="flex cursor-pointer items-center gap-3 self-end rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-300 transition hover:bg-black/40">
+                                <input
+                                  type="checkbox"
+                                  name="removeBadge"
+                                  className="h-4 w-4 accent-rose-400"
+                                />
+                                Тэмдгийг устгаж, дугаар руу буцаах
+                              </label>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-4 flex justify-end">
                             <button
                               type="submit"
                               disabled={chapterMetaPending}
-                              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 lg:self-end"
+                              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <PencilLine size={18} />
                               Бүлэг хадгалах

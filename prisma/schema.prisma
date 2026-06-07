@@ -69,6 +69,8 @@ model Chapter {
   chapterNumber Float
   title         String?
   coverImage    String?
+  badgeImage    String?
+  badgeScale    Int?
   publishedAt   DateTime @default(now())
   createdAt     DateTime @default(now())
 

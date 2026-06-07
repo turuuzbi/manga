@@ -114,6 +114,8 @@ export default async function AdminPage() {
           chapterNumber: chapter.chapterNumber,
           title: chapter.title ?? "",
           coverImage: chapter.coverImage ?? "",
+          badgeImage: chapter.badgeImage ?? "",
+          badgeScale: chapter.badgeScale ?? null,
           publishedAt: chapter.publishedAt.toISOString(),
           pageCount: chapter._count.pages,
           pages: chapter.pages.map((page) => ({

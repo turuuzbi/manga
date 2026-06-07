@@ -1,33 +1,11 @@
+// ─── Shared comic-style tokens (reader + admin still use the ink aesthetic) ───
 const pageShellStyle = {
   background: "var(--manga-bg)",
   color: "var(--manga-text)",
 } as const;
 
-const grid32Style = {
-  backgroundImage:
-    "linear-gradient(to right, var(--manga-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--manga-grid) 1px, transparent 1px)",
-  backgroundSize: "32px 32px",
-} as const;
-
-const navStyle = {
-  borderColor: "var(--manga-border)",
-  background: "var(--manga-nav-bg)",
-} as const;
-
 const frameStyle = {
   borderColor: "var(--manga-border)",
-} as const;
-
-const panelStyle = {
-  borderColor: "var(--manga-border)",
-  background: "var(--manga-paper)",
-  boxShadow: "7px 7px 0 var(--manga-shadow)",
-} as const;
-
-const sectionCardStyle = {
-  borderColor: "var(--manga-border)",
-  background: "var(--manga-paper)",
-  boxShadow: "5px 5px 0 var(--manga-shadow)",
 } as const;
 
 const tileStyle = {
@@ -39,15 +17,6 @@ const tileStyle = {
 const innerSurfaceStyle = {
   borderColor: "var(--manga-border)",
   background: "var(--manga-paper-2)",
-} as const;
-
-const accentStyle = {
-  borderColor: "var(--manga-border)",
-  background: "var(--manga-highlight)",
-} as const;
-
-const heroOverlayStyle = {
-  background: "linear-gradient(to top, var(--manga-hero-overlay), transparent)",
 } as const;
 
 const readerBackdropStyle = {
@@ -79,132 +48,157 @@ const adminCardStyle = {
   boxShadow: "0 20px 80px rgba(0, 0, 0, 0.22)",
 } as const;
 
+// ─── Shared "yume" tokens (home + manga detail use the soft gold/rose look) ───
+const yumeHeroStyle = {
+  borderRadius: 26,
+  border: "1px solid var(--home-line-strong)",
+  background: "var(--home-paper-2)",
+  boxShadow: "0 30px 60px -28px var(--home-shadow-strong)",
+} as const;
+
+const yumePanelStyle = {
+  borderRadius: 22,
+  border: "1px solid var(--home-line)",
+  background: "var(--home-paper)",
+  boxShadow: "0 22px 48px -30px var(--home-shadow-strong)",
+} as const;
+
+const yumeCardStyle = {
+  borderRadius: 16,
+  border: "1px solid var(--home-line)",
+  background: "var(--home-paper)",
+  boxShadow: "0 12px 26px -20px var(--home-shadow-strong)",
+} as const;
+
+const yumeStatStyle = {
+  borderRadius: 12,
+  border: "1px solid var(--home-line)",
+  background: "var(--home-paper-2)",
+} as const;
+
+const yumeLineStyle = { borderColor: "var(--home-line)" } as const;
+const yumePosterStyle = { border: "1px solid var(--home-line)" } as const;
+
+// Translucent placeholder shapes for text overlaid on a (dark) hero image.
+const onHero = (opacity: number) =>
+  ({ background: `rgba(255, 255, 255, ${opacity})` }) as const;
+
+function YumeNavSkeleton() {
+  return (
+    <div
+      className="motion-ink-fade sticky top-0 z-40 border-b"
+      style={{ ...yumeLineStyle, background: "var(--manga-nav-bg)", backdropFilter: "blur(14px)" }}
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8">
+        <div
+          className="ink-skeleton h-12 w-12 rounded-xl"
+          style={yumePosterStyle}
+        />
+        <div className="hidden items-center gap-8 md:flex">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="ink-skeleton ink-skeleton-line h-2.5 w-14" />
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="ink-skeleton h-10 w-10 rounded-full" />
+          <div className="ink-skeleton hidden h-9 w-40 rounded-full md:block" />
+          <div className="ink-skeleton h-9 w-9 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YumePosterSkeleton() {
+  return (
+    <div>
+      <div
+        className="ink-skeleton aspect-[3/4] w-full rounded-2xl"
+        style={yumePosterStyle}
+      />
+      <div className="ink-skeleton ink-skeleton-line mt-3 h-2.5 w-10" />
+      <div className="ink-skeleton ink-skeleton-line mt-2 h-4 w-4/5" />
+    </div>
+  );
+}
+
+function YumeSectionHeaderSkeleton() {
+  return (
+    <div className="flex items-center gap-4">
+      <div>
+        <div className="ink-skeleton ink-skeleton-line h-2.5 w-24" />
+        <div className="ink-skeleton ink-skeleton-line mt-3 h-7 w-48" />
+      </div>
+      <div className="ink-skeleton hidden h-px flex-1 sm:block" />
+    </div>
+  );
+}
+
+function YumeHeroBodySkeleton({ minHeight }: { minHeight: string }) {
+  return (
+    <>
+      <div className="ink-skeleton absolute inset-0" />
+      <div
+        className="relative z-10 flex flex-col justify-end p-6 sm:p-10"
+        style={{ minHeight }}
+      >
+        <div className="h-2.5 w-24 rounded-full" style={onHero(0.4)} />
+        <div className="mt-4 h-10 w-4/5 max-w-xl rounded-lg sm:h-14" style={onHero(0.5)} />
+        <div className="mt-3 h-9 w-2/3 max-w-md rounded-lg sm:h-12" style={onHero(0.5)} />
+        <div className="mt-5 h-3.5 w-full max-w-sm rounded-full" style={onHero(0.32)} />
+        <div className="mt-6 flex gap-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-6 w-16 rounded-full" style={onHero(0.22)} />
+          ))}
+        </div>
+        <div className="mt-7 h-11 w-44 rounded-full" style={onHero(0.55)} />
+      </div>
+    </>
+  );
+}
+
 export function HomeLoadingSkeleton() {
   return (
-    <div className="min-h-screen" style={pageShellStyle}>
-      <div className="fixed inset-0 -z-10" style={grid32Style} />
-      <div className="mx-auto max-w-7xl px-4 py-4 md:px-8">
-        <div
-          className="motion-ink-fade flex h-16 items-center justify-between border-b-[3px] px-1"
-          style={navStyle}
-        >
-          <div className="flex items-center gap-3">
-            <div className="ink-skeleton-dark h-10 w-16 border-2" style={frameStyle} />
-            <div className="ink-skeleton-line ink-skeleton h-7 w-28" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="ink-skeleton-line ink-skeleton hidden h-10 w-24 md:block" />
-            <div className="ink-skeleton-line ink-skeleton-dark h-10 w-10 rounded-full" />
+    <div className="yume-surface min-h-screen">
+      <YumeNavSkeleton />
+
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+        <div className="motion-ink-up relative overflow-hidden" style={yumeHeroStyle}>
+          <YumeHeroBodySkeleton minHeight="clamp(360px, 52vw, 540px)" />
+        </div>
+
+        <div className="motion-ink-up motion-ink-up-delay-1 mt-12">
+          <YumeSectionHeaderSkeleton />
+          <div className="mt-6 flex gap-[18px] overflow-hidden">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="w-[158px] shrink-0 sm:w-[178px]">
+                <YumePosterSkeleton />
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="mt-8 grid gap-10">
-          <div
-            className="motion-ink-up grid overflow-hidden border-[3px] lg:grid-cols-5"
-            style={panelStyle}
-          >
-            <div
-              className="relative min-h-[420px] border-b-[3px] lg:col-span-3 lg:border-b-0 lg:border-r-[3px]"
-              style={innerSurfaceStyle}
-            >
-              <div className="ink-skeleton absolute inset-0" />
-              <div className="absolute left-5 top-5 h-8 w-32 border-2" style={accentStyle} />
+        <div className="motion-ink-up motion-ink-up-delay-2 mt-14">
+          <YumeSectionHeaderSkeleton />
+          <div className="mt-6 flex flex-wrap gap-3">
+            {Array.from({ length: 8 }).map((_, index) => (
               <div
-                className="absolute right-5 top-5 h-16 w-16 rounded-full border-2"
-                style={accentStyle}
+                key={index}
+                className="ink-skeleton h-8 w-20 rounded-full"
+                style={yumePosterStyle}
               />
-              <div
-                className="absolute inset-x-0 bottom-0 border-t-[3px] border-transparent px-6 py-7"
-                style={heroOverlayStyle}
-              >
-                <div className="ink-skeleton-line ink-skeleton h-4 w-28 bg-white/80" />
-                <div className="ink-skeleton-line ink-skeleton mt-4 h-12 w-4/5 bg-white/90" />
-                <div className="ink-skeleton-line ink-skeleton mt-4 h-4 w-full max-w-xl bg-white/70" />
-                <div className="ink-skeleton-line ink-skeleton mt-2 h-4 w-3/4 bg-white/70" />
-                <div className="ink-skeleton mt-7 h-12 w-40 border-2" style={tileStyle} />
-              </div>
-            </div>
-
-            <div className="grid lg:col-span-2 lg:grid-rows-[auto_1fr]">
-              <div className="grid grid-cols-2 border-b-[3px]" style={frameStyle}>
-                <div className="p-5">
-                  <div className="ink-skeleton-line ink-skeleton h-3 w-16" />
-                  <div className="ink-skeleton-line ink-skeleton mt-4 h-9 w-12" />
-                </div>
-                <div className="border-l-[3px] p-5" style={frameStyle}>
-                  <div className="ink-skeleton-line ink-skeleton h-3 w-20" />
-                  <div className="ink-skeleton-line ink-skeleton mt-4 h-9 w-12" />
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div className="ink-skeleton-line ink-skeleton h-3 w-32" />
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="ink-skeleton-line ink-skeleton mt-4 h-4"
-                    style={{ width: `${index === 3 ? 58 : 100 - index * 8}%` }}
-                  />
-                ))}
-                <div className="mt-6 space-y-3">
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className="ink-skeleton-dark h-8 w-8 border-2" style={frameStyle} />
-                      <div className="flex-1">
-                        <div className="ink-skeleton-line ink-skeleton h-4 w-3/4" />
-                        <div className="ink-skeleton-line ink-skeleton mt-2 h-3 w-1/2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-
-          <div className="grid gap-10 lg:grid-cols-[1fr_264px]">
-            <div className="motion-ink-up motion-ink-up-delay-1">
+          <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, index) => (
               <div
-                className="ink-skeleton-dark h-12 w-44 border-[3px]"
-                style={sectionCardStyle}
-              />
-              <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="motion-ink-up"
-                    style={{ animationDelay: `${index * 60}ms` }}
-                  >
-                    <div
-                      className="relative aspect-[3/4] overflow-hidden border-2"
-                      style={tileStyle}
-                    >
-                      <div className="ink-skeleton absolute inset-0" />
-                      <div
-                        className="absolute bottom-0 left-0 h-6 w-16"
-                        style={{ background: "var(--manga-border)" }}
-                      />
-                    </div>
-                    <div className="ink-skeleton-line ink-skeleton mt-3 h-3 w-16" />
-                    <div className="ink-skeleton-line ink-skeleton mt-2 h-5 w-4/5" />
-                  </div>
-                ))}
+                key={index}
+                className="motion-ink-up"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <YumePosterSkeleton />
               </div>
-            </div>
-
-            <div className="motion-ink-up motion-ink-up-delay-2">
-              <div className="border-[3px] p-5" style={sectionCardStyle}>
-                <div className="ink-skeleton-line ink-skeleton h-3 w-28" />
-                <div className="mt-5 flex flex-wrap gap-3">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="ink-skeleton-dark h-8 w-20 border-2"
-                      style={frameStyle}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -214,85 +208,71 @@ export function HomeLoadingSkeleton() {
 
 export function MangaPreviewLoadingSkeleton() {
   return (
-    <div className="min-h-screen px-4 pb-14 pt-24 sm:px-6 lg:px-8" style={pageShellStyle}>
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <div className="motion-ink-up ink-skeleton-line ink-skeleton h-5 w-28" />
+    <div className="yume-surface min-h-screen">
+      <YumeNavSkeleton />
 
+      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+        <div className="motion-ink-up ink-skeleton ink-skeleton-line h-3 w-20" />
+
+        {/* Hero */}
         <div
-          className="motion-ink-up motion-ink-up-delay-1 grid overflow-hidden border-[3px] lg:grid-cols-[1.15fr_0.85fr]"
-          style={panelStyle}
+          className="motion-ink-up motion-ink-up-delay-1 relative overflow-hidden"
+          style={yumeHeroStyle}
         >
-          <div
-            className="relative min-h-[520px] border-b-[3px] lg:border-b-0 lg:border-r-[3px]"
-            style={frameStyle}
-          >
-            <div className="ink-skeleton absolute inset-0" />
-            <div className="absolute left-5 top-5 h-8 w-28 border-2" style={accentStyle} />
-            <div
-              className="absolute right-5 top-5 h-16 w-16 rounded-full border-2"
-              style={accentStyle}
-            />
-            <div className="absolute inset-x-0 bottom-0 px-6 py-7" style={heroOverlayStyle}>
-              <div className="ink-skeleton-line ink-skeleton h-4 w-28 bg-white/80" />
-              <div className="ink-skeleton-line ink-skeleton mt-4 h-12 w-4/5 bg-white/90" />
-              <div className="ink-skeleton-line ink-skeleton mt-4 h-4 w-full max-w-xl bg-white/70" />
-              <div className="ink-skeleton-line ink-skeleton mt-2 h-4 w-3/4 bg-white/70" />
-            </div>
+          <YumeHeroBodySkeleton minHeight="clamp(380px, 54vw, 540px)" />
+        </div>
+
+        {/* About + stats */}
+        <div className="motion-ink-up motion-ink-up-delay-2 grid gap-7 lg:grid-cols-[1.4fr_1fr]">
+          <div className="p-6 sm:p-9" style={yumePanelStyle}>
+            <div className="ink-skeleton ink-skeleton-line h-2.5 w-16" />
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="ink-skeleton ink-skeleton-line mt-4 h-4"
+                style={{ width: `${index === 3 ? 52 : 100 - index * 6}%` }}
+              />
+            ))}
+            <div className="ink-skeleton mt-7 h-11 w-44 rounded-full" />
           </div>
 
-          <div className="grid grid-rows-[auto_auto_1fr]">
-            <div className="grid grid-cols-3 border-b-[3px]" style={frameStyle}>
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`p-5 ${index < 2 ? "border-r-[3px]" : ""}`}
-                  style={index < 2 ? frameStyle : undefined}
-                >
-                  <div className="ink-skeleton-line ink-skeleton h-3 w-16" />
-                  <div className="ink-skeleton-line ink-skeleton mt-4 h-6 w-20" />
+          <div className="p-6 sm:p-9" style={yumePanelStyle}>
+            <div className="ink-skeleton ink-skeleton-line h-2.5 w-20" />
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="p-4" style={yumeStatStyle}>
+                  <div className="ink-skeleton ink-skeleton-line h-2.5 w-16" />
+                  <div className="ink-skeleton ink-skeleton-line mt-3 h-5 w-12" />
                 </div>
               ))}
-            </div>
-
-            <div className="border-b-[3px] p-6" style={frameStyle}>
-              <div className="ink-skeleton-line ink-skeleton h-3 w-24" />
-              <div className="ink-skeleton-line ink-skeleton mt-5 h-4 w-full" />
-              <div className="ink-skeleton-line ink-skeleton mt-3 h-4 w-5/6" />
-            </div>
-
-            <div className="p-6">
-              <div className="border-2 p-4" style={tileStyle}>
-                <div className="ink-skeleton-line ink-skeleton h-3 w-20" />
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className="ink-skeleton-line ink-skeleton h-16 w-full" />
-                  <div className="ink-skeleton-line ink-skeleton h-16 w-full" />
-                </div>
-              </div>
-              <div className="mt-6 flex gap-3">
-                <div className="ink-skeleton-dark h-12 w-40 border-2" style={frameStyle} />
-                <div className="ink-skeleton h-12 w-36 border-2" style={frameStyle} />
-              </div>
             </div>
           </div>
         </div>
 
-        <div className="motion-ink-up motion-ink-up-delay-2 border-[3px] p-5 sm:p-7" style={panelStyle}>
-          <div className="ink-skeleton-line ink-skeleton-dark h-8 w-40" />
-          <div className="mt-6 grid gap-4">
+        {/* Chapters */}
+        <div className="motion-ink-up motion-ink-up-delay-3 p-6 sm:p-9" style={yumePanelStyle}>
+          <div className="mb-7 flex items-end justify-between">
+            <div className="ink-skeleton ink-skeleton-line h-8 w-40" />
+            <div className="ink-skeleton ink-skeleton-line h-3 w-24" />
+          </div>
+          <div className="grid gap-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={index}
-                className="motion-ink-up grid grid-cols-[72px_1fr] overflow-hidden border-2 sm:grid-cols-[84px_1fr_auto]"
-                style={{ ...tileStyle, animationDelay: `${index * 55}ms` }}
+                className="motion-ink-up grid grid-cols-[96px_1fr] overflow-hidden sm:grid-cols-[124px_1fr_auto]"
+                style={{ ...yumeCardStyle, animationDelay: `${index * 55}ms` }}
               >
-                <div className="relative border-r-2" style={accentStyle}>
-                  <div className="ink-skeleton absolute inset-0" style={accentStyle} />
+                <div className="ink-skeleton min-h-[104px]" />
+                <div className="flex flex-col justify-center p-4 sm:p-5">
+                  <div className="ink-skeleton ink-skeleton-line h-5 w-3/4" />
+                  <div className="ink-skeleton ink-skeleton-line mt-3 h-3.5 w-1/2" />
                 </div>
-                <div className="p-4">
-                  <div className="ink-skeleton-line ink-skeleton h-5 w-3/4" />
-                  <div className="ink-skeleton-line ink-skeleton mt-3 h-4 w-1/2" />
+                <div
+                  className="hidden items-center justify-center border-l px-6 sm:flex"
+                  style={yumeLineStyle}
+                >
+                  <div className="ink-skeleton ink-skeleton-line h-3 w-12" />
                 </div>
-                <div className="hidden border-l-2 sm:block" style={innerSurfaceStyle} />
               </div>
             ))}
           </div>
