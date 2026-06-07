@@ -47,99 +47,87 @@ export function CommentsSection({
     comments.reduce((count, comment) => count + comment.replies.length, 0);
 
   return (
-    <section
-      id="comments"
-      className="panel-frame motion-ink-up motion-ink-up-delay-3 p-5 sm:p-7"
-    >
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section id="comments" className="motion-ink-up motion-ink-up-delay-4 yd-panel">
+      <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="section-block">
-            <span>Уншигчдын сэтгэгдэл</span>
-          </div>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-[#5f5146] sm:text-base">
-            Уншсан цувралын талаарх сэтгэгдэлээ үлдээж бусад уншигчдадтай санал бодолоо хуваалцаарай!
+          <h2 className="yd-section-title">Уншигчдын сэтгэгдэл</h2>
+          <p className="yd-desc-soft">
+            Уншсан цувралын талаарх сэтгэгдэлээ үлдээж бусад уншигчидтай санал
+            бодолоо хуваалцаарай.
           </p>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8a6a57]">
-          {totalMessages} нийт сэтгэгдэл
-        </p>
+        <p className="yd-count">{totalMessages} нийт сэтгэгдэл</p>
       </div>
 
       <CommentComposer mangaId={mangaId} currentUserId={currentUserId} />
 
       <div className="mt-6 space-y-4">
         {comments.length === 0 ? (
-          <div className="panel-box bg-[#fff9ee] p-6 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center border-2 border-[#1a1108] bg-[#f5c518] text-[#1a1108]">
+          <div className="yd-reply flex flex-col items-center py-12 text-center">
+            <span
+              className="flex h-14 w-14 items-center justify-center rounded-full"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--home-gold-soft), var(--home-rose))",
+                color: "#fff",
+              }}
+            >
               <MessageSquareMore size={24} />
-            </div>
-            <p className="mt-4 text-lg font-semibold text-[#1a1108]">
+            </span>
+            <p
+              className="mt-5"
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontStyle: "italic",
+                fontSize: 22,
+                color: "var(--home-plum)",
+              }}
+            >
               Одоогоор сэтгэгдэл алга.
             </p>
-            <p className="mt-2 text-sm leading-6 text-[#6f5c50]">
-              Энэ цувралын анхны сэтгэгдэлээ үлдээсэн уншигч болоорой!
+            <p className="yd-desc-soft" style={{ marginTop: 6 }}>
+              Энэ цувралын анхны сэтгэгдэлээ үлдээсэн уншигч болоорой.
             </p>
           </div>
         ) : (
           comments.map((comment) => (
-            <article
-              key={comment.id}
-              className="panel-box overflow-hidden bg-[#fffaf1]"
-            >
-              <div className="border-b-2 border-[#1a1108] bg-[#fff7ea] px-4 py-4 sm:px-5">
-                <CommentHeader
-                  user={comment.user}
-                  createdAt={comment.createdAt}
-                />
-              </div>
-              <div className="px-4 py-4 sm:px-5">
-                <p className="text-sm leading-7 text-[#2a211b] sm:text-[15px]">
-                  {comment.body}
-                </p>
+            <article key={comment.id} className="yd-comment">
+              <CommentHeader user={comment.user} createdAt={comment.createdAt} />
+              <p className="yd-comment-body">{comment.body}</p>
 
+              <div className="yd-comment-actions">
                 <ReplyComposer
                   mangaId={mangaId}
                   parentId={comment.id}
                   currentUserId={currentUserId}
                 />
-
                 {currentUserId === comment.user.id ? (
-                  <div className="mt-3">
-                    <DeleteCommentButton
-                      mangaId={mangaId}
-                      commentId={comment.id}
-                    />
-                  </div>
-                ) : null}
-
-                {comment.replies.length > 0 ? (
-                  <div className="mt-5 space-y-3 border-l-4 border-[#f1dcc0] pl-3 sm:pl-5">
-                    {comment.replies.map((reply) => (
-                      <div
-                        key={reply.id}
-                        className="border-2 border-[#1a1108]/15 bg-[#fffdf8] px-4 py-4"
-                      >
-                        <CommentHeader
-                          user={reply.user}
-                          createdAt={reply.createdAt}
-                          compact
-                        />
-                        <p className="mt-3 text-sm leading-7 text-[#3f342b]">
-                          {reply.body}
-                        </p>
-                        {currentUserId === reply.user.id ? (
-                          <div className="mt-3">
-                            <DeleteCommentButton
-                              mangaId={mangaId}
-                              commentId={reply.id}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
+                  <DeleteCommentButton mangaId={mangaId} commentId={comment.id} />
                 ) : null}
               </div>
+
+              {comment.replies.length > 0 ? (
+                <div className="yd-replies">
+                  {comment.replies.map((reply) => (
+                    <div key={reply.id} className="yd-reply">
+                      <CommentHeader
+                        user={reply.user}
+                        createdAt={reply.createdAt}
+                        compact
+                      />
+                      <p className="yd-comment-body">{reply.body}</p>
+                      {currentUserId === reply.user.id ? (
+                        <div className="mt-3">
+                          <DeleteCommentButton
+                            mangaId={mangaId}
+                            commentId={reply.id}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </article>
           ))
         )}
@@ -158,42 +146,28 @@ function CommentHeader({
   compact?: boolean;
 }) {
   const displayName = getUserDisplayName(user);
+  const size = compact ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
 
   return (
-    <div className="flex items-center gap-3">
-      <Link
-        href={`/users/${user.id}`}
-        className="flex items-center gap-3 text-[#1a1108] transition hover:text-[#e8637e]"
-      >
+    <div className="yd-comment-head">
+      <Link href={`/users/${user.id}`} className="flex min-w-0 items-center gap-3">
         {user.avatarUrl ? (
           <img
             src={user.avatarUrl}
             alt={displayName}
-            className={`${compact ? "h-9 w-9" : "h-11 w-11"} rounded-full border-2 border-[#1a1108] object-cover`}
+            className={`yd-avatar ${size}`}
           />
         ) : (
-          <div
-            className={`${
-              compact ? "h-9 w-9 text-sm" : "h-11 w-11 text-base"
-            } flex items-center justify-center rounded-full border-2 border-[#1a1108] bg-[#f5c518] font-extrabold uppercase`}
-          >
-            {getUserInitial(user)}
-          </div>
+          <span className={`yd-avatar ${size}`}>{getUserInitial(user)}</span>
         )}
 
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold sm:text-base">
-            {displayName}
-          </p>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a6a57]">
-            View profile
-          </p>
-        </div>
+        <span className="min-w-0">
+          <span className="yd-name block truncate">{displayName}</span>
+          <span className="yd-sub block">Профайл харах</span>
+        </span>
       </Link>
 
-      <span className="ml-auto text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a6a57]">
-        {formatRelativeTime(createdAt)}
-      </span>
+      <span className="yd-time">{formatRelativeTime(createdAt)}</span>
     </div>
   );
 }

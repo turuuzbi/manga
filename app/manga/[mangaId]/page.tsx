@@ -216,6 +216,82 @@ const PREVIEW_STYLES = `
   color: var(--home-plum);
   font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 22px;
 }
+
+/* ── Comments ── */
+.yume-detail .yd-btn-sm { padding: 10px 20px; font-size: 11px; }
+.yume-detail .yd-desc-soft { margin-top: 10px; font-size: 14px; line-height: 1.7; color: var(--home-plum-soft); max-width: 60ch; }
+.yume-detail .yd-comment {
+  border-radius: 18px; background: var(--home-paper);
+  border: 1px solid var(--home-line);
+  box-shadow: 0 12px 26px -22px var(--home-shadow-strong);
+  padding: 18px 20px;
+}
+.yume-detail .yd-comment-body {
+  margin-top: 13px; font-size: 14.5px; line-height: 1.75;
+  color: var(--home-plum); white-space: pre-wrap; word-break: break-word;
+}
+.yume-detail .yd-comment-head { display: flex; align-items: center; gap: 12px; }
+.yume-detail .yd-avatar {
+  border-radius: 999px; object-fit: cover;
+  border: 1px solid var(--home-line-strong);
+  background: linear-gradient(135deg, var(--home-gold-soft), var(--home-rose));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Marcellus', serif; font-weight: 600; color: #fff;
+  text-transform: uppercase; flex-shrink: 0;
+}
+.yume-detail .yd-name {
+  font-family: 'Cormorant Garamond', serif; font-weight: 600;
+  font-size: 17px; color: var(--home-plum); line-height: 1.1;
+  transition: color 0.2s;
+}
+.yume-detail a:hover .yd-name { color: var(--home-rose-deep); }
+.yume-detail .yd-sub {
+  font-family: 'Marcellus', serif;
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--home-gold); margin-top: 2px;
+}
+.yume-detail .yd-time {
+  margin-left: auto;
+  font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--home-plum-soft); white-space: nowrap;
+}
+.yume-detail .yd-comment-actions { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.yume-detail .yd-replies {
+  margin-top: 16px; padding-left: 16px;
+  border-left: 2px solid var(--home-line);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.yume-detail .yd-reply {
+  border-radius: 14px; background: var(--home-paper-2);
+  border: 1px solid var(--home-line); padding: 14px 16px;
+}
+.yume-detail .yd-textarea {
+  width: 100%; border-radius: 14px;
+  border: 1px solid var(--home-line); background: var(--home-paper);
+  padding: 12px 15px; font-size: 14px; line-height: 1.65;
+  color: var(--home-plum); outline: none; resize: vertical;
+  font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.yume-detail .yd-textarea::placeholder { color: var(--home-plum-soft); }
+.yume-detail .yd-textarea:focus {
+  border-color: var(--home-rose);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-rose) 16%, transparent);
+}
+.yume-detail .yd-textbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--home-plum-soft); background: none; border: none;
+  cursor: pointer; padding: 0; text-decoration: none;
+  transition: color 0.2s;
+}
+.yume-detail .yd-textbtn:hover { color: var(--home-rose-deep); }
+.yume-detail .yd-danger { color: #b8617a; }
+.yume-detail .yd-danger:hover { color: #94405b; }
+.yume-detail .yd-note { font-size: 13px; margin-top: 12px; }
+.yume-detail .yd-note-ok { color: #3f7d57; }
+.yume-detail .yd-note-err { color: #c44d66; }
 `;
 
 const STATUS_LABELS: Record<string, string> = {

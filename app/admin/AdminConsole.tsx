@@ -45,6 +45,197 @@ const initialAdminActionState: AdminActionState = {
   message: "",
 };
 
+const ADMIN_STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Marcellus&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
+
+.yume-admin { font-family: 'Plus Jakarta Sans', sans-serif; }
+.yume-admin * { box-sizing: border-box; }
+
+.yume-admin .ad-eyebrow {
+  font-family: 'Marcellus', serif;
+  font-size: 10.5px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--home-gold); display: inline-flex; align-items: center; gap: 8px;
+}
+.yume-admin .ad-h1 {
+  font-family: 'Cormorant Garamond', serif; font-weight: 700; font-style: italic;
+  font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.02; color: var(--home-plum);
+}
+.yume-admin .ad-h2 {
+  font-family: 'Cormorant Garamond', serif; font-weight: 700; font-style: italic;
+  font-size: clamp(1.5rem, 2.6vw, 2rem); line-height: 1.05; color: var(--home-plum);
+}
+.yume-admin .ad-h3 {
+  font-family: 'Cormorant Garamond', serif; font-weight: 600;
+  font-size: 20px; color: var(--home-plum);
+}
+.yume-admin .ad-sub { font-size: 13.5px; line-height: 1.7; color: var(--home-plum-soft); }
+
+.yume-admin .ad-card {
+  border-radius: 24px; background: var(--home-paper);
+  border: 1px solid var(--home-line);
+  box-shadow: 0 22px 48px -30px var(--home-shadow-strong), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.yume-admin .ad-card-glass {
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--home-blush) 65%, transparent), transparent 58%),
+    color-mix(in srgb, var(--home-paper) 82%, transparent);
+  border: 1px solid var(--home-line-strong);
+  box-shadow: 0 30px 60px -30px var(--home-shadow-strong), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+}
+.yume-admin .ad-soft { border-radius: 16px; background: var(--home-paper-2); border: 1px solid var(--home-line); }
+.yume-admin .ad-dashed { border-radius: 16px; background: var(--home-paper-2); border: 1px dashed var(--home-line-strong); }
+
+.yume-admin .ad-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 999px; border: 1px solid var(--home-line); background: var(--home-paper);
+  padding: 9px 16px; font-family: 'Marcellus', serif;
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--home-plum-soft); text-decoration: none; transition: all 0.2s;
+}
+.yume-admin .ad-back:hover { border-color: var(--home-rose); color: var(--home-rose-deep); transform: translateX(-2px); }
+
+.yume-admin .ad-label {
+  display: block; font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--home-gold); margin-bottom: 8px;
+}
+
+.yume-admin .ad-input, .yume-admin .ad-select, .yume-admin .ad-textarea {
+  width: 100%; border-radius: 14px; border: 1px solid var(--home-line);
+  background: var(--home-paper-2); padding: 12px 15px; font-size: 14px;
+  color: var(--home-plum); outline: none; font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.yume-admin .ad-input::placeholder, .yume-admin .ad-textarea::placeholder { color: var(--home-plum-soft); }
+.yume-admin .ad-input:focus, .yume-admin .ad-select:focus, .yume-admin .ad-textarea:focus {
+  border-color: var(--home-rose); background: var(--home-paper);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-rose) 16%, transparent);
+}
+.yume-admin .ad-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23c8a24c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px;
+}
+
+.yume-admin .ad-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 14px; padding: 13px 22px;
+  font-family: 'Marcellus', serif; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid transparent; text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s, filter 0.2s, border-color 0.2s, color 0.2s;
+}
+.yume-admin .ad-btn:hover { transform: translateY(-2px); }
+.yume-admin .ad-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.yume-admin .ad-btn-primary {
+  background: linear-gradient(135deg, var(--home-rose), var(--home-rose-deep)); color: #fff;
+  box-shadow: 0 14px 30px -12px var(--home-rose-deep); border-color: rgba(255, 255, 255, 0.25);
+}
+.yume-admin .ad-btn-gold {
+  background: linear-gradient(135deg, var(--home-gold-soft), var(--home-gold)); color: #4a3614;
+  box-shadow: 0 14px 30px -14px var(--home-gold); border-color: rgba(255, 255, 255, 0.35);
+}
+.yume-admin .ad-btn-line {
+  background: var(--home-paper); color: var(--home-rose-deep); border-color: var(--home-line);
+}
+.yume-admin .ad-btn-line:hover { border-color: var(--home-rose); }
+.yume-admin .ad-btn-danger {
+  background: linear-gradient(135deg, #d98f9f, #c15f73); color: #fff;
+  box-shadow: 0 14px 30px -14px #b9577b; border-color: rgba(255, 255, 255, 0.25);
+}
+
+.yume-admin .ad-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 12px; padding: 12px; border: 1px solid var(--home-line);
+  background: var(--home-paper); color: var(--home-plum); cursor: pointer; transition: all 0.2s;
+}
+.yume-admin .ad-icon-btn:hover:not(:disabled) { border-color: var(--home-rose); color: var(--home-rose-deep); }
+.yume-admin .ad-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.yume-admin .ad-tab {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 14px; padding: 13px 16px;
+  font-family: 'Marcellus', serif; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid var(--home-line); background: var(--home-paper-2); color: var(--home-plum);
+  cursor: pointer; transition: all 0.2s;
+}
+.yume-admin .ad-tab:hover { border-color: var(--home-rose); color: var(--home-rose-deep); }
+.yume-admin .ad-tab-active {
+  background: linear-gradient(135deg, var(--home-rose), var(--home-rose-deep));
+  border-color: transparent; color: #fff;
+  box-shadow: 0 12px 24px -12px var(--home-rose-deep);
+}
+.yume-admin .ad-tab-active:hover { color: #fff; }
+
+.yume-admin .ad-tile { border-radius: 18px; background: var(--home-paper-2); border: 1px solid var(--home-line); padding: 16px; }
+.yume-admin .ad-tile-ico {
+  display: inline-flex; border-radius: 12px; padding: 8px;
+  background: linear-gradient(135deg, var(--home-gold-soft), var(--home-rose)); color: #fff;
+}
+.yume-admin .ad-tile-val { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 20px; color: var(--home-plum); word-break: break-word; }
+
+.yume-admin .ad-chip {
+  border-radius: 999px; border: 1px solid var(--home-line); background: var(--home-paper);
+  padding: 5px 12px; font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--home-plum-soft);
+}
+
+.yume-admin .ad-upload {
+  position: relative; border-radius: 20px; border: 1px dashed var(--home-line-strong);
+  background: var(--home-paper-2); padding: 20px; transition: border-color 0.2s, background 0.2s; cursor: pointer;
+}
+.yume-admin .ad-upload:hover { border-color: var(--home-rose); background: var(--home-paper); }
+.yume-admin .ad-upload-ico {
+  border-radius: 999px; padding: 12px;
+  background: linear-gradient(135deg, var(--home-gold-soft), var(--home-rose)); color: #fff;
+}
+
+.yume-admin .ad-danger-box {
+  border-radius: 18px; padding: 18px;
+  border: 1px solid color-mix(in srgb, #c15f73 42%, var(--home-line));
+  background: color-mix(in srgb, #e7a3b0 16%, var(--home-paper));
+}
+.yume-admin .ad-danger-eyebrow {
+  font-family: 'Marcellus', serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: #a8506a;
+}
+
+.yume-admin .ad-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  border-radius: 16px; padding: 14px 18px; font-size: 14px; border: 1px solid;
+}
+.yume-admin .ad-banner-ok {
+  background: color-mix(in srgb, #5fa97f 15%, var(--home-paper));
+  border-color: color-mix(in srgb, #5fa97f 42%, transparent); color: #356b4d;
+}
+.yume-admin .ad-banner-err {
+  background: color-mix(in srgb, #c15f73 13%, var(--home-paper));
+  border-color: color-mix(in srgb, #c15f73 42%, transparent); color: #9c4a59;
+}
+
+.yume-admin .ad-inforow {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--home-line);
+}
+.yume-admin .ad-inforow:last-child { border-bottom: none; padding-bottom: 0; }
+.yume-admin .ad-inforow-label { font-family: 'Marcellus', serif; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--home-gold); }
+.yume-admin .ad-inforow-value { max-width: 62%; text-align: right; font-size: 13.5px; color: var(--home-plum); word-break: break-word; }
+
+.yume-admin .ad-page { border-radius: 18px; background: var(--home-paper-2); border: 1px solid var(--home-line); padding: 14px; }
+.yume-admin .ad-thumb { border-radius: 12px; overflow: hidden; border: 1px solid var(--home-line); background: var(--home-paper); }
+
+.yume-admin .ad-recent { border-radius: 16px; background: var(--home-paper-2); border: 1px solid var(--home-line); padding: 14px 16px; transition: border-color 0.2s; }
+.yume-admin .ad-recent:hover { border-color: var(--home-line-strong); }
+
+.yume-admin .ad-check {
+  display: flex; align-items: flex-start; gap: 10px;
+  border-radius: 14px; border: 1px solid var(--home-line); background: var(--home-paper-2);
+  padding: 14px; font-size: 13.5px; color: var(--home-plum); cursor: pointer; transition: all 0.2s;
+}
+.yume-admin .ad-check:hover { border-color: var(--home-rose); }
+.yume-admin .ad-check input { accent-color: var(--home-rose-deep); }
+`;
+
 type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
@@ -302,41 +493,33 @@ export function AdminConsole({
     }
 
     return activeState.ok
-      ? {
-          icon: CheckCircle2,
-          className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-        }
-      : {
-          icon: AlertCircle,
-          className: "border-red-500/30 bg-red-500/10 text-red-200",
-        };
+      ? { icon: CheckCircle2, className: "ad-banner-ok" }
+      : { icon: AlertCircle, className: "ad-banner-err" };
   }, [activeState]);
 
   return (
-    <div className="min-h-screen bg-[#0b0b0f] text-zinc-100">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.08),transparent_26%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:28px_28px]" />
-      </div>
+    <div className="yume-surface yume-admin min-h-screen">
+      <style>{ADMIN_STYLES}</style>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 pb-10 pt-24 sm:px-6 lg:px-8">
-        <header className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-7">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 pb-12 pt-24 sm:px-6 lg:px-8">
+        <header className="ad-card-glass motion-ink-up p-5 sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-4">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-300 transition hover:border-orange-400/40 hover:text-white"
-              >
+              <Link href="/" className="ad-back">
                 <ArrowLeft size={14} />
                 Нүүр рүү буцах
               </Link>
               <div className="space-y-3">
-                <h1 className="max-w-3xl text-2xl font-semibold tracking-tight text-white sm:text-5xl">
-                  Манга, бүлэг, зураг, постерыг нэг дор удирдана.
+                <span className="ad-eyebrow">
+                  <Sparkles size={13} />
+                  Удирдлагын самбар
+                </span>
+                <h1 className="ad-h1 max-w-3xl">
+                  Манга, бүлэг, зураг, постерыг нэг дороос.
                 </h1>
-                <p className="max-w-2xl text-[12px] leading-6 text-zinc-400 sm:text-base">
+                <p className="ad-sub max-w-2xl">
                   Эндээс мэдээлэл засах, зураг солих, бүлэг шинэчлэх, Drive-аас
-                  импортлох үйлдлүүдийг хийж болно.
+                  импортлох үйлдлүүдийг хийнэ.
                 </p>
               </div>
             </div>
@@ -365,9 +548,7 @@ export function AdminConsole({
         </header>
 
         {statusTone ? (
-          <div
-            className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${statusTone.className}`}
-          >
+          <div className={`ad-banner ${statusTone.className}`}>
             <statusTone.icon size={18} className="mt-0.5 shrink-0" />
             <p>{activeState.message}</p>
           </div>
@@ -375,8 +556,8 @@ export function AdminConsole({
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
-            <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-5">
-              <div className="grid gap-3 sm:grid-cols-3">
+            <section className="ad-card motion-ink-up motion-ink-up-delay-1 p-4 sm:p-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <ViewButton
                   active={activeView === "manage"}
                   icon={PencilLine}
@@ -405,15 +586,11 @@ export function AdminConsole({
             </section>
 
             {activeView === "manage" ? (
-              <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+              <section className="ad-card motion-ink-up p-5 sm:p-7">
                 <div className="mb-6 space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Одоо байгаа манга
-                  </p>
-                  <h2 className="text-2xl font-semibold text-white">
-                    Гарчиг, тайлбар, төлөв, постерыг засах
-                  </h2>
-                  <p className="text-sm leading-6 text-zinc-400">
+                  <p className="ad-eyebrow">Одоо байгаа манга</p>
+                  <h2 className="ad-h2">Гарчиг, тайлбар, төлөв, постер засах</h2>
+                  <p className="ad-sub">
                     Нүүр хуудас болон дэлгэрэнгүй хуудасны постерыг тусад нь
                     сольж болно.
                   </p>
@@ -426,11 +603,7 @@ export function AdminConsole({
                     encType="multipart/form-data"
                     className="space-y-6"
                   >
-                    <input
-                      type="hidden"
-                      name="mangaId"
-                      value={selectedManga.id}
-                    />
+                    <input type="hidden" name="mangaId" value={selectedManga.id} />
 
                     <SelectField
                       label="Манга сонгох"
@@ -476,9 +649,7 @@ export function AdminConsole({
                           accept="image/*"
                           className="hidden"
                           onChange={(event) =>
-                            setHomeCoverName(
-                              event.target.files?.[0]?.name ?? "",
-                            )
+                            setHomeCoverName(event.target.files?.[0]?.name ?? "")
                           }
                         />
                       </UploadField>
@@ -507,9 +678,9 @@ export function AdminConsole({
                       </UploadField>
                     </div>
 
-                    <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
+                    <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                       Одоогийн бүлгийн тоо:{" "}
-                      <span className="font-semibold text-zinc-200">
+                      <span style={{ color: "var(--home-plum)", fontWeight: 600 }}>
                         {selectedManga.chapterCount}
                       </span>
                     </div>
@@ -517,20 +688,19 @@ export function AdminConsole({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <button
                         type="submit"
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300"
+                        disabled={managePending}
+                        className="ad-btn ad-btn-primary w-full sm:w-auto"
                       >
-                        <PencilLine size={18} />
+                        <PencilLine size={17} />
                         Манга хадгалах
                       </button>
                       {managePending ? (
-                        <p className="text-sm text-zinc-400">
-                          Манганы мэдээллийг хадгалж байна...
-                        </p>
+                        <p className="ad-sub">Манганы мэдээллийг хадгалж байна...</p>
                       ) : null}
                     </div>
                   </form>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
+                  <div className="ad-dashed p-5 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                     Одоогоор манга алга. Эхлээд манга оруулаад дараа нь эндээс
                     засна.
                   </div>
@@ -539,17 +709,13 @@ export function AdminConsole({
             ) : null}
 
             {activeView === "chapters" ? (
-              <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+              <section className="ad-card motion-ink-up p-5 sm:p-7">
                 <div className="mb-6 space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Бүлгийн удирдлага
-                  </p>
-                  <h2 className="text-2xl font-semibold text-white">
-                    Бүлэг, зураг, дарааллыг засах
-                  </h2>
-                  <p className="text-sm leading-6 text-zinc-400">
+                  <p className="ad-eyebrow">Бүлгийн удирдлага</p>
+                  <h2 className="ad-h2">Бүлэг, зураг, дараалал засах</h2>
+                  <p className="ad-sub">
                     Уншигч хуудасны дарааллыг өсөх{" "}
-                    <span className="font-semibold text-zinc-200">
+                    <span style={{ color: "var(--home-plum)", fontWeight: 600 }}>
                       pageNumber
                     </span>
                     -оор харуулна. Эндээс бүлгийн нэр, дугаар, thumbnail болон
@@ -596,20 +762,18 @@ export function AdminConsole({
 
                     {selectedChapter ? (
                       <>
-                        <div className="rounded-3xl border border-white/10 bg-black/30 p-4 sm:p-5">
+                        <div className="ad-soft p-4 sm:p-5">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
-                                Одоогийн бүлэг
-                              </p>
-                              <h3 className="mt-2 text-xl font-semibold text-white">
+                              <p className="ad-eyebrow">Одоогийн бүлэг</p>
+                              <h3 className="ad-h3 mt-2">
                                 Бүлэг {selectedChapter.chapterNumber}
                                 {selectedChapter.title
                                   ? ` • ${selectedChapter.title}`
                                   : ""}
                               </h3>
                             </div>
-                            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
+                            <div className="ad-chip">
                               {selectedChapter.pageCount} хуудас •{" "}
                               {new Date(
                                 selectedChapter.publishedAt,
@@ -622,7 +786,7 @@ export function AdminConsole({
                           key={selectedChapter.id}
                           action={chapterMetaFormAction}
                           encType="multipart/form-data"
-                          className="rounded-3xl border border-white/10 bg-black/25 p-4 sm:p-5"
+                          className="ad-soft p-4 sm:p-5"
                         >
                           <input
                             type="hidden"
@@ -693,10 +857,8 @@ export function AdminConsole({
                           </div>
 
                           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                            <label className="space-y-2">
-                              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                                Тэмдгийн хэмжээ (%)
-                              </span>
+                            <label>
+                              <span className="ad-label">Тэмдгийн хэмжээ (%)</span>
                               <input
                                 type="number"
                                 name="badgeScale"
@@ -704,15 +866,15 @@ export function AdminConsole({
                                 max={100}
                                 step={5}
                                 defaultValue={selectedChapter.badgeScale ?? 85}
-                                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-orange-400/50 focus:bg-black/60"
+                                className="ad-input"
                               />
                             </label>
                             {selectedChapter.badgeImage ? (
-                              <label className="flex cursor-pointer items-center gap-3 self-end rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-300 transition hover:bg-black/40">
+                              <label className="ad-check self-end">
                                 <input
                                   type="checkbox"
                                   name="removeBadge"
-                                  className="h-4 w-4 accent-rose-400"
+                                  className="mt-0.5 h-4 w-4"
                                 />
                                 Тэмдгийг устгаж, дугаар руу буцаах
                               </label>
@@ -723,14 +885,14 @@ export function AdminConsole({
                             <button
                               type="submit"
                               disabled={chapterMetaPending}
-                              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="ad-btn ad-btn-primary"
                             >
-                              <PencilLine size={18} />
+                              <PencilLine size={17} />
                               Бүлэг хадгалах
                             </button>
                           </div>
                           {chapterMetaPending ? (
-                            <p className="mt-3 text-sm text-zinc-400">
+                            <p className="ad-sub mt-3">
                               Бүлгийн мэдээллийг хадгалж байна...
                             </p>
                           ) : null}
@@ -738,12 +900,9 @@ export function AdminConsole({
 
                         <div className="space-y-3">
                           {pageDraft.map((page, index) => (
-                            <div
-                              key={page.id}
-                              className="rounded-3xl border border-white/10 bg-black/25 p-3 sm:p-4"
-                            >
+                            <div key={page.id} className="ad-page">
                               <div className="flex items-center gap-3">
-                                <div className="flex h-16 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+                                <div className="ad-thumb flex h-16 w-12 shrink-0">
                                   <img
                                     src={page.imageUrl}
                                     alt={`Page ${index + 1}`}
@@ -752,13 +911,19 @@ export function AdminConsole({
                                 </div>
 
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
+                                  <p className="ad-inforow-label">
                                     Хуудасны байрлал
                                   </p>
-                                  <p className="mt-1 text-base font-semibold text-white">
+                                  <p
+                                    className="mt-1 text-base font-semibold"
+                                    style={{ color: "var(--home-plum)" }}
+                                  >
                                     #{index + 1}
                                   </p>
-                                  <p className="mt-1 truncate text-xs text-zinc-500">
+                                  <p
+                                    className="mt-1 truncate text-xs"
+                                    style={{ color: "var(--home-plum-soft)" }}
+                                  >
                                     Хадгалсан дугаар: {page.pageNumber}
                                   </p>
                                 </div>
@@ -770,15 +935,11 @@ export function AdminConsole({
                                     title="Дээш"
                                     onClick={() =>
                                       updatePageDraft((current) =>
-                                        moveDraftItem(
-                                          current,
-                                          index,
-                                          index - 1,
-                                        ),
+                                        moveDraftItem(current, index, index - 1),
                                       )
                                     }
                                     disabled={index === 0}
-                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                    className="ad-icon-btn"
                                   >
                                     <MoveUp size={16} />
                                   </button>
@@ -788,22 +949,21 @@ export function AdminConsole({
                                     title="Доош"
                                     onClick={() =>
                                       updatePageDraft((current) =>
-                                        moveDraftItem(
-                                          current,
-                                          index,
-                                          index + 1,
-                                        ),
+                                        moveDraftItem(current, index, index + 1),
                                       )
                                     }
                                     disabled={index === pageDraft.length - 1}
-                                    className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                    className="ad-icon-btn"
                                   >
                                     <MoveDown size={16} />
                                   </button>
                                 </div>
                               </div>
 
-                              <div className="mt-4 grid gap-2 border-t border-white/5 pt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                              <div
+                                className="mt-4 grid gap-2 pt-3 lg:grid-cols-[minmax(0,1fr)_auto]"
+                                style={{ borderTop: "1px solid var(--home-line)" }}
+                              >
                                 <form
                                   action={pageImageFormAction}
                                   encType="multipart/form-data"
@@ -814,10 +974,18 @@ export function AdminConsole({
                                     name="pageId"
                                     value={page.id}
                                   />
-                                  <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-zinc-300 transition hover:bg-white/10">
+                                  <label
+                                    className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm transition"
+                                    style={{
+                                      border: "1px solid var(--home-line)",
+                                      background: "var(--home-paper)",
+                                      color: "var(--home-plum)",
+                                    }}
+                                  >
                                     <FileImage
                                       size={16}
-                                      className="shrink-0 text-zinc-400"
+                                      className="shrink-0"
+                                      style={{ color: "var(--home-gold)" }}
                                     />
                                     <span className="truncate">
                                       {replacementFileNames[page.id] ??
@@ -839,7 +1007,7 @@ export function AdminConsole({
                                   <button
                                     type="submit"
                                     disabled={pageImagePending}
-                                    className="flex items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/15 px-4 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="ad-btn ad-btn-line"
                                   >
                                     <CloudUpload size={16} />
                                     Солих
@@ -855,7 +1023,7 @@ export function AdminConsole({
                                   <button
                                     type="submit"
                                     disabled={pageDeletePending}
-                                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="ad-btn ad-btn-danger w-full"
                                   >
                                     <Trash2 size={16} />
                                     Устгах
@@ -866,10 +1034,7 @@ export function AdminConsole({
                           ))}
                         </div>
 
-                        <form
-                          action={chapterOrderFormAction}
-                          className="space-y-4"
-                        >
+                        <form action={chapterOrderFormAction} className="space-y-4">
                           <input
                             type="hidden"
                             name="chapterId"
@@ -886,56 +1051,54 @@ export function AdminConsole({
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                             <button
                               type="submit"
-                              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-emerald-300"
+                              disabled={chapterOrderPending}
+                              className="ad-btn ad-btn-primary w-full sm:w-auto"
                             >
-                              <GripVertical size={18} />
+                              <GripVertical size={17} />
                               Дараалал хадгалах
                             </button>
                             {chapterOrderPending ? (
-                              <p className="text-sm text-zinc-400">
+                              <p className="ad-sub">
                                 Хуудасны дарааллыг шинэчилж байна...
                               </p>
                             ) : null}
                             {pageImagePending ? (
-                              <p className="text-sm text-zinc-400">
-                                Сонгосон хуудсыг сольж байна...
-                              </p>
+                              <p className="ad-sub">Сонгосон хуудсыг сольж байна...</p>
                             ) : null}
                             {pageDeletePending ? (
-                              <p className="text-sm text-zinc-400">
+                              <p className="ad-sub">
                                 Хуудсыг устгаж, дугаарлаж байна...
                               </p>
                             ) : null}
                           </div>
                         </form>
 
-                        <form
-                          action={chapterDeleteFormAction}
-                          className="space-y-4"
-                        >
+                        <form action={chapterDeleteFormAction} className="space-y-4">
                           <input
                             type="hidden"
                             name="chapterId"
                             value={selectedChapter.id}
                           />
-                          <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-4 sm:p-5">
-                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-200/80">
-                              Устгах үйлдэл
-                            </p>
-                            <p className="mt-2 text-sm leading-6 text-red-100/85">
+                          <div className="ad-danger-box">
+                            <p className="ad-danger-eyebrow">Устгах үйлдэл</p>
+                            <p
+                              className="mt-2 text-sm leading-6"
+                              style={{ color: "var(--home-plum)" }}
+                            >
                               Энэ бүлгийг устгавал Neon дахь мөр болон R2 дахь
                               хуудасны файлууд устна. Манга өөрөө үлдэнэ.
                             </p>
                             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                               <button
                                 type="submit"
-                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-red-300"
+                                disabled={chapterDeletePending}
+                                className="ad-btn ad-btn-danger w-full sm:w-auto"
                               >
-                                <Trash2 size={18} />
+                                <Trash2 size={17} />
                                 Энэ бүлгийг устгах
                               </button>
                               {chapterDeletePending ? (
-                                <p className="text-sm text-red-100/80">
+                                <p className="ad-sub">
                                   Бүлэг болон R2 файлуудыг устгаж байна...
                                 </p>
                               ) : null}
@@ -944,13 +1107,13 @@ export function AdminConsole({
                         </form>
                       </>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
+                      <div className="ad-dashed p-5 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                         Энэ мангад одоогоор бүлэг алга.
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-zinc-400">
+                  <div className="ad-dashed p-5 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                     Одоогоор манга алга. Эхлээд манга оруулаад бүлгүүдийг нь
                     эндээс засна.
                   </div>
@@ -959,12 +1122,10 @@ export function AdminConsole({
             ) : null}
 
             {activeView === "upload" ? (
-              <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+              <section className="ad-card motion-ink-up p-5 sm:p-7">
                 <div className="mb-6 flex flex-col gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Гараар оруулах
-                  </p>
-                  <h2 className="text-2xl font-semibold text-white">
+                  <p className="ad-eyebrow">Гараар оруулах</p>
+                  <h2 className="ad-h2">
                     Local файлаас манга, бүлэг, хуудсууд үүсгэх
                   </h2>
                 </div>
@@ -1010,15 +1171,15 @@ export function AdminConsole({
                     </UploadField>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
-                    Файлууд эхлээд Cloudflare R2 руу орж, public URL нь
-                    Prisma-аар Neon-д хадгалагдана.
+                  <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
+                    Файлууд эхлээд Cloudflare R2 руу орж, public URL нь Prisma-аар
+                    Neon-д хадгалагдана.
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <SubmitButton />
+                    <SubmitButton pending={manualPending} />
                     {manualPending ? (
-                      <p className="text-sm text-zinc-400">
+                      <p className="ad-sub">
                         Хуудсуудыг upload хийж, DB-д бичиж байна...
                       </p>
                     ) : null}
@@ -1028,17 +1189,13 @@ export function AdminConsole({
             ) : null}
 
             {activeView === "drive" ? (
-              <section className="rounded-[28px] border border-white/10 bg-[#111114]/90 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-7">
+              <section className="ad-card motion-ink-up p-5 sm:p-7">
                 <div className="mb-6 flex flex-col gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-                    Google Drive импорт
-                  </p>
-                  <h2 className="text-2xl font-semibold text-white">
-                    Google Drive хавтсаас шууд татах
-                  </h2>
-                  <p className="text-sm leading-6 text-zinc-400">
-                    Хавтсаа Google service account имэйлтэй share хийгээд URL
-                    эсвэл ID-г энд оруулна.
+                  <p className="ad-eyebrow">Google Drive импорт</p>
+                  <h2 className="ad-h2">Google Drive хавтсаас шууд татах</h2>
+                  <p className="ad-sub">
+                    Хавтсаа Google service account имэйлтэй share хийгээд URL эсвэл
+                    ID-г энд оруулна.
                   </p>
                 </div>
 
@@ -1118,19 +1275,19 @@ export function AdminConsole({
                     required
                   />
 
-                  <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-300">
+                  <label className="ad-check">
                     <input
                       type="checkbox"
                       name="useFirstPageAsCover"
                       defaultChecked
-                      className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent text-orange-400"
+                      className="mt-0.5 h-4 w-4"
                     />
                     <span>
                       Google Drive-ийн эхний зургийг манганы постер болгох.
                     </span>
                   </label>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-400">
+                  <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                     {driveImportMode === "bulk_parent_folder"
                       ? "Энд parent manga хавтсаа ашиглана. Доторх subfolder бүр нэг бүлэг байна."
                       : driveImportMode === "existing_manga_chapter"
@@ -1139,9 +1296,9 @@ export function AdminConsole({
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <DriveSubmitButton />
+                    <DriveSubmitButton pending={drivePending} />
                     {drivePending ? (
-                      <p className="text-sm text-zinc-400">
+                      <p className="ad-sub">
                         Drive-аас зураг татаж R2-д хадгалж байна...
                       </p>
                     ) : null}
@@ -1152,19 +1309,15 @@ export function AdminConsole({
           </div>
 
           <aside className="space-y-6">
-            <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <section className="ad-card-glass motion-ink-up motion-ink-up-delay-2 p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                    Хандалтын эрх
-                  </p>
-                  <h3 className="mt-2 text-xl font-semibold text-white">
-                    Админ баталгаажуулалт
-                  </h3>
+                  <p className="ad-eyebrow">Хандалтын эрх</p>
+                  <h3 className="ad-h3 mt-2">Админ баталгаажуулалт</h3>
                 </div>
-                <UserRound className="text-zinc-500" size={20} />
+                <UserRound style={{ color: "var(--home-gold)" }} size={20} />
               </div>
-              <div className="space-y-4 text-sm text-zinc-300">
+              <div className="space-y-4">
                 <InfoRow label="Имэйл" value={dbUser.email} />
                 <InfoRow
                   label="Нэр"
@@ -1178,42 +1331,42 @@ export function AdminConsole({
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <section className="ad-card-glass motion-ink-up motion-ink-up-delay-3 p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                    Сүүлийн манга
-                  </p>
-                  <h3 className="mt-2 text-xl font-semibold text-white">
-                    Шинээр нэмэгдсэн мөрүүд
-                  </h3>
+                  <p className="ad-eyebrow">Сүүлийн манга</p>
+                  <h3 className="ad-h3 mt-2">Шинээр нэмэгдсэн мөрүүд</h3>
                 </div>
-                <Layers3 className="text-zinc-500" size={20} />
+                <Layers3 style={{ color: "var(--home-gold)" }} size={20} />
               </div>
               <div className="space-y-3">
                 {recentManga.length > 0 ? (
                   recentManga.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="rounded-2xl border border-white/10 bg-black/20 p-4"
-                    >
+                    <div key={entry.id} className="ad-recent">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-white">
+                          <p
+                            className="font-medium"
+                            style={{
+                              color: "var(--home-plum)",
+                              fontFamily: "'Cormorant Garamond', serif",
+                              fontSize: 17,
+                            }}
+                          >
                             {entry.mangaName}
                           </p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.24em] text-zinc-500">
+                          <p className="ad-inforow-label mt-1">
                             {getStatusLabel(entry.status)}
                           </p>
                         </div>
-                        <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
+                        <div className="ad-chip shrink-0">
                           {entry.chapterCount} бүлэг
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-4 text-sm text-zinc-400">
+                  <div className="ad-dashed p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                     Одоогоор манга алга. Эхний upload хийсний дараа энд гарна.
                   </div>
                 )}
@@ -1299,11 +1452,7 @@ function MetadataFields({
               min="0.1"
               required
             />
-            <Field
-              label="Бүлгийн нэр"
-              name="chapterTitle"
-              placeholder="Эхлэл"
-            />
+            <Field label="Бүлгийн нэр" name="chapterTitle" placeholder="Эхлэл" />
           </>
         ) : null}
       </div>
@@ -1353,37 +1502,35 @@ function ViewButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-        active
-          ? "border-orange-400/50 bg-orange-500/10 text-orange-200"
-          : "border-white/10 bg-black/30 text-zinc-300 hover:bg-black/40"
-      }`}
+      className={`ad-tab${active ? " ad-tab-active" : ""}`}
     >
-      <Icon size={17} />
+      <Icon size={16} />
       {label}
     </button>
   );
 }
 
-function SubmitButton() {
+function SubmitButton({ pending }: { pending?: boolean }) {
   return (
     <button
       type="submit"
-      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f97316] px-5 py-4 text-sm font-semibold text-black transition hover:bg-[#fb923c]"
+      disabled={pending}
+      className="ad-btn ad-btn-gold w-full sm:w-auto"
     >
-      <CloudUpload size={18} />
+      <CloudUpload size={17} />
       R2 руу upload хийж Neon-д хадгалах
     </button>
   );
 }
 
-function DriveSubmitButton() {
+function DriveSubmitButton({ pending }: { pending?: boolean }) {
   return (
     <button
       type="submit"
-      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-400 px-5 py-4 text-sm font-semibold text-black transition hover:bg-sky-300"
+      disabled={pending}
+      className="ad-btn ad-btn-primary w-full sm:w-auto"
     >
-      <FolderSync size={18} />
+      <FolderSync size={17} />
       Drive хавтас импортлох
     </button>
   );
@@ -1397,14 +1544,9 @@ function Field(
   const { label, ...inputProps } = props;
 
   return (
-    <label className="space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-        {label}
-      </span>
-      <input
-        {...inputProps}
-        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-orange-400/50 focus:bg-black/60"
-      />
+    <label className="block">
+      <span className="ad-label">{label}</span>
+      <input {...inputProps} className="ad-input" />
     </label>
   );
 }
@@ -1418,14 +1560,9 @@ function SelectField(
   const { label, children, ...selectProps } = props;
 
   return (
-    <label className="space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-        {label}
-      </span>
-      <select
-        {...selectProps}
-        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-orange-400/50 focus:bg-black/60"
-      >
+    <label className="block">
+      <span className="ad-label">{label}</span>
+      <select {...selectProps} className="ad-select">
         {children}
       </select>
     </label>
@@ -1440,15 +1577,9 @@ function TextAreaField(
   const { label, rows = 4, ...textareaProps } = props;
 
   return (
-    <label className="space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-        {label}
-      </span>
-      <textarea
-        {...textareaProps}
-        rows={rows}
-        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-orange-400/50 focus:bg-black/60"
-      />
+    <label className="block">
+      <span className="ad-label">{label}</span>
+      <textarea {...textareaProps} rows={rows} className="ad-textarea" />
     </label>
   );
 }
@@ -1464,18 +1595,23 @@ function UploadField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">
-        {label}
-      </span>
-      <div className="group relative rounded-[24px] border border-dashed border-white/15 bg-black/30 p-5 transition hover:border-orange-400/40 hover:bg-black/40">
+      <span className="ad-label">{label}</span>
+      <div className="ad-upload group">
         {children}
         <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
-          <div className="rounded-full border border-white/10 bg-white/5 p-3 text-zinc-200">
+          <div className="ad-upload-ico">
             <FileImage size={20} />
           </div>
           <div>
-            <p className="text-sm font-medium text-white">Зураг сонгох</p>
-            <p className="mt-1 text-xs text-zinc-500">{helper}</p>
+            <p
+              className="text-sm font-semibold"
+              style={{ color: "var(--home-plum)" }}
+            >
+              Зураг сонгох
+            </p>
+            <p className="mt-1 text-xs" style={{ color: "var(--home-plum-soft)" }}>
+              {helper}
+            </p>
           </div>
         </div>
       </div>
@@ -1495,30 +1631,26 @@ function StatusTile({
   detail: string;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+    <div className="ad-tile">
       <div className="mb-3 flex items-center gap-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-2 text-zinc-200">
-          <Icon size={18} />
-        </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
-          {label}
-        </p>
+        <span className="ad-tile-ico">
+          <Icon size={17} />
+        </span>
+        <p className="ad-inforow-label">{label}</p>
       </div>
-      <p className="text-xl font-semibold text-white">{value}</p>
-      <p className="mt-1 text-sm text-zinc-400">{detail}</p>
+      <p className="ad-tile-val">{value}</p>
+      <p className="mt-1 text-sm" style={{ color: "var(--home-plum-soft)" }}>
+        {detail}
+      </p>
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/5 pb-3 last:border-b-0 last:pb-0">
-      <span className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
-        {label}
-      </span>
-      <span className="max-w-[65%] text-right text-sm text-zinc-200">
-        {value}
-      </span>
+    <div className="ad-inforow">
+      <span className="ad-inforow-label">{label}</span>
+      <span className="ad-inforow-value">{value}</span>
     </div>
   );
 }

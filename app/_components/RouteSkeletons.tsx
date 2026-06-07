@@ -8,12 +8,6 @@ const frameStyle = {
   borderColor: "var(--manga-border)",
 } as const;
 
-const tileStyle = {
-  borderColor: "var(--manga-border)",
-  background: "var(--manga-paper-3)",
-  boxShadow: "3px 3px 0 var(--manga-shadow)",
-} as const;
-
 const innerSurfaceStyle = {
   borderColor: "var(--manga-border)",
   background: "var(--manga-paper-2)",
@@ -22,12 +16,6 @@ const innerSurfaceStyle = {
 const readerBackdropStyle = {
   backgroundImage:
     "radial-gradient(circle at top, var(--manga-radial-a), transparent 28%), radial-gradient(circle at bottom, var(--manga-radial-b), transparent 24%)",
-} as const;
-
-const adminBackdropStyle = {
-  backgroundImage:
-    "radial-gradient(circle at top left, var(--manga-radial-a), transparent 30%), radial-gradient(circle at bottom right, var(--manga-radial-b), transparent 26%), linear-gradient(to right, var(--manga-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--manga-grid) 1px, transparent 1px)",
-  backgroundSize: "auto, auto, 28px 28px, 28px 28px",
 } as const;
 
 const readerChromeStyle = {
@@ -40,12 +28,6 @@ const readerCanvasStyle = {
   borderColor: "var(--manga-border)",
   background: "var(--manga-paper-2)",
   boxShadow: "0 24px 80px rgba(0, 0, 0, 0.24)",
-} as const;
-
-const adminCardStyle = {
-  borderColor: "var(--manga-border)",
-  background: "var(--manga-paper)",
-  boxShadow: "0 20px 80px rgba(0, 0, 0, 0.22)",
 } as const;
 
 // ─── Shared "yume" tokens (home + manga detail use the soft gold/rose look) ───
@@ -74,6 +56,23 @@ const yumeStatStyle = {
   borderRadius: 12,
   border: "1px solid var(--home-line)",
   background: "var(--home-paper-2)",
+} as const;
+
+const yumeGlassStyle = {
+  borderRadius: 26,
+  border: "1px solid var(--home-line-strong)",
+  background: "color-mix(in srgb, var(--home-paper) 82%, transparent)",
+  boxShadow:
+    "0 30px 60px -30px var(--home-shadow-strong), inset 0 1px 0 rgba(255, 255, 255, 0.5)",
+  backdropFilter: "blur(10px)",
+} as const;
+
+const yumeAdminCardStyle = {
+  borderRadius: 24,
+  border: "1px solid var(--home-line)",
+  background: "var(--home-paper)",
+  boxShadow:
+    "0 22px 48px -30px var(--home-shadow-strong), inset 0 1px 0 rgba(255, 255, 255, 0.4)",
 } as const;
 
 const yumeLineStyle = { borderColor: "var(--home-line)" } as const;
@@ -338,81 +337,91 @@ export function ReaderLoadingSkeleton() {
 
 export function AdminLoadingSkeleton() {
   return (
-    <div className="min-h-screen px-4 pb-10 pt-24 sm:px-6 lg:px-8" style={pageShellStyle}>
-      <div className="pointer-events-none fixed inset-0 overflow-hidden" style={adminBackdropStyle} />
-      <div className="relative mx-auto flex max-w-7xl flex-col gap-6">
-        <div className="motion-ink-up rounded-[28px] border p-6" style={adminCardStyle}>
-          <div className="ink-skeleton-dark h-7 w-40 rounded-full" />
-          <div className="ink-skeleton-line ink-skeleton-dark mt-6 h-14 w-full max-w-2xl" />
-          <div className="ink-skeleton-line ink-skeleton mt-4 h-4 w-full max-w-xl" />
-          <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:w-[420px]">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={index}
-                className="ink-skeleton-dark h-28 rounded-3xl border"
-                style={innerSurfaceStyle}
-              />
-            ))}
+    <div className="yume-surface min-h-screen">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-24 sm:px-6 lg:px-8">
+        <div className="motion-ink-up p-6 sm:p-7" style={yumeGlassStyle}>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex-1 space-y-4">
+              <div className="ink-skeleton h-8 w-36 rounded-full" style={yumePosterStyle} />
+              <div className="ink-skeleton ink-skeleton-line h-2.5 w-28" />
+              <div className="ink-skeleton ink-skeleton-line h-11 w-full max-w-xl" />
+              <div className="ink-skeleton ink-skeleton-line h-4 w-full max-w-md" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px] lg:grid-cols-1">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="p-4" style={yumeStatStyle}>
+                  <div className="flex items-center gap-3">
+                    <div className="ink-skeleton h-9 w-9 rounded-xl" />
+                    <div className="ink-skeleton ink-skeleton-line h-2.5 w-20" />
+                  </div>
+                  <div className="ink-skeleton ink-skeleton-line mt-3 h-5 w-32" />
+                  <div className="ink-skeleton ink-skeleton-line mt-2 h-3 w-24" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
-            <div
-              className="motion-ink-up motion-ink-up-delay-1 rounded-[28px] border p-5"
-              style={adminCardStyle}
-            >
-              <div className="grid gap-3 sm:grid-cols-4">
+            <div className="motion-ink-up motion-ink-up-delay-1 p-4 sm:p-5" style={yumeAdminCardStyle}>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="ink-skeleton h-12 rounded-2xl border"
-                    style={innerSurfaceStyle}
-                  />
+                  <div key={index} className="ink-skeleton h-12 rounded-2xl" style={yumePosterStyle} />
                 ))}
               </div>
             </div>
 
-            <div
-              className="motion-ink-up motion-ink-up-delay-2 rounded-[28px] border p-6"
-              style={adminCardStyle}
-            >
-              <div className="ink-skeleton-line ink-skeleton-dark h-8 w-56" />
+            <div className="motion-ink-up motion-ink-up-delay-2 p-6 sm:p-7" style={yumeAdminCardStyle}>
+              <div className="ink-skeleton ink-skeleton-line h-2.5 w-28" />
+              <div className="ink-skeleton ink-skeleton-line mt-3 h-8 w-64" />
+              <div className="ink-skeleton ink-skeleton-line mt-3 h-4 w-full max-w-md" />
+
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="ink-skeleton h-14 rounded-2xl border"
-                    style={innerSurfaceStyle}
-                  />
-                ))}
-              </div>
-              <div className="mt-4 space-y-3 rounded-2xl border p-4" style={innerSurfaceStyle}>
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 rounded-2xl border p-3"
-                    style={tileStyle}
-                  >
-                    <div className="ink-skeleton-dark h-14 w-10 rounded-xl" />
-                    <div className="flex-1">
-                      <div className="ink-skeleton-line ink-skeleton-dark h-4 w-20" />
-                      <div className="ink-skeleton-line ink-skeleton mt-2 h-3 w-12" />
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="ink-skeleton-dark h-10 w-10 rounded-2xl border" style={frameStyle} />
-                      <div className="ink-skeleton h-10 w-10 rounded-2xl border" style={frameStyle} />
-                    </div>
+                  <div key={index}>
+                    <div className="ink-skeleton ink-skeleton-line h-2.5 w-20" />
+                    <div className="ink-skeleton mt-2 h-11 rounded-xl" style={yumePosterStyle} />
                   </div>
                 ))}
               </div>
+
+              <div className="mt-4">
+                <div className="ink-skeleton ink-skeleton-line h-2.5 w-20" />
+                <div className="ink-skeleton mt-2 h-24 rounded-xl" style={yumePosterStyle} />
+              </div>
+
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="ink-skeleton h-40 rounded-[20px]" style={yumePosterStyle} />
+                ))}
+              </div>
+
+              <div className="ink-skeleton mt-6 h-12 w-56 rounded-2xl" />
             </div>
           </div>
 
-          <div className="motion-ink-up motion-ink-up-delay-3 space-y-6">
-            <div className="ink-skeleton-dark h-56 rounded-[28px] border" style={adminCardStyle} />
-            <div className="ink-skeleton h-64 rounded-[28px] border" style={adminCardStyle} />
-          </div>
+          <aside className="motion-ink-up motion-ink-up-delay-3 space-y-6">
+            {Array.from({ length: 2 }).map((_, card) => (
+              <div key={card} className="p-6" style={yumeGlassStyle}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="ink-skeleton ink-skeleton-line h-2.5 w-24" />
+                    <div className="ink-skeleton ink-skeleton-line mt-3 h-6 w-40" />
+                  </div>
+                  <div className="ink-skeleton h-6 w-6 rounded-lg" />
+                </div>
+                <div className="mt-6 space-y-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="flex items-center justify-between gap-4">
+                      <div className="ink-skeleton ink-skeleton-line h-3 w-16" />
+                      <div className="ink-skeleton ink-skeleton-line h-3 w-28" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </aside>
         </div>
       </div>
     </div>

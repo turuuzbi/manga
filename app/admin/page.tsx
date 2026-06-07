@@ -9,12 +9,40 @@ export default async function AdminPage() {
 
   if (!dbUser) {
     return (
-      <main className="min-h-screen bg-[#09090b] px-4 py-24 text-zinc-100">
-        <div className="mx-auto max-w-xl rounded-[28px] border border-white/10 bg-white/[0.04] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-            Админы Хуудас
+      <main className="yume-surface min-h-screen px-4 py-24">
+        <div
+          className="mx-auto max-w-xl p-8"
+          style={{
+            borderRadius: 26,
+            border: "1px solid var(--home-line-strong)",
+            background:
+              "color-mix(in srgb, var(--home-paper) 86%, transparent)",
+            boxShadow:
+              "0 30px 60px -30px var(--home-shadow-strong), inset 0 1px 0 rgba(255,255,255,0.5)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: "'Marcellus', serif",
+              fontSize: 11,
+              letterSpacing: "0.32em",
+              textTransform: "uppercase",
+              color: "var(--home-gold)",
+            }}
+          >
+            Удирдлагын самбар
           </p>
-          <h1 className="mt-4 text-3xl font-semibold text-white">
+          <h1
+            className="mt-4"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontStyle: "italic",
+              fontWeight: 700,
+              fontSize: "2.4rem",
+              color: "var(--home-plum)",
+            }}
+          >
             Танд админы эрх алга байна.
           </h1>
         </div>

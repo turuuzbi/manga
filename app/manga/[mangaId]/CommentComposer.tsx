@@ -35,63 +35,50 @@ export function CommentComposer({
 
   if (!currentUserId) {
     return (
-      <div className="panel-box bg-[#fffaf1] p-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-[#1a1108] bg-[#f5c518] text-[#1a1108]">
+      <div className="yd-reply flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--home-gold-soft), var(--home-rose))",
+              color: "#fff",
+            }}
+          >
             <MessageCircleMore size={18} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-[#1a1108]">
-              Хаягаараа нэвтэрч сэтгэгдэлээ хуваалцана уу.
-            </p>
-            <Link
-              href="/sign-in"
-              className="mt-4 inline-flex items-center gap-2 border-2 border-[#1a1108] bg-[#1a1108] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#fffaf1] shadow-[3px_3px_0_#e8637e] transition hover:-translate-x-px hover:-translate-y-px hover:shadow-[5px_5px_0_#e8637e]"
-            >
-              Sign In
-              <SendHorizontal size={14} />
-            </Link>
-          </div>
+          </span>
+          <p style={{ fontSize: 14, color: "var(--home-plum)" }}>
+            Хаягаараа нэвтэрч сэтгэгдэлээ хуваалцана уу.
+          </p>
         </div>
+        <Link href="/sign-in" className="yd-btn yd-btn-sm shrink-0">
+          Нэвтрэх
+          <SendHorizontal size={14} />
+        </Link>
       </div>
     );
   }
 
   return (
-    <form
-      ref={formRef}
-      action={formAction}
-      className="panel-box bg-[#fffaf1] p-5"
-    >
+    <form ref={formRef} action={formAction} className="yd-reply">
       <input type="hidden" name="mangaId" value={mangaId} />
-      <label className="mt-5 block">
-        <textarea
-          name="body"
-          rows={4}
-          maxLength={1000}
-          placeholder="Энэ цувралын талаар бодлоо бичнэ үү..."
-          className="w-full border-2 border-[#1a1108] bg-[#fffdf8] px-4 py-3 text-sm text-[#1f1a16] outline-none transition placeholder:text-[#9c8b7f] focus:bg-white"
-          required
-        />
-      </label>
+      <textarea
+        name="body"
+        rows={4}
+        maxLength={1000}
+        placeholder="Энэ цувралын талаар бодлоо бичнэ үү..."
+        className="yd-textarea"
+        required
+      />
 
       {state.message ? (
-        <p
-          className={`mt-3 text-sm ${
-            state.ok ? "text-emerald-700" : "text-[#c44d66]"
-          }`}
-        >
+        <p className={`yd-note ${state.ok ? "yd-note-ok" : "yd-note-err"}`}>
           {state.message}
         </p>
       ) : null}
 
-      <div className="mt-4 flex items-center justify-between gap-4">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a6a57]"></span>
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex items-center gap-2 border-2 border-[#1a1108] bg-[#1a1108] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#fffaf1] shadow-[3px_3px_0_#e8637e] transition hover:-translate-x-px hover:-translate-y-px hover:shadow-[5px_5px_0_#e8637e] disabled:cursor-wait disabled:opacity-70"
-        >
+      <div className="mt-4 flex justify-end">
+        <button type="submit" disabled={pending} className="yd-btn yd-btn-sm">
           <SendHorizontal size={14} />
           {pending ? "Нийтэлж байна..." : "Сэтгэгдэл нийтлэх"}
         </button>
@@ -124,32 +111,25 @@ export function ReplyComposer({
 
   if (!currentUserId) {
     return (
-      <Link
-        href="/sign-in"
-        className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6a57] transition hover:text-[#1a1108]"
-      >
+      <Link href="/sign-in" className="yd-textbtn">
         <Reply size={13} />
-        Sign in to reply
+        Хариулахын тулд нэвтрэх
       </Link>
     );
   }
 
   return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6a57] transition hover:text-[#1a1108]"
-      >
+    <>
+      <button type="button" onClick={() => setOpen((value) => !value)} className="yd-textbtn">
         <Reply size={13} />
-        {open ? "Close Reply" : "Reply"}
+        {open ? "Хаах" : "Хариулах"}
       </button>
 
       {open ? (
         <form
           ref={formRef}
           action={formAction}
-          className="mt-3 border-2 border-[#1a1108] bg-[#fffdf8] p-3"
+          className="mt-2 w-full basis-full"
         >
           <input type="hidden" name="mangaId" value={mangaId} />
           <input type="hidden" name="parentId" value={parentId} />
@@ -157,34 +137,26 @@ export function ReplyComposer({
             name="body"
             rows={3}
             maxLength={1000}
-            placeholder="Write a reply..."
-            className="w-full resize-y bg-transparent text-sm text-[#1f1a16] outline-none placeholder:text-[#9c8b7f]"
+            placeholder="Хариултаа бичнэ үү..."
+            className="yd-textarea"
             required
           />
 
           {state.message ? (
-            <p
-              className={`mt-2 text-sm ${
-                state.ok ? "text-emerald-700" : "text-[#c44d66]"
-              }`}
-            >
+            <p className={`yd-note ${state.ok ? "yd-note-ok" : "yd-note-err"}`}>
               {state.message}
             </p>
           ) : null}
 
           <div className="mt-3 flex justify-end">
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex items-center gap-2 border-2 border-[#1a1108] bg-[#fff3d6] px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#1a1108] shadow-[2px_2px_0_#1a1108] transition hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_#1a1108] disabled:cursor-wait disabled:opacity-70"
-            >
+            <button type="submit" disabled={pending} className="yd-btn yd-btn-sm">
               <SendHorizontal size={13} />
-              {pending ? "Replying..." : "Post Reply"}
+              {pending ? "Илгээж байна..." : "Хариулт нийтлэх"}
             </button>
           </div>
         </form>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -204,17 +176,15 @@ export function DeleteCommentButton({
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="mangaId" value={mangaId} />
       <input type="hidden" name="commentId" value={commentId} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#b14a60] transition hover:text-[#8a243c] disabled:cursor-wait disabled:opacity-70"
-      >
+      <button type="submit" disabled={pending} className="yd-textbtn yd-danger">
         <Trash2 size={13} />
-        {pending ? "Deleting..." : "Delete"}
+        {pending ? "Устгаж байна..." : "Устгах"}
       </button>
 
       {state.message && !state.ok ? (
-        <span className="text-xs text-[#c44d66]">{state.message}</span>
+        <span className="yd-note yd-note-err" style={{ marginTop: 0 }}>
+          {state.message}
+        </span>
       ) : null}
     </form>
   );
