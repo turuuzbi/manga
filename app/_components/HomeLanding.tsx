@@ -434,6 +434,22 @@ html[data-theme="dark"] .yume-home {
   .yume-hero-slide { transition: none; }
   .yume-hero-img { transition: none; transform: scale(1); }
 }
+
+/* Phones/tablets: the hero bleeds to every edge and pushes up under the
+   transparent header, blending into the content below. Desktop is unchanged. */
+@media (max-width: 900px) {
+  .yume-home main { padding-top: 0; }
+  .yume-home #featured { margin-bottom: 34px; }
+  .yume-home #featured .yume-hero {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    min-height: 60vh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
 `;
 
 const headerLinks = [
@@ -510,7 +526,7 @@ export function HomeLanding({
       >
         <CelestialFrame />
 
-        <MangaTopNav navLinks={headerLinks} isAdmin={isAdmin} />
+        <MangaTopNav navLinks={headerLinks} isAdmin={isAdmin} overlay />
 
         <main
           className="motion-ink-fade mx-auto max-w-7xl px-4 py-8 md:px-8"

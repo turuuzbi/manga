@@ -39,11 +39,17 @@ export function MangaTopNav({
   searchPlaceholder = "Цуврал, зохиолч хайх...",
   showSearch = true,
   isAdmin = false,
+  overlay = false,
 }: {
   navLinks?: NavLink[];
   searchPlaceholder?: string;
   showSearch?: boolean;
   isAdmin?: boolean;
+  /**
+   * When true the header floats transparently over a full-bleed hero on
+   * phones/tablets (see `.yume-nav-overlay`), staying a solid bar on desktop.
+   */
+  overlay?: boolean;
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -105,12 +111,18 @@ export function MangaTopNav({
 
   return (
     <nav
-      className="motion-ink-fade sticky top-0 z-50 border-b-[3px]"
-      style={{
-        background: "var(--manga-nav-bg)",
-        borderColor: "var(--manga-border)",
-        backdropFilter: "blur(14px)",
-      }}
+      className={`motion-ink-fade sticky top-0 z-50 ${
+        overlay ? "yume-nav-overlay" : "border-b-[3px]"
+      }`}
+      style={
+        overlay
+          ? undefined
+          : {
+              background: "var(--manga-nav-bg)",
+              borderColor: "var(--manga-border)",
+              backdropFilter: "blur(14px)",
+            }
+      }
     >
       <div
         className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8"
@@ -259,7 +271,11 @@ export function MangaTopNav({
       {mobileMenuOpen ? (
         <div
           className="flex flex-col gap-4 px-5 py-4 md:hidden"
-          style={{ borderTop: "2px solid var(--manga-border)" }}
+          style={{
+            borderTop: "2px solid var(--manga-border)",
+            background: "var(--manga-nav-bg)",
+            backdropFilter: "blur(14px)",
+          }}
         >
           {navLinks.map((entry) => (
             <Link

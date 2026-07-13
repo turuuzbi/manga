@@ -424,6 +424,23 @@ const PREVIEW_STYLES = `
 .yume-detail .yd-note { font-size: 13px; margin-top: 12px; }
 .yume-detail .yd-note-ok { color: #3f7d57; }
 .yume-detail .yd-note-err { color: #c44d66; }
+
+/* Phones/tablets: full-bleed hero pushed up under the transparent header,
+   blending into the content below. The back link is dropped since the header
+   logo already returns home. Desktop is unchanged. */
+@media (max-width: 900px) {
+  .yume-detail main { padding-top: 0; }
+  .yume-detail .yd-back { display: none; }
+  .yume-detail .yd-hero {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    min-height: 62vh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
 `;
 
 const STATUS_LABELS: Record<string, string> = {
@@ -624,10 +641,10 @@ export default async function MangaPreviewPage({
       : "—";
 
   return (
-    <div className="yume-surface yume-detail min-h-screen">
+    <div className="yume-surface yume-detail relative min-h-screen">
       <style>{PREVIEW_STYLES}</style>
 
-      <MangaTopNav isAdmin={currentDbUser?.role === "ADMIN"} />
+      <MangaTopNav isAdmin={currentDbUser?.role === "ADMIN"} overlay />
 
       <main className="motion-ink-fade relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-16 pt-8 sm:px-6 lg:px-8">
         <Link href="/" className="motion-ink-up yd-back">

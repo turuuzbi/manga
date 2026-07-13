@@ -350,3 +350,29 @@ html[data-theme="dark"] .yume-surface {
     radial-gradient(circle at 88% 2%, rgba(223, 159, 191, 0.1), transparent 40%),
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
 }
+
+/* ─── Overlay header ─────────────────────────────────────────────────────────
+   Used on the home and manga-detail pages. On desktop it stays the normal solid
+   translucent bar; on phones/tablets it turns transparent and floats over the
+   full-bleed hero (each page pushes its hero up to meet it). */
+.yume-nav-overlay {
+  background: var(--manga-nav-bg);
+  border-bottom: 3px solid var(--manga-border);
+  backdrop-filter: blur(14px);
+}
+@media (max-width: 900px) {
+  .yume-nav-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.45),
+      rgba(0, 0, 0, 0.16) 55%,
+      transparent
+    );
+    border-bottom: none;
+    backdrop-filter: none;
+  }
+}
