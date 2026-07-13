@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db";
 import { ReaderExperience } from "@/app/reader/ReaderExperience";
 
@@ -14,6 +15,16 @@ export default async function ReaderChapterPage({
   params,
 }: ReaderChapterPageProps) {
   const { chapterId } = await params;
+
+  // Reading is gated: send logged-out users to sign in, then back to this
+  // chapter. The homepage and manga detail pages stay public.
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect(
+      `/sign-in?redirect_url=${encodeURIComponent(`/reader/${chapterId}`)}`,
+    );
+  }
 
   const chapter = await prisma.chapter.findUnique({
     where: { id: chapterId },

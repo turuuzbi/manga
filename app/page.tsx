@@ -53,6 +53,42 @@ function latestPublishedAt(manga: MangaWithMeta) {
   return manga.chapters[0]?.publishedAt?.getTime() ?? 0;
 }
 
+// The manga this user has read, most-recently-read first (one entry per manga).
+async function loadContinueReading(userId: string) {
+  const recent = await prisma.readingProgress.groupBy({
+    by: ["mangaId"],
+    where: { userId },
+    _max: { readAt: true },
+    orderBy: { _max: { readAt: "desc" } },
+    take: 12,
+  });
+
+  if (recent.length === 0) {
+    return [];
+  }
+
+  const mangas = await prisma.manga.findMany({
+    where: { id: { in: recent.map((entry) => entry.mangaId) } },
+    select: {
+      id: true,
+      mangaName: true,
+      homeCoverImage: true,
+      coverImage: true,
+    },
+  });
+
+  const byId = new Map(mangas.map((manga) => [manga.id, manga]));
+
+  return recent
+    .map((entry) => byId.get(entry.mangaId))
+    .filter((manga): manga is NonNullable<typeof manga> => Boolean(manga))
+    .map((manga) => ({
+      id: manga.id,
+      title: manga.mangaName,
+      coverUrl: manga.homeCoverImage ?? manga.coverImage ?? undefined,
+    }));
+}
+
 export default async function HomePage() {
   const [currentUser, mangas, genreFilters] = await Promise.all([
     getCurrentDbUser(),
@@ -70,6 +106,10 @@ export default async function HomePage() {
       },
     }),
   ]);
+
+  const continueReading = currentUser
+    ? await loadContinueReading(currentUser.id)
+    : [];
 
   const byPopularity = [...mangas].sort(
     (left, right) => right._count.chapters - left._count.chapters,
@@ -98,6 +138,7 @@ export default async function HomePage() {
     <HomeLanding
       isAdmin={currentUser?.role === "ADMIN"}
       featured={featured}
+      continueReading={continueReading}
       newlyAdded={mangas.slice(0, 12).map(toSeries)}
       latestUpdates={byLatestUpdate.slice(0, 12).map(toSeries)}
       popular={byPopularity.slice(0, 12).map(toSeries)}

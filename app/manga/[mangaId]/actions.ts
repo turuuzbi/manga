@@ -9,6 +9,75 @@ export type CommentActionState = {
   message: string;
 };
 
+export type PosterChoiceResult = {
+  ok: boolean;
+  message: string;
+};
+
+/**
+ * Saves the current user's chosen poster for a manga. The posterUrl must be one
+ * of the manga's curated `posterOptions` — arbitrary URLs are rejected.
+ */
+export async function setPosterChoiceAction(
+  mangaId: string,
+  posterUrl: string,
+): Promise<PosterChoiceResult> {
+  try {
+    const user = await syncCurrentClerkUser();
+
+    if (!user) {
+      return { ok: false, message: "Sign in to choose a poster." };
+    }
+
+    const cleanMangaId = mangaId.trim();
+    const cleanPosterUrl = posterUrl.trim();
+
+    if (!cleanMangaId || !cleanPosterUrl) {
+      return { ok: false, message: "Poster reference is missing." };
+    }
+
+    const manga = await prisma.manga.findUnique({
+      where: { id: cleanMangaId },
+      select: { id: true, posterOptions: true },
+    });
+
+    if (!manga) {
+      return { ok: false, message: "That manga could not be found." };
+    }
+
+    if (!manga.posterOptions.includes(cleanPosterUrl)) {
+      return { ok: false, message: "That poster is not available." };
+    }
+
+    await prisma.userPosterChoice.upsert({
+      where: {
+        userId_mangaId: {
+          userId: user.id,
+          mangaId: cleanMangaId,
+        },
+      },
+      create: {
+        userId: user.id,
+        mangaId: cleanMangaId,
+        posterUrl: cleanPosterUrl,
+      },
+      update: {
+        posterUrl: cleanPosterUrl,
+      },
+    });
+
+    revalidatePath(`/manga/${cleanMangaId}`);
+
+    return { ok: true, message: "Poster updated." };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Could not save your poster.",
+    };
+  }
+}
+
 const maxCommentLength = 1000;
 
 function parseCommentBody(formData: FormData) {

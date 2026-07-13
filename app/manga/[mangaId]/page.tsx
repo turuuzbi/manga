@@ -1,16 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  BookOpen,
-  ChevronRight,
-  Clock3,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
+import { ChapterList } from "@/app/manga/[mangaId]/ChapterList";
+import { DetailHero } from "@/app/manga/[mangaId]/DetailHero";
 import { CommentsSection } from "@/app/manga/[mangaId]/CommentsSection";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 
@@ -101,17 +96,6 @@ const PREVIEW_STYLES = `
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .yume-detail .yd-btn:hover { transform: translateY(-2px); box-shadow: 0 20px 36px -12px var(--home-rose-deep); }
-.yume-detail .yd-btn-ghost {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: 'Marcellus', serif;
-  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
-  padding: 13px 26px; border-radius: 999px;
-  text-decoration: none; cursor: pointer;
-  color: var(--home-rose-deep); background: var(--home-paper);
-  border: 1px solid var(--home-line);
-  transition: transform 0.2s, border-color 0.2s, color 0.2s;
-}
-.yume-detail .yd-btn-ghost:hover { transform: translateY(-2px); border-color: var(--home-rose); }
 .yume-detail .yd-btn-muted {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: 'Marcellus', serif;
@@ -120,6 +104,109 @@ const PREVIEW_STYLES = `
   color: var(--home-on-dark-soft);
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+/* Secondary "choose poster" action — glass button beside the primary CTA */
+.yume-detail .yd-poster-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Marcellus', serif;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 12px 20px; border-radius: 999px;
+  color: #fff; cursor: pointer;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s, background 0.2s, border-color 0.2s;
+}
+.yume-detail .yd-poster-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Poster picker sheet ── */
+.yume-detail .yd-sheet-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(22, 12, 18, 0.55);
+  backdrop-filter: blur(4px);
+  animation: yd-fade-in 0.2s ease;
+}
+.yume-detail .yd-sheet {
+  width: 100%; max-width: 560px;
+  max-height: 86vh; overflow-y: auto;
+  background: var(--home-paper);
+  border: 1px solid var(--home-line-strong);
+  border-bottom: none;
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -24px 60px -20px rgba(0, 0, 0, 0.5);
+  padding: clamp(20px, 4vw, 30px);
+  animation: yd-sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.yume-detail .yd-sheet-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 18px;
+}
+.yume-detail .yd-sheet-sub {
+  font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--home-gold);
+}
+.yume-detail .yd-sheet-title {
+  margin-top: 4px;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700; font-style: italic; font-size: 27px;
+  color: var(--home-plum);
+}
+.yume-detail .yd-sheet-close {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 999px;
+  color: var(--home-plum-soft); cursor: pointer;
+  background: var(--home-paper-2);
+  border: 1px solid var(--home-line);
+  transition: color 0.2s, border-color 0.2s;
+}
+.yume-detail .yd-sheet-close:hover { color: var(--home-rose-deep); border-color: var(--home-rose); }
+.yume-detail .yd-poster-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+}
+@media (min-width: 480px) {
+  .yume-detail .yd-poster-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.yume-detail .yd-poster-opt {
+  position: relative; aspect-ratio: 3 / 4;
+  border-radius: 14px; overflow: hidden; padding: 0; cursor: pointer;
+  background: var(--home-paper-2);
+  border: 1px solid var(--home-line);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.yume-detail .yd-poster-opt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.yume-detail .yd-poster-opt:hover { transform: translateY(-3px); border-color: var(--home-rose); }
+.yume-detail .yd-poster-opt:disabled { cursor: default; opacity: 0.7; }
+.yume-detail .yd-poster-opt.active {
+  border-color: var(--home-rose-deep);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-rose) 45%, transparent);
+}
+.yume-detail .yd-poster-check {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 999px; color: #fff;
+  background: linear-gradient(135deg, var(--home-rose), var(--home-rose-deep));
+  box-shadow: 0 4px 10px -3px rgba(0, 0, 0, 0.4);
+}
+@keyframes yd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes yd-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (min-width: 640px) {
+  .yume-detail .yd-sheet-overlay { align-items: center; padding: 24px; }
+  .yume-detail .yd-sheet {
+    border-radius: 26px; border-bottom: 1px solid var(--home-line-strong);
+    box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.5);
+    animation: yd-fade-in 0.22s ease;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .yume-detail .yd-sheet-overlay, .yume-detail .yd-sheet { animation: none; }
 }
 
 /* ── Panels & stats ── */
@@ -161,8 +248,36 @@ const PREVIEW_STYLES = `
   color: var(--home-plum-soft);
 }
 
+/* ── Chapter sort toggle ── */
+.yume-detail .yd-sort {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  gap: 2px; padding: 3px; border-radius: 999px;
+  background: var(--home-paper-2);
+  border: 1px solid var(--home-line);
+}
+.yume-detail .yd-sort-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'Marcellus', serif;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 7px 12px; border-radius: 999px;
+  color: var(--home-plum-soft); background: none; border: none;
+  cursor: pointer; white-space: nowrap;
+  transition: color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.yume-detail .yd-sort-btn svg { flex-shrink: 0; }
+.yume-detail .yd-sort-btn:hover { color: var(--home-rose-deep); }
+.yume-detail .yd-sort-btn.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%);
+  box-shadow: 0 8px 18px -10px var(--home-rose-deep);
+}
+@media (max-width: 420px) {
+  .yume-detail .yd-sort-btn { padding: 7px 10px; letter-spacing: 0.08em; }
+}
+
 /* ── Chapter cards ── */
 .yume-detail .yd-chapter {
+  position: relative;
   display: grid; grid-template-columns: 96px 1fr; align-items: stretch;
   border-radius: 16px; overflow: hidden; text-decoration: none;
   background: var(--home-paper); border: 1px solid var(--home-line);
@@ -208,6 +323,23 @@ const PREVIEW_STYLES = `
 @media (min-width: 640px) {
   .yume-detail .yd-chapter { grid-template-columns: 124px 1fr auto; }
   .yume-detail .yd-chapter-go { display: flex; }
+}
+
+/* ── Read (visited) state ── */
+.yume-detail .yd-chapter.is-read { background: var(--home-paper-2); }
+.yume-detail .yd-chapter.is-read .yd-chapter-thumb img { opacity: 0.5; }
+.yume-detail .yd-chapter.is-read .yd-chapter-num { color: var(--home-plum-soft); }
+.yume-detail .yd-chapter.is-read .yd-chapter-title { color: var(--home-plum-soft); }
+.yume-detail .yd-chapter.is-read .yd-chapter-meta { color: var(--home-plum-soft); opacity: 0.85; }
+.yume-detail .yd-chapter.is-read:hover .yd-chapter-title { color: var(--home-rose-deep); }
+
+/* ── "You left off here" dog-ear on the most recently read chapter ── */
+.yume-detail .yd-dogear {
+  position: absolute; top: 0; right: 0; z-index: 4;
+  width: 0; height: 0;
+  border-top: 30px solid var(--home-rose-deep);
+  border-left: 30px solid transparent;
+  filter: drop-shadow(-1px 1px 1px rgba(0, 0, 0, 0.18));
 }
 
 .yume-detail .yd-empty {
@@ -308,10 +440,6 @@ type MangaPreviewPageProps = {
   }>;
 };
 
-function formatChapterLabel(chapterNumber: number, title: string | null) {
-  return title ? `Бүлэг ${chapterNumber} • ${title}` : `Бүлэг ${chapterNumber}`;
-}
-
 function formatStatusLabel(status: string) {
   return STATUS_LABELS[status] ?? status.replaceAll("_", " ");
 }
@@ -391,6 +519,23 @@ export default async function MangaPreviewPage({
     notFound();
   }
 
+  // Per-user chapter read-state: which chapters are read (muted) and which one
+  // was read most recently (dog-ear marker). Empty for logged-out visitors.
+  const readingRows = currentDbUser
+    ? await prisma.readingProgress.findMany({
+        where: { userId: currentDbUser.id, mangaId: manga.id },
+        select: { chapterId: true, readAt: true },
+      })
+    : [];
+
+  const readChapterIds = new Set(readingRows.map((row) => row.chapterId));
+  const lastReadChapterId =
+    readingRows.length > 0
+      ? readingRows.reduce((latest, row) =>
+          row.readAt > latest.readAt ? row : latest,
+        ).chapterId
+      : null;
+
   const firstReadableChapter = [...manga.chapters].sort(
     (left, right) => left.chapterNumber - right.chapterNumber,
   )[0];
@@ -430,11 +575,44 @@ export default async function MangaPreviewPage({
     fallbackPages.map((page) => [page.chapterId, page.imageUrl]),
   );
 
+  // Plain, serializable view-model for the client-sortable chapter list.
+  // Must come after fallbackPageByChapter/read-state are computed above.
+  const chapterItems = manga.chapters.map((chapter) => ({
+    id: chapter.id,
+    chapterNumber: chapter.chapterNumber,
+    title: chapter.title,
+    badgeImage: chapter.badgeImage,
+    badgeScale: chapter.badgeScale,
+    coverImage: chapter.coverImage,
+    fallbackThumb: fallbackPageByChapter.get(chapter.id) ?? null,
+    pageCount: chapter._count.pages,
+    publishedLabel: `${chapter.publishedAt.toLocaleDateString()}-нд оруулав`,
+    isRead: readChapterIds.has(chapter.id),
+    isLastRead: chapter.id === lastReadChapterId,
+  }));
+
   const heroCover = manga.detailCoverImage ?? manga.coverImage ?? null;
   const genreTags =
     manga.genres.length > 0
       ? manga.genres.map((entry) => ({ id: entry.genreId, name: entry.genre.name }))
       : [{ id: "fallback", name: "Манга" }];
+
+  // Per-user poster preference. Only offer the picker to logged-in users when
+  // the manga actually has more than one curated option to choose from.
+  const posterOptions = manga.posterOptions;
+  const posterChoice = currentDbUser
+    ? await prisma.userPosterChoice.findUnique({
+        where: {
+          userId_mangaId: { userId: currentDbUser.id, mangaId: manga.id },
+        },
+        select: { posterUrl: true },
+      })
+    : null;
+  const initialPoster =
+    posterChoice && posterOptions.includes(posterChoice.posterUrl)
+      ? posterChoice.posterUrl
+      : null;
+  const canChoosePoster = Boolean(currentDbUser) && posterOptions.length > 1;
 
   const firstNum = firstReadableChapter?.chapterNumber ?? null;
   const lastNum = manga.chapters[0]?.chapterNumber ?? null;
@@ -458,41 +636,17 @@ export default async function MangaPreviewPage({
         </Link>
 
         {/* Hero */}
-        <section className="motion-ink-up motion-ink-up-delay-1 yd-hero">
-          {heroCover ? (
-            <img src={heroCover} alt={manga.mangaName} className="yd-hero-img" />
-          ) : (
-            <div className="yd-hero-empty">
-              <Sparkles size={42} />
-            </div>
-          )}
-          <div className="yd-hero-overlay" />
-          <div className="yd-hero-body">
-            <span className="yd-eyebrow yd-hero-eyebrow">
-              <Sparkles size={13} />
-              {formatStatusLabel(manga.status)}
-            </span>
-            <h1 className="yd-title">{manga.mangaName}</h1>
-            <div className="yd-tags">
-              {genreTags.map((tag) => (
-                <span key={tag.id} className="yd-tag">
-                  {tag.name}
-                </span>
-              ))}
-            </div>
-            <div className="yd-hero-actions">
-              {firstReadableChapter ? (
-                <Link href={`/reader/${firstReadableChapter.id}`} className="yd-btn">
-                  <BookOpen size={15} />
-                  Уншиж эхлэх
-                  <ChevronRight size={15} />
-                </Link>
-              ) : (
-                <span className="yd-btn-muted">Уншах боломжтой бүлэг алга</span>
-              )}
-            </div>
-          </div>
-        </section>
+        <DetailHero
+          mangaId={manga.id}
+          mangaName={manga.mangaName}
+          statusLabel={formatStatusLabel(manga.status)}
+          genreTags={genreTags}
+          defaultCover={heroCover}
+          posterOptions={posterOptions}
+          initialPoster={initialPoster}
+          firstChapterId={firstReadableChapter?.id ?? null}
+          canChoosePoster={canChoosePoster}
+        />
 
         {/* About + stats */}
         <section className="motion-ink-up motion-ink-up-delay-2 grid gap-7 lg:grid-cols-[1.4fr_1fr]">
@@ -501,12 +655,6 @@ export default async function MangaPreviewPage({
             <p className="yd-desc">
               {manga.description ?? "Бүлгүүдээс сонгоод уншиж эхэлээрэй."}
             </p>
-            <div className="mt-7">
-              <Link href="/" className="yd-btn-ghost">
-                Илүү ихийг унших
-                <ArrowUpRight size={15} />
-              </Link>
-            </div>
           </div>
 
           <div className="yd-panel">
@@ -534,73 +682,7 @@ export default async function MangaPreviewPage({
 
         {/* Chapters */}
         <section className="motion-ink-up motion-ink-up-delay-3 yd-panel">
-          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <h2 className="yd-section-title">Бүлгүүд</h2>
-            <p className="yd-count">{manga.chapters.length} нийт бүлэг</p>
-          </div>
-
-          {manga.chapters.length === 0 ? (
-            <div className="yd-empty">Одоогоор бүлэг алга</div>
-          ) : (
-            <div className="grid gap-4">
-              {manga.chapters.map((chapter, index) => {
-                const fallbackThumb = fallbackPageByChapter.get(chapter.id);
-
-                return (
-                  <Link
-                    key={chapter.id}
-                    href={`/reader/${chapter.id}`}
-                    className="group motion-ink-up yd-chapter"
-                    style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
-                  >
-                    <div className="yd-chapter-thumb">
-                      {chapter.badgeImage ? (
-                        <img
-                          src={chapter.badgeImage}
-                          alt={`Бүлэг ${chapter.chapterNumber} тэмдэг`}
-                          className="badge"
-                          style={{
-                            width: `${chapter.badgeScale ?? 85}%`,
-                            height: `${chapter.badgeScale ?? 85}%`,
-                          }}
-                        />
-                      ) : chapter.coverImage ? (
-                        <img
-                          src={chapter.coverImage}
-                          alt={`Бүлэг ${chapter.chapterNumber}`}
-                        />
-                      ) : fallbackThumb ? (
-                        <img src={fallbackThumb} alt={`Бүлэг ${chapter.chapterNumber}`} />
-                      ) : (
-                        <span className="yd-chapter-num">{chapter.chapterNumber}</span>
-                      )}
-                    </div>
-
-                    <div className="yd-chapter-body">
-                      <p className="yd-chapter-title">
-                        {formatChapterLabel(chapter.chapterNumber, chapter.title)}
-                      </p>
-                      <div className="yd-chapter-meta">
-                        <span>
-                          <BookOpen size={14} />
-                          {chapter._count.pages} хуудас
-                        </span>
-                        <span>
-                          <Clock3 size={14} />
-                          {chapter.publishedAt.toLocaleDateString()}-нд оруулав
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="yd-chapter-go">
-                      Унших
-                      <ChevronRight size={16} />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+          <ChapterList items={chapterItems} />
         </section>
 
         <CommentsSection

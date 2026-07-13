@@ -53,7 +53,7 @@ export function CommentsSection({
           <h2 className="yd-section-title">Уншигчдын сэтгэгдэл</h2>
           <p className="yd-desc-soft">
             Уншсан цувралын талаарх сэтгэгдэлээ үлдээж бусад уншигчидтай санал
-            бодолоо хуваалцаарай.
+            бодлоо хуваалцаарай.
           </p>
         </div>
         <p className="yd-count">{totalMessages} нийт сэтгэгдэл</p>

@@ -945,25 +945,29 @@ export async function reorderChapterPagesAction(
       };
     }
 
-    await prisma.$transaction(async (tx) => {
-      for (const [index, pageId] of pageOrder.entries()) {
-        await tx.page.update({
-          where: { id: pageId },
-          data: {
-            pageNumber: 10_000 + index + 1,
-          },
-        });
-      }
-
-      for (const [index, pageId] of pageOrder.entries()) {
-        await tx.page.update({
-          where: { id: pageId },
-          data: {
-            pageNumber: index + 1,
-          },
-        });
-      }
-    });
+    // Set-based renumber (two statements) rather than a per-page update loop,
+    // which previously issued 2×N sequential round-trips and exceeded Prisma's
+    // 5s interactive-transaction timeout on long chapters. Shift every page far
+    // out of range, then assign the requested order via unnest WITH ORDINALITY.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`
+          UPDATE "public"."Page"
+          SET "pageNumber" = "pageNumber" + 100000
+          WHERE "chapterId" = ${chapterId}
+        `;
+        await tx.$executeRaw`
+          UPDATE "public"."Page" p
+          SET "pageNumber" = data.rn
+          FROM (
+            SELECT id, ordinality AS rn
+            FROM unnest(${pageOrder}::text[]) WITH ORDINALITY AS t(id, ordinality)
+          ) data
+          WHERE p.id = data.id AND p."chapterId" = ${chapterId}
+        `;
+      },
+      { timeout: 15_000 },
+    );
 
     revalidatePath("/admin");
     revalidatePath(`/manga/${chapter.mangaId}`);
@@ -1327,40 +1331,44 @@ export async function deleteChapterPageAction(
       };
     }
 
-    const remainingPageIds = page.chapter.pages
-      .filter((chapterPage) => chapterPage.id !== page.id)
-      .map((chapterPage) => chapterPage.id);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.page.delete({
-        where: { id: page.id },
-      });
-
-      if (page.chapter.coverImage === page.imageUrl) {
-        await tx.chapter.update({
-          where: { id: page.chapter.id },
-          data: { coverImage: null },
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.page.delete({
+          where: { id: page.id },
         });
-      }
 
-      for (const [index, remainingPageId] of remainingPageIds.entries()) {
-        await tx.page.update({
-          where: { id: remainingPageId },
-          data: {
-            pageNumber: 10_000 + index + 1,
-          },
-        });
-      }
+        if (page.chapter.coverImage === page.imageUrl) {
+          await tx.chapter.update({
+            where: { id: page.chapter.id },
+            data: { coverImage: null },
+          });
+        }
 
-      for (const [index, remainingPageId] of remainingPageIds.entries()) {
-        await tx.page.update({
-          where: { id: remainingPageId },
-          data: {
-            pageNumber: index + 1,
-          },
-        });
-      }
-    });
+        // Close the page-number gap with two set-based statements instead of a
+        // per-page update loop. The old loop issued 2×N sequential round-trips
+        // and blew Prisma's 5s interactive-transaction timeout on long chapters
+        // (80+ pages), which made deletion fail intermittently. The first
+        // statement shifts every remaining page far out of range so the second
+        // can renumber to 1..n by order without unique-constraint clashes.
+        await tx.$executeRaw`
+          UPDATE "public"."Page"
+          SET "pageNumber" = "pageNumber" + 100000
+          WHERE "chapterId" = ${page.chapter.id}
+        `;
+        await tx.$executeRaw`
+          WITH ordered AS (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY "pageNumber") AS rn
+            FROM "public"."Page"
+            WHERE "chapterId" = ${page.chapter.id}
+          )
+          UPDATE "public"."Page" p
+          SET "pageNumber" = o.rn
+          FROM ordered o
+          WHERE p.id = o.id
+        `;
+      },
+      { timeout: 15_000 },
+    );
 
     let removedFile = true;
 

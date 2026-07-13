@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Columns2, Home, Rows3 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Columns2,
+  Home,
+  Library,
+  Rows3,
+} from "lucide-react";
+import { markChapterRead } from "@/app/reader/actions";
 
 type ReaderMode = "scroll" | "paged";
 
@@ -137,6 +145,11 @@ export function ReaderExperience({
     window.localStorage.setItem(readerModeStorageKey, readerMode);
   }, [readerMode]);
 
+  // Mark this chapter as read once the reader actually mounts in the browser.
+  useEffect(() => {
+    void markChapterRead(chapter.id, manga.id);
+  }, [chapter.id, manga.id]);
+
   useEffect(() => {
     if (!showChrome || !isTouchDevice()) {
       clearChromeHideTimeout();
@@ -235,6 +248,13 @@ export function ReaderExperience({
                 aria-label="Go home"
               >
                 <Home size={16} />
+              </Link>
+              <Link
+                href={`/manga/${manga.id}`}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-100 transition hover:bg-white/10"
+                aria-label="Цувралын хуудас руу буцах"
+              >
+                <Library size={16} />
               </Link>
             </div>
             <p className="mt-2 truncate text-base font-semibold text-white sm:text-lg">

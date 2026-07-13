@@ -453,8 +453,15 @@ interface FeaturedSlide {
 
 const HERO_ROTATE_MS = 6500;
 
+interface ContinueReadingItem {
+  id: string;
+  title: string;
+  coverUrl?: string;
+}
+
 type HomeLandingProps = {
   featured?: FeaturedSlide[];
+  continueReading?: ContinueReadingItem[];
   newlyAdded?: MangaSeries[];
   latestUpdates?: MangaSeries[];
   popular?: MangaSeries[];
@@ -465,6 +472,7 @@ type HomeLandingProps = {
 
 export function HomeLanding({
   featured = [],
+  continueReading = [],
   newlyAdded = [],
   latestUpdates = [],
   popular = [],
@@ -512,6 +520,13 @@ export function HomeLanding({
             <section id="featured" className="motion-ink-up mb-16">
               <HeroCarousel slides={featured} />
             </section>
+          ) : null}
+
+          {continueReading.length > 0 ? (
+            <ContinueReadingShelf
+              className="motion-ink-up"
+              items={continueReading}
+            />
           ) : null}
 
           {newlyAdded.length > 0 ? (
@@ -619,6 +634,40 @@ function Shelf({
       <div className="yume-rail">
         {series.map((manga) => (
           <MangaPosterCard key={manga.id} manga={manga} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ContinueReadingShelf({
+  items,
+  className,
+}: {
+  items: ContinueReadingItem[];
+  className?: string;
+}) {
+  return (
+    <section className={`mb-14 ${className ?? ""}`}>
+      <SectionHeader eyebrow="Таны түүх" title="Үргэлжлүүлэн унших" />
+      <div className="yume-rail">
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            href={`/manga/${item.id}`}
+            className="yume-card"
+            aria-label={item.title}
+          >
+            <div className="yume-poster">
+              {item.coverUrl ? (
+                <img src={item.coverUrl} alt={item.title} loading="lazy" />
+              ) : (
+                <div className="yume-poster-empty">
+                  <BookOpen size={30} />
+                </div>
+              )}
+            </div>
+          </Link>
         ))}
       </div>
     </section>
