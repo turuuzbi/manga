@@ -21,6 +21,21 @@ enum UserRole {
   ADMIN
 }
 
+enum SubscriptionPlan {
+  TWO_WEEKS
+  ONE_MONTH
+  THREE_MONTHS
+  SIX_MONTHS
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
 // ─── Core content ─────────────────────────────────────────────────────────────
 
 model Manga {
@@ -32,6 +47,9 @@ model Manga {
   detailCoverImage String?
   // Curated related images the reader can pick as their personal cover.
   posterOptions    String[] @default([])
+  // Admin-chosen default poster (one of posterOptions). Falls back to
+  // detailCoverImage/coverImage when null.
+  defaultPoster    String?
   titleFont   String?
   author      String?
   artist      String?
@@ -108,6 +126,9 @@ model User {
   username     String?  @unique
   avatarUrl    String?
   role         UserRole @default(READER)
+  // Denormalized cache of the current subscription expiry for a fast gate
+  // check. Sourced from Subscription rows whenever a payment succeeds.
+  premiumUntil DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -116,6 +137,8 @@ model User {
   comments        Comment[]
   readingProgress ReadingProgress[]
   posterChoices   UserPosterChoice[]
+  payments        Payment[]
+  subscriptions   Subscription[]
 }
 
 model Comment {
@@ -199,4 +222,76 @@ model Rating {
 
   @@unique([userId, mangaId])
   @@index([mangaId])
+}
+
+// ─── Billing & subscriptions ────────────────────────────────────────────────
+
+// One row per purchase attempt (audit trail for QPay invoices).
+model Payment {
+  id            String           @id @default(nanoid())
+  userId        String
+  plan          SubscriptionPlan
+  amount        Int              // MNT (₮), integer
+  status        PaymentStatus    @default(PENDING)
+  qpayInvoiceId String?          @unique
+  qpayPaymentId String?
+  createdAt     DateTime         @default(now())
+  paidAt        DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription?
+
+  @@index([userId])
+  @@index([status])
+}
+
+// A granted subscription period. On payment success we extend from
+// max(now, current expiry) so re-purchases stack.
+model Subscription {
+  id        String           @id @default(nanoid())
+  userId    String
+  plan      SubscriptionPlan
+  startedAt DateTime         @default(now())
+  expiresAt DateTime
+  paymentId String?          @unique
+  createdAt DateTime         @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ─── Free-read metering ─────────────────────────────────────────────────────
+// Ephemeral rows (pruned by dayKey). userId/chapterId kept as plain strings so
+// this stays decoupled from content and cheap to prune. dayKey is the
+// Asia/Ulaanbaatar calendar day ("YYYY-MM-DD").
+
+// One row per free (userId, day, chapter) unlock — gives distinct counting and
+// idempotency for the per-user 3/day cap.
+model FreeReadUsage {
+  id        String   @id @default(nanoid())
+  userId    String
+  ipHash    String
+  dayKey    String
+  chapterId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dayKey, chapterId])
+  @@index([userId, dayKey])
+  @@index([dayKey])
+}
+
+// The single account that claimed an IP's free tier for a given day. Any other
+// account on the same IP that day gets 0 free reads.
+model IpDailyClaim {
+  id        String   @id @default(nanoid())
+  ipHash    String
+  dayKey    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([ipHash, dayKey])
+  @@index([dayKey])
 }

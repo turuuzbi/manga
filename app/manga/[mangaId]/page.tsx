@@ -195,6 +195,23 @@ const PREVIEW_STYLES = `
   background: linear-gradient(135deg, var(--home-rose), var(--home-rose-deep));
   box-shadow: 0 4px 10px -3px rgba(0, 0, 0, 0.4);
 }
+.yume-detail .yd-sheet-note {
+  margin: -6px 0 16px;
+  font-size: 12px; line-height: 1.5; color: var(--home-plum-soft);
+}
+/* Locked (spoiler) poster: blurred, dimmed, not selectable. */
+.yume-detail .yd-poster-opt.locked { cursor: not-allowed; }
+.yume-detail .yd-poster-opt.locked:hover { transform: none; border-color: var(--home-line); }
+.yume-detail .yd-poster-opt.locked img { filter: blur(7px) brightness(0.62); transform: scale(1.08); }
+.yume-detail .yd-poster-lock {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.yume-detail .yd-poster-lock-label {
+  font-family: 'Marcellus', serif;
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+}
 @keyframes yd-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes yd-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @media (min-width: 640px) {
@@ -608,15 +625,43 @@ export default async function MangaPreviewPage({
     isLastRead: chapter.id === lastReadChapterId,
   }));
 
-  const heroCover = manga.detailCoverImage ?? manga.coverImage ?? null;
+  // Admin-chosen default poster wins over the plain cover fields.
+  const heroCover =
+    manga.defaultPoster ?? manga.detailCoverImage ?? manga.coverImage ?? null;
   const genreTags =
     manga.genres.length > 0
       ? manga.genres.map((entry) => ({ id: entry.genreId, name: entry.genre.name }))
       : [{ id: "fallback", name: "Манга" }];
 
+  // Spoiler gate: each poster option that matches a chapter's cover carries
+  // that chapter's number; an option is locked until the reader has progressed
+  // to (or past) that chapter. Options not tied to a chapter (series cover art)
+  // are always unlocked.
+  const chapterNumberById = new Map(
+    manga.chapters.map((chapter) => [chapter.id, chapter.chapterNumber]),
+  );
+  const chapterNumberByCover = new Map<string, number>();
+  for (const chapter of manga.chapters) {
+    if (chapter.coverImage) {
+      chapterNumberByCover.set(chapter.coverImage, chapter.chapterNumber);
+    }
+  }
+  const readChapterNumbers = readingRows
+    .map((row) => chapterNumberById.get(row.chapterId))
+    .filter((value): value is number => typeof value === "number");
+  const maxReadChapter =
+    readChapterNumbers.length > 0 ? Math.max(...readChapterNumbers) : null;
+
+  const posterOptionViews = manga.posterOptions.map((url) => {
+    const sourceChapter = chapterNumberByCover.get(url) ?? null;
+    const locked =
+      sourceChapter !== null &&
+      (maxReadChapter === null || maxReadChapter < sourceChapter);
+    return { url, chapterNumber: sourceChapter, locked };
+  });
+
   // Per-user poster preference. Only offer the picker to logged-in users when
   // the manga actually has more than one curated option to choose from.
-  const posterOptions = manga.posterOptions;
   const posterChoice = currentDbUser
     ? await prisma.userPosterChoice.findUnique({
         where: {
@@ -626,10 +671,11 @@ export default async function MangaPreviewPage({
       })
     : null;
   const initialPoster =
-    posterChoice && posterOptions.includes(posterChoice.posterUrl)
+    posterChoice && manga.posterOptions.includes(posterChoice.posterUrl)
       ? posterChoice.posterUrl
       : null;
-  const canChoosePoster = Boolean(currentDbUser) && posterOptions.length > 1;
+  const canChoosePoster =
+    Boolean(currentDbUser) && manga.posterOptions.length > 1;
 
   const firstNum = firstReadableChapter?.chapterNumber ?? null;
   const lastNum = manga.chapters[0]?.chapterNumber ?? null;
@@ -659,7 +705,7 @@ export default async function MangaPreviewPage({
           statusLabel={formatStatusLabel(manga.status)}
           genreTags={genreTags}
           defaultCover={heroCover}
-          posterOptions={posterOptions}
+          posterOptions={posterOptionViews}
           initialPoster={initialPoster}
           firstChapterId={firstReadableChapter?.id ?? null}
           canChoosePoster={canChoosePoster}

@@ -38,7 +38,14 @@ export async function setPosterChoiceAction(
 
     const manga = await prisma.manga.findUnique({
       where: { id: cleanMangaId },
-      select: { id: true, posterOptions: true },
+      select: {
+        id: true,
+        posterOptions: true,
+        chapters: {
+          where: { coverImage: { not: null } },
+          select: { chapterNumber: true, coverImage: true },
+        },
+      },
     });
 
     if (!manga) {
@@ -47,6 +54,31 @@ export async function setPosterChoiceAction(
 
     if (!manga.posterOptions.includes(cleanPosterUrl)) {
       return { ok: false, message: "That poster is not available." };
+    }
+
+    // Spoiler gate: if the poster is a chapter cover, the user must have read
+    // up to that chapter. Enforced here so a crafted request can't pick a
+    // locked poster.
+    const sourceChapter = manga.chapters.find(
+      (chapter) => chapter.coverImage === cleanPosterUrl,
+    )?.chapterNumber;
+
+    if (typeof sourceChapter === "number") {
+      const readAtOrPast = await prisma.readingProgress.findFirst({
+        where: {
+          userId: user.id,
+          mangaId: cleanMangaId,
+          chapter: { chapterNumber: { gte: sourceChapter } },
+        },
+        select: { id: true },
+      });
+
+      if (!readAtOrPast) {
+        return {
+          ok: false,
+          message: "Энэ постерийн бүлгийг уншаагүй байна.",
+        };
+      }
     }
 
     await prisma.userPosterChoice.upsert({

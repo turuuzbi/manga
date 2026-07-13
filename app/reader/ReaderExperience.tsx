@@ -6,11 +6,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Columns2,
+  Crown,
   Home,
   Library,
   Rows3,
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
+import { FREE_CHAPTERS_PER_DAY } from "@/lib/plans";
 
 type ReaderMode = "scroll" | "paged";
 
@@ -24,6 +26,9 @@ type ReaderExperienceProps = {
     number: number;
     title: string | null;
   };
+  isPremium?: boolean;
+  /** Free chapter unlocks left for the user today (null when premium). */
+  freeRemaining?: number | null;
   pages: Array<{
     id: string;
     pageNumber: number;
@@ -102,6 +107,8 @@ function ReaderChapterSwitch({
 export function ReaderExperience({
   manga,
   chapter,
+  isPremium = false,
+  freeRemaining = null,
   pages,
   previousChapter,
   nextChapter,
@@ -263,6 +270,19 @@ export function ReaderExperience({
             <p className="truncate text-xs text-zinc-400 sm:text-sm">
               {chapterLabel}
             </p>
+            {isPremium ? (
+              <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#c9a24c]/40 bg-[#c9a24c]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e4cd93]">
+                <Crown size={11} />
+                Premium
+              </span>
+            ) : typeof freeRemaining === "number" ? (
+              <Link
+                href="/subscribe"
+                className="mt-2 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-300 transition hover:border-[#d27d9c]/50 hover:text-white"
+              >
+                Өнөөдөр {freeRemaining}/{FREE_CHAPTERS_PER_DAY} үнэгүй
+              </Link>
+            ) : null}
           </div>
 
           <div className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 md:w-auto md:shrink-0 md:justify-start">

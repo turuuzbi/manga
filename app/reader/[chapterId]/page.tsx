@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db";
+import { syncCurrentClerkUser } from "@/lib/auth";
+import { resolveChapterAccess } from "@/lib/reading-access";
 import { ReaderExperience } from "@/app/reader/ReaderExperience";
+import { Paywall } from "@/app/reader/Paywall";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +20,9 @@ export default async function ReaderChapterPage({
 
   // Reading is gated: send logged-out users to sign in, then back to this
   // chapter. The homepage and manga detail pages stay public.
-  const { userId } = await auth();
+  const dbUser = await syncCurrentClerkUser();
 
-  if (!userId) {
+  if (!dbUser) {
     redirect(
       `/sign-in?redirect_url=${encodeURIComponent(`/reader/${chapterId}`)}`,
     );
@@ -50,6 +52,23 @@ export default async function ReaderChapterPage({
 
   if (!chapter || chapter.pages.length === 0) {
     notFound();
+  }
+
+  // Subscription / free-tier gate. Consumes a free unlock when needed.
+  const access = await resolveChapterAccess({
+    userId: dbUser.id,
+    chapterId: chapter.id,
+    premiumUntil: dbUser.premiumUntil,
+  });
+
+  if (!access.allowed) {
+    return (
+      <Paywall
+        reason={access.reason}
+        manga={{ id: chapter.manga.id, name: chapter.manga.mangaName }}
+        chapterNumber={chapter.chapterNumber}
+      />
+    );
   }
 
   const chapters = await prisma.chapter.findMany({
@@ -86,6 +105,8 @@ export default async function ReaderChapterPage({
         number: chapter.chapterNumber,
         title: chapter.title,
       }}
+      isPremium={access.isPremium}
+      freeRemaining={access.remainingFree}
       pages={chapter.pages}
       previousChapter={
         previousChapter

@@ -2,12 +2,28 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { BookOpen, Check, ChevronRight, Images, Sparkles, X } from "lucide-react";
+import {
+  BookOpen,
+  Check,
+  ChevronRight,
+  Images,
+  Lock,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { setPosterChoiceAction } from "@/app/manga/[mangaId]/actions";
 
 type GenreTag = {
   id: string;
   name: string;
+};
+
+type PosterOption = {
+  url: string;
+  /** Source chapter number (null = series art, always unlocked). */
+  chapterNumber: number | null;
+  /** Locked = drawn from a chapter the reader hasn't reached (spoiler). */
+  locked: boolean;
 };
 
 type DetailHeroProps = {
@@ -16,7 +32,7 @@ type DetailHeroProps = {
   statusLabel: string;
   genreTags: GenreTag[];
   defaultCover: string | null;
-  posterOptions: string[];
+  posterOptions: PosterOption[];
   initialPoster: string | null;
   firstChapterId: string | null;
   canChoosePoster: boolean;
@@ -63,12 +79,15 @@ export function DetailHero({
     };
   }, [isOpen]);
 
-  function choosePoster(posterUrl: string) {
+  function choosePoster(option: PosterOption) {
+    if (option.locked) {
+      return;
+    }
     // Optimistic: swap the cover and close immediately, then persist.
-    setSelectedPoster(posterUrl);
+    setSelectedPoster(option.url);
     setIsOpen(false);
     startTransition(async () => {
-      await setPosterChoiceAction(mangaId, posterUrl);
+      await setPosterChoiceAction(mangaId, option.url);
     });
   }
 
@@ -143,22 +162,49 @@ export function DetailHero({
               </button>
             </div>
 
+            <p className="yd-sheet-note">
+              Уншсан бүлгүүдээс постер сонгоно. Уншаагүй бүлгийн постер түгжээтэй.
+            </p>
+
             <div className="yd-poster-grid">
               {posterOptions.map((option, index) => {
-                const isActive = option === selectedPoster;
+                const isActive = !option.locked && option.url === selectedPoster;
 
                 return (
                   <button
-                    key={`${option}-${index}`}
+                    key={`${option.url}-${index}`}
                     type="button"
-                    className={`yd-poster-opt${isActive ? " active" : ""}`}
+                    className={`yd-poster-opt${isActive ? " active" : ""}${
+                      option.locked ? " locked" : ""
+                    }`}
                     aria-pressed={isActive}
-                    aria-label={`Постер ${index + 1}`}
-                    disabled={isPending}
+                    aria-disabled={option.locked}
+                    aria-label={
+                      option.locked
+                        ? `Түгжээтэй постер${option.chapterNumber ? ` — Бүлэг ${option.chapterNumber}` : ""}`
+                        : `Постер ${index + 1}`
+                    }
+                    disabled={isPending || option.locked}
                     onClick={() => choosePoster(option)}
                   >
-                    <img src={option} alt={`${mangaName} постер ${index + 1}`} />
-                    {isActive ? (
+                    <img
+                      src={option.url}
+                      alt={
+                        option.locked
+                          ? "Түгжээтэй постер"
+                          : `${mangaName} постер ${index + 1}`
+                      }
+                    />
+                    {option.locked ? (
+                      <span className="yd-poster-lock">
+                        <Lock size={16} />
+                        {option.chapterNumber ? (
+                          <span className="yd-poster-lock-label">
+                            Бүлэг {option.chapterNumber}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : isActive ? (
                       <span className="yd-poster-check">
                         <Check size={15} />
                       </span>

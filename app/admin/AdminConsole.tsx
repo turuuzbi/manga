@@ -13,8 +13,10 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   CloudUpload,
+  Crown,
   Database,
   GripVertical,
   FileImage,
@@ -31,14 +33,17 @@ import {
 import {
   deleteChapterAction,
   deleteChapterPageAction,
+  grantSubscriptionAction,
   importGoogleDriveFolderAction,
   ingestMangaAction,
   reorderChapterPagesAction,
   replaceChapterPageImageAction,
+  setDefaultPosterAction,
   updateChapterMetadataAction,
   updateMangaMetadataAction,
   type AdminActionState,
 } from "@/app/admin/actions";
+import { PLANS, PLAN_ORDER, formatTugrug } from "@/lib/plans";
 
 const initialAdminActionState: AdminActionState = {
   ok: false,
@@ -272,6 +277,8 @@ type AdminConsoleProps = {
     author: string;
     artist: string;
     status: MangaStatusValue;
+    posterOptions: string[];
+    defaultPoster: string;
     genres: string[];
     chapterCount: number;
     chapters: Array<{
@@ -354,6 +361,16 @@ export function AdminConsole({
   const [pageDeleteState, pageDeleteFormAction, pageDeletePending] =
     useActionState<AdminActionState, FormData>(
       deleteChapterPageAction,
+      initialAdminActionState,
+    );
+  const [grantState, grantFormAction, grantPending] =
+    useActionState<AdminActionState, FormData>(
+      grantSubscriptionAction,
+      initialAdminActionState,
+    );
+  const [defaultPosterState, defaultPosterFormAction, defaultPosterPending] =
+    useActionState<AdminActionState, FormData>(
+      setDefaultPosterAction,
       initialAdminActionState,
     );
   const [coverName, setCoverName] = useState("");
@@ -554,6 +571,52 @@ export function AdminConsole({
           </div>
         ) : null}
 
+        <section className="ad-card motion-ink-up p-4 sm:p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <Crown size={17} style={{ color: "var(--home-gold)" }} />
+            <h2 className="ad-h3">Premium гараар олгох</h2>
+          </div>
+          <p className="ad-sub max-w-2xl">
+            И-мэйлээр хэрэглэгчид багц идэвхжүүлнэ. Дахин олговол хугацаа сунадаг.
+            (QPay холбогдох хүртэл туршилт болон бэлэглэлд.)
+          </p>
+          <form
+            action={grantFormAction}
+            className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]"
+          >
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="хэрэглэгчийн и-мэйл"
+              className="ad-input"
+            />
+            <select name="plan" defaultValue="ONE_MONTH" className="ad-input">
+              {PLAN_ORDER.map((key) => (
+                <option key={key} value={key}>
+                  {PLANS[key].label} — {formatTugrug(PLANS[key].price)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              disabled={grantPending}
+              className="ad-btn ad-btn-primary"
+            >
+              <Crown size={16} />
+              {grantPending ? "Олгож байна..." : "Олгох"}
+            </button>
+          </form>
+          {grantState.message ? (
+            <p
+              className="mt-3 text-sm font-medium"
+              style={{ color: grantState.ok ? "#3f7d57" : "#c44d66" }}
+            >
+              {grantState.message}
+            </p>
+          ) : null}
+        </section>
+
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
             <section className="ad-card motion-ink-up motion-ink-up-delay-1 p-4 sm:p-5">
@@ -699,6 +762,133 @@ export function AdminConsole({
                       ) : null}
                     </div>
                   </form>
+                ) : null}
+
+                {selectedManga && selectedManga.posterOptions.length > 0 ? (
+                  <div className="ad-soft mt-6 p-4 sm:p-5">
+                    <div className="mb-1 flex items-center gap-2">
+                      <FileImage size={17} style={{ color: "var(--home-gold)" }} />
+                      <h3 className="ad-h3">Үндсэн постер</h3>
+                    </div>
+                    <p className="ad-sub">
+                      Хэрэглэгч өөрөө сонгоогүй үед харагдах постер. Дарж сонгоно.
+                    </p>
+                    <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+                      <form action={defaultPosterFormAction}>
+                        <input type="hidden" name="mangaId" value={selectedManga.id} />
+                        <input type="hidden" name="posterUrl" value="" />
+                        <button
+                          type="submit"
+                          disabled={defaultPosterPending}
+                          aria-label="Автомат (анхны хавтас)"
+                          style={{
+                            position: "relative",
+                            width: "100%",
+                            aspectRatio: "3 / 4",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 12,
+                            cursor: "pointer",
+                            padding: 0,
+                            background: "var(--home-paper-2)",
+                            border: !selectedManga.defaultPoster
+                              ? "2px solid var(--home-rose-deep)"
+                              : "1px solid var(--home-line)",
+                            boxShadow: !selectedManga.defaultPoster
+                              ? "0 0 0 3px color-mix(in srgb, var(--home-rose) 40%, transparent)"
+                              : "none",
+                            color: "var(--home-plum-soft)",
+                            fontFamily: "'Marcellus', serif",
+                            fontSize: 10,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Авто
+                        </button>
+                      </form>
+
+                      {selectedManga.posterOptions.map((url, index) => {
+                        const active = selectedManga.defaultPoster === url;
+
+                        return (
+                          <form key={`${url}-${index}`} action={defaultPosterFormAction}>
+                            <input type="hidden" name="mangaId" value={selectedManga.id} />
+                            <input type="hidden" name="posterUrl" value={url} />
+                            <button
+                              type="submit"
+                              disabled={defaultPosterPending}
+                              aria-label={`Постер ${index + 1}`}
+                              style={{
+                                position: "relative",
+                                width: "100%",
+                                aspectRatio: "3 / 4",
+                                overflow: "hidden",
+                                borderRadius: 12,
+                                cursor: "pointer",
+                                padding: 0,
+                                background: "var(--home-paper-2)",
+                                border: active
+                                  ? "2px solid var(--home-rose-deep)"
+                                  : "1px solid var(--home-line)",
+                                boxShadow: active
+                                  ? "0 0 0 3px color-mix(in srgb, var(--home-rose) 40%, transparent)"
+                                  : "none",
+                              }}
+                            >
+                              <img
+                                src={url}
+                                alt={`Постер ${index + 1}`}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                              {active ? (
+                                <span
+                                  style={{
+                                    position: "absolute",
+                                    top: 4,
+                                    right: 4,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: 999,
+                                    color: "#fff",
+                                    background: "var(--home-rose-deep)",
+                                  }}
+                                >
+                                  <Check size={13} />
+                                </span>
+                              ) : null}
+                            </button>
+                          </form>
+                        );
+                      })}
+                    </div>
+                    {defaultPosterState.message ? (
+                      <p
+                        className="mt-3 text-sm font-medium"
+                        style={{
+                          color: defaultPosterState.ok ? "#3f7d57" : "#c44d66",
+                        }}
+                      >
+                        {defaultPosterState.message}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : selectedManga ? (
+                  <div
+                    className="ad-dashed mt-6 p-4 text-sm"
+                    style={{ color: "var(--home-plum-soft)" }}
+                  >
+                    Энэ мангад постер сонголт алга.
+                  </div>
                 ) : (
                   <div className="ad-dashed p-5 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                     Одоогоор манга алга. Эхлээд манга оруулаад дараа нь эндээс

@@ -11,12 +11,94 @@ import {
   listGoogleDriveImages,
 } from "@/lib/google-drive";
 import { deleteFromR2, getR2KeyFromUrl, uploadToR2 } from "@/lib/r2";
+import { PLANS, extendExpiry, formatTugrug, isValidPlan } from "@/lib/plans";
 
 export type AdminActionState = {
   ok: boolean;
   message: string;
   createdMangaId?: string;
 };
+
+/**
+ * Manually grant a subscription period to a user by email. Used to test the
+ * premium gate end-to-end before QPay is wired, and to comp users. Records a
+ * PAID Payment (manual) + a Subscription and extends the user's premiumUntil.
+ */
+export async function grantSubscriptionAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return { ok: false, message: "Admin access is required." };
+    }
+
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const planValue = String(formData.get("plan") ?? "").trim();
+
+    if (!email) {
+      return { ok: false, message: "Хэрэглэгчийн и-мэйл оруулна уу." };
+    }
+
+    if (!isValidPlan(planValue)) {
+      return { ok: false, message: "Багц буруй байна." };
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, premiumUntil: true },
+    });
+
+    if (!target) {
+      return { ok: false, message: `"${email}" хэрэглэгч олдсонгүй.` };
+    }
+
+    const plan = PLANS[planValue];
+    const now = new Date();
+    const expiresAt = extendExpiry(target.premiumUntil, planValue, now);
+
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          userId: target.id,
+          plan: planValue,
+          amount: plan.price,
+          status: "PAID",
+          paidAt: now,
+        },
+        select: { id: true },
+      });
+
+      await tx.subscription.create({
+        data: {
+          userId: target.id,
+          plan: planValue,
+          startedAt: now,
+          expiresAt,
+          paymentId: payment.id,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: target.id },
+        data: { premiumUntil: expiresAt },
+      });
+    });
+
+    return {
+      ok: true,
+      message: `${email} — ${plan.label} (${formatTugrug(plan.price)}) багц ${expiresAt.toLocaleDateString()} хүртэл идэвхжлээ.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Багц олгоход алдаа гарлаа.",
+    };
+  }
+}
 
 const allowedStatuses = new Set([
   "ONGOING",
@@ -1475,6 +1557,66 @@ export async function deleteChapterAction(
       ok: false,
       message:
         error instanceof Error ? error.message : "Chapter deletion failed.",
+    };
+  }
+}
+
+/**
+ * Sets (or clears, with an empty posterUrl) the manga's default poster — the
+ * cover shown to everyone who hasn't picked their own. Must be one of the
+ * manga's posterOptions.
+ */
+export async function setDefaultPosterAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return { ok: false, message: "Admin access is required." };
+    }
+
+    const mangaId = String(formData.get("mangaId") ?? "").trim();
+    const posterUrl = String(formData.get("posterUrl") ?? "").trim();
+
+    if (!mangaId) {
+      return { ok: false, message: "Манга сонгоно уу." };
+    }
+
+    const manga = await prisma.manga.findUnique({
+      where: { id: mangaId },
+      select: { id: true, posterOptions: true },
+    });
+
+    if (!manga) {
+      return { ok: false, message: "Манга олдсонгүй." };
+    }
+
+    if (posterUrl && !manga.posterOptions.includes(posterUrl)) {
+      return { ok: false, message: "Тэр постер сонголтод алга." };
+    }
+
+    await prisma.manga.update({
+      where: { id: mangaId },
+      data: { defaultPoster: posterUrl || null },
+    });
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${mangaId}`);
+
+    return {
+      ok: true,
+      message: posterUrl
+        ? "Үндсэн постер шинэчлэгдлээ."
+        : "Үндсэн постер цэвэрлэгдлээ.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Постер шинэчлэхэд алдаа гарлаа.",
     };
   }
 }
