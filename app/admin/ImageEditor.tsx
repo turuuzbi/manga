@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   Crop,
@@ -123,21 +124,17 @@ export function ImageEditorField({
   const submitInputRef = useRef<HTMLInputElement>(null);
   const sourcePickerRef = useRef<HTMLInputElement>(null);
 
-  const [source, setSource] = useState<{ url: string; name: string } | null>(
-    null,
-  );
+  // Store the raw File — the modal owns its object-URL lifecycle. Creating the
+  // URL here (e.g. inside a setState updater) is unsafe under React 19 Strict
+  // Mode, which double-invokes updaters and would leak / revoke the URL.
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [result, setResult] = useState<{ url: string; name: string } | null>(
     null,
   );
   const [lastEdit, setLastEdit] = useState<EditSettings | null>(null);
 
-  // Revoke object URLs when they are replaced / on unmount.
-  useEffect(() => {
-    return () => {
-      if (source) URL.revokeObjectURL(source.url);
-    };
-  }, [source]);
+  // Revoke the result-preview URL when replaced / on unmount.
   useEffect(() => {
     return () => {
       if (result) URL.revokeObjectURL(result.url);
@@ -152,10 +149,7 @@ export function ImageEditorField({
       // Allow re-picking the same file next time.
       event.target.value = "";
       if (!file || !file.type.startsWith("image/")) return;
-      setSource((prev) => {
-        if (prev) URL.revokeObjectURL(prev.url);
-        return { url: URL.createObjectURL(file), name: file.name };
-      });
+      setSourceFile(file);
       setLastEdit(null);
       setEditorOpen(true);
     },
@@ -172,7 +166,10 @@ export function ImageEditorField({
           : outputType === "image/webp"
             ? "webp"
             : "jpg";
-      const base = (source?.name ?? "chapter-cover").replace(/\.[^.]+$/, "");
+      const base = (sourceFile?.name ?? "chapter-cover").replace(
+        /\.[^.]+$/,
+        "",
+      );
       const file = new File([blob], `${base}-edited.${ext}`, {
         type: outputType,
       });
@@ -189,7 +186,7 @@ export function ImageEditorField({
       setLastEdit(settings);
       setEditorOpen(false);
     },
-    [outputType, source],
+    [outputType, sourceFile],
   );
 
   const clearResult = useCallback(() => {
@@ -283,9 +280,9 @@ export function ImageEditorField({
         </button>
       )}
 
-      {editorOpen && source ? (
+      {editorOpen && sourceFile ? (
         <PhotoEditorModal
-          src={source.url}
+          file={sourceFile}
           presets={presets}
           defaultAspectId={defaultAspectId ?? presets[0].id}
           initial={lastEdit}
@@ -305,7 +302,7 @@ export function ImageEditorField({
 // ── The editor modal ───────────────────────────────────────────────────────
 
 function PhotoEditorModal({
-  src,
+  file,
   presets,
   defaultAspectId,
   initial,
@@ -315,7 +312,7 @@ function PhotoEditorModal({
   onCancel,
   onApply,
 }: {
-  src: string;
+  file: File;
   presets: AspectPreset[];
   defaultAspectId: string;
   initial: EditSettings | null;
@@ -337,6 +334,7 @@ function PhotoEditorModal({
   } | null>(null);
 
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [nat, setNat] = useState({ w: 0, h: 0 });
   const [box, setBox] = useState(340);
   const [busy, setBusy] = useState(false);
@@ -396,21 +394,43 @@ function PhotoEditorModal({
     };
   }, [onCancel]);
 
-  // Load the source image.
+  // Load the source image. The object URL is created and revoked here so its
+  // lifetime is exactly the modal's — no cross-component revoke races.
   useEffect(() => {
     let cancelled = false;
+    setLoaded(false);
+    setLoadError(null);
+    const url = URL.createObjectURL(file);
     const image = new Image();
+    const timer = window.setTimeout(() => {
+      if (!cancelled && !imgRef.current) {
+        setLoadError(
+          "Зураг ачаалахад хэт удаж байна. Хэмжээ багатай JPG / PNG / WEBP зураг оруулж үзнэ үү.",
+        );
+      }
+    }, 20000);
     image.onload = () => {
       if (cancelled) return;
+      window.clearTimeout(timer);
       imgRef.current = image;
       setNat({ w: image.naturalWidth, h: image.naturalHeight });
+      setLoadError(null);
       setLoaded(true);
     };
-    image.src = src;
+    image.onerror = () => {
+      if (cancelled) return;
+      window.clearTimeout(timer);
+      setLoadError(
+        "Энэ зургийг задлах боломжгүй байна. JPG, PNG эсвэл WEBP форматтай зураг оруулна уу (iPhone HEIC дэмжигдэхгүй).",
+      );
+    };
+    image.src = url;
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
+      URL.revokeObjectURL(url);
     };
-  }, [src]);
+  }, [file]);
 
   // Once the image + frame are known, fit it (respecting any initial settings).
   const didInit = useRef(false);
@@ -581,7 +601,7 @@ function PhotoEditorModal({
     }
   };
 
-  return (
+  const overlay = (
     <div
       className="pe-overlay"
       role="dialog"
@@ -623,10 +643,16 @@ function PhotoEditorModal({
                 className="pe-canvas"
                 style={{ width: frame.w, height: frame.h }}
               />
-              <div className="pe-grid" aria-hidden>
-                <span /><span /><span /><span />
-              </div>
-              {!loaded ? <div className="pe-loading">Ачааллаж байна…</div> : null}
+              {loaded && !loadError ? (
+                <div className="pe-grid" aria-hidden>
+                  <span /><span /><span /><span />
+                </div>
+              ) : null}
+              {loadError ? (
+                <div className="pe-loading pe-load-error">{loadError}</div>
+              ) : !loaded ? (
+                <div className="pe-loading">Ачааллаж байна…</div>
+              ) : null}
             </div>
             <p className="pe-hint">Зурагаа чирж байрлуулна · дугуйгаар томруулна</p>
           </div>
@@ -760,7 +786,7 @@ function PhotoEditorModal({
             type="button"
             className="ad-btn ad-btn-primary"
             onClick={apply}
-            disabled={!loaded || busy}
+            disabled={!loaded || busy || Boolean(loadError)}
           >
             <Check size={16} />
             {busy ? "Боловсруулж байна…" : "Хэрэглэх"}
@@ -768,6 +794,16 @@ function PhotoEditorModal({
         </div>
       </div>
     </div>
+  );
+
+  // Portal to <body> so the fixed overlay escapes the admin card's `transform`
+  // (`.motion-ink-up` keeps a transform via animation-fill-mode, which would
+  // otherwise make `position: fixed` resolve against that card, not the
+  // viewport). The `yume-surface` class re-provides the --home-* tokens.
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="yume-surface pe-portal-root">{overlay}</div>,
+    document.body,
   );
 }
 
@@ -842,6 +878,7 @@ function EditorStyles() {
 .pe-danger { color: #a8506a; }
 .pe-danger:hover { border-color: #c15f73; }
 
+.pe-portal-root { background: none !important; }
 .pe-overlay { position: fixed; inset: 0; z-index: 120; display: flex;
   align-items: center; justify-content: center; padding: 16px;
   background: color-mix(in srgb, var(--home-plum) 55%, rgba(0,0,0,0.55));
@@ -880,7 +917,10 @@ function EditorStyles() {
 .pe-grid span:nth-child(3) { top: 33.33%; left: 0; right: 0; height: 1px; }
 .pe-grid span:nth-child(4) { top: 66.66%; left: 0; right: 0; height: 1px; }
 .pe-loading { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; font-size: 13px; color: var(--home-plum-soft); z-index: 2; }
+  justify-content: center; font-size: 13px; color: var(--home-plum-soft); z-index: 2;
+  background: color-mix(in srgb, var(--home-paper) 82%, transparent); }
+.pe-load-error { color: #c15f73; font-size: 12.5px; line-height: 1.5; text-align: center;
+  padding: 0 18px; }
 .pe-hint { font-size: 11px; color: var(--home-plum-soft); text-align: center; }
 
 .pe-controls { display: flex; flex-direction: column; gap: 16px; }
