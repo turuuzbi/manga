@@ -44,6 +44,7 @@ import {
   type AdminActionState,
 } from "@/app/admin/actions";
 import { PLANS, PLAN_ORDER, formatTugrug } from "@/lib/plans";
+import { ImageEditorField } from "@/app/admin/ImageEditor";
 
 const initialAdminActionState: AdminActionState = {
   ok: false,
@@ -376,7 +377,6 @@ export function AdminConsole({
   const [coverName, setCoverName] = useState("");
   const [homeCoverName, setHomeCoverName] = useState("");
   const [detailCoverName, setDetailCoverName] = useState("");
-  const [chapterCoverName, setChapterCoverName] = useState("");
   const [chapterBadgeName, setChapterBadgeName] = useState("");
   const [pageCount, setPageCount] = useState(0);
   const [driveImportMode, setDriveImportMode] = useState<DriveImportMode>(
@@ -429,7 +429,6 @@ export function AdminConsole({
       signature,
       names: {},
     });
-    setChapterCoverName("");
     setChapterBadgeName("");
   };
 
@@ -663,7 +662,6 @@ export function AdminConsole({
                   <form
                     key={selectedManga.id}
                     action={manageFormAction}
-                    encType="multipart/form-data"
                     className="space-y-6"
                   >
                     <input type="hidden" name="mangaId" value={selectedManga.id} />
@@ -975,7 +973,6 @@ export function AdminConsole({
                         <form
                           key={selectedChapter.id}
                           action={chapterMetaFormAction}
-                          encType="multipart/form-data"
                           className="ad-soft p-4 sm:p-5"
                         >
                           <input
@@ -1001,27 +998,12 @@ export function AdminConsole({
                             />
                           </div>
                           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                            <UploadField
+                            <ImageEditorField
+                              name="chapterCoverImage"
                               label="Бүлгийн thumbnail"
-                              helper={
-                                chapterCoverName ||
-                                (selectedChapter.coverImage
-                                  ? "Одоогийн thumbnail хадгалагдсан."
-                                  : "Бүлгийн жагсаалтад харагдах зураг.")
-                              }
-                            >
-                              <input
-                                type="file"
-                                name="chapterCoverImage"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(event) =>
-                                  setChapterCoverName(
-                                    event.target.files?.[0]?.name ?? "",
-                                  )
-                                }
-                              />
-                            </UploadField>
+                              helper="Зургаа тайрч, эргүүлж, өнгө тохируулаад хадгална."
+                              existingImage={selectedChapter.coverImage || null}
+                            />
 
                             <UploadField
                               label="Тусгай тэмдэг (PNG)"
@@ -1156,7 +1138,6 @@ export function AdminConsole({
                               >
                                 <form
                                   action={pageImageFormAction}
-                                  encType="multipart/form-data"
                                   className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
                                 >
                                   <input
