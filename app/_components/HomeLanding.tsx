@@ -262,14 +262,24 @@ html[data-theme="dark"] .yume-home {
   border: 1px solid rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(4px);
 }
+/* Corner ribbon tucked into the poster's top-right radius, so the badge never
+   sits over the title/genre text below the thumbnail. */
 .yume-status {
-  position: absolute; top: 10px; left: 10px; z-index: 3;
+  position: absolute; top: 0; right: 0; z-index: 3;
+  max-width: calc(100% - 28px);
   font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  padding: 4px 9px; border-radius: 999px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 5px 10px 5px 11px;
+  border-radius: 0 16px 0 14px;
   color: var(--home-rose-deep);
-  background: color-mix(in srgb, var(--home-paper) 88%, transparent);
+  background: color-mix(in srgb, var(--home-paper) 90%, transparent);
   border: 1px solid var(--home-line);
+  border-top: none; border-right: none;
   backdrop-filter: blur(4px);
+}
+.yume-status.is-completed {
+  color: color-mix(in srgb, var(--home-gold) 78%, var(--home-plum));
+  border-color: var(--home-line-strong);
 }
 .yume-card-title {
   font-family: 'Cormorant Garamond', serif;
@@ -725,7 +735,15 @@ function MangaPosterCard({
     <>
       <div className="yume-poster">
         {manga.status ? (
-          <span className="yume-status">{STATUS_LABELS[manga.status]}</span>
+          <span
+            className={`yume-status${
+              manga.status === "COMPLETED" || manga.status === "FINISHED_RELEASING"
+                ? " is-completed"
+                : ""
+            }`}
+          >
+            {STATUS_LABELS[manga.status]}
+          </span>
         ) : null}
         {manga.coverUrl ? (
           <img src={manga.coverUrl} alt={manga.title} loading="lazy" />
