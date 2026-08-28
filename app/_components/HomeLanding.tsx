@@ -472,6 +472,7 @@ type HomeLandingProps = {
   continueReading?: ContinueReadingItem[];
   newlyAdded?: MangaSeries[];
   latestUpdates?: MangaSeries[];
+  completed?: MangaSeries[];
   popular?: MangaSeries[];
   allManga?: MangaSeries[];
   genreFilters?: GenreFilter[];
@@ -483,6 +484,7 @@ export function HomeLanding({
   continueReading = [],
   newlyAdded = [],
   latestUpdates = [],
+  completed = [],
   popular = [],
   allManga = [],
   genreFilters = [],
@@ -500,9 +502,13 @@ export function HomeLanding({
 
   const fontsToLoad = [
     ...featured.map((slide) => slide.titleFont ?? ""),
-    ...[...newlyAdded, ...latestUpdates, ...popular, ...allManga].map(
-      (manga) => manga.titleFont ?? "",
-    ),
+    ...[
+      ...newlyAdded,
+      ...latestUpdates,
+      ...completed,
+      ...popular,
+      ...allManga,
+    ].map((manga) => manga.titleFont ?? ""),
   ].filter(Boolean) as string[];
   const customFontsHref = buildGoogleFontsHref(fontsToLoad);
 
@@ -555,6 +561,17 @@ export function HomeLanding({
               title="Сүүлийн шинэчлэл"
               viewAllHref="/manga"
               series={latestUpdates}
+            />
+          ) : null}
+
+          {completed.length > 0 ? (
+            <Shelf
+              id="completed"
+              className="motion-ink-up motion-ink-up-delay-2"
+              eyebrow="Бүрэн орчуулагдсан"
+              title="Дууссан"
+              viewAllHref="/manga?status=COMPLETED"
+              series={completed}
             />
           ) : null}
 

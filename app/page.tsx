@@ -117,6 +117,10 @@ export default async function HomePage() {
   const byLatestUpdate = [...mangas].sort(
     (left, right) => latestPublishedAt(right) - latestPublishedAt(left),
   );
+  // Fully translated series get their own shelf, newest update first.
+  const completed = byLatestUpdate.filter(
+    (manga) => manga.status === "COMPLETED",
+  );
 
   const featured = byPopularity.slice(0, 5).map((manga) => ({
     id: manga.id,
@@ -137,6 +141,7 @@ export default async function HomePage() {
       continueReading={continueReading}
       newlyAdded={mangas.slice(0, 12).map(toSeries)}
       latestUpdates={byLatestUpdate.slice(0, 12).map(toSeries)}
+      completed={completed.slice(0, 12).map(toSeries)}
       popular={byPopularity.slice(0, 12).map(toSeries)}
       allManga={mangas.map(toSeries)}
       genreFilters={genreFilters.map((genre) => ({
