@@ -633,30 +633,26 @@ export default async function MangaPreviewPage({
       ? manga.genres.map((entry) => ({ id: entry.genreId, name: entry.genre.name }))
       : [{ id: "fallback", name: "Манга" }];
 
-  // Spoiler gate: each poster option that matches a chapter's cover carries
-  // that chapter's number; an option is locked until the reader has progressed
-  // to (or past) that chapter. Options not tied to a chapter (series cover art)
-  // are always unlocked.
-  const chapterNumberById = new Map(
-    manga.chapters.map((chapter) => [chapter.id, chapter.chapterNumber]),
-  );
+  // Release gate: each poster option that matches a chapter's cover carries
+  // that chapter's number, and stays locked only until that chapter has been
+  // published. It is a property of the series, not of the reader — everyone
+  // sees the same locked/unlocked set. Options not tied to a chapter (series
+  // cover art) are always unlocked.
   const chapterNumberByCover = new Map<string, number>();
   for (const chapter of manga.chapters) {
     if (chapter.coverImage) {
       chapterNumberByCover.set(chapter.coverImage, chapter.chapterNumber);
     }
   }
-  const readChapterNumbers = readingRows
-    .map((row) => chapterNumberById.get(row.chapterId))
-    .filter((value): value is number => typeof value === "number");
-  const maxReadChapter =
-    readChapterNumbers.length > 0 ? Math.max(...readChapterNumbers) : null;
+  const latestPublishedChapter =
+    manga.chapters.length > 0
+      ? Math.max(...manga.chapters.map((chapter) => chapter.chapterNumber))
+      : 0;
 
   const posterOptionViews = manga.posterOptions.map((url) => {
     const sourceChapter = chapterNumberByCover.get(url) ?? null;
     const locked =
-      sourceChapter !== null &&
-      (maxReadChapter === null || maxReadChapter < sourceChapter);
+      sourceChapter !== null && latestPublishedChapter < sourceChapter;
     return { url, chapterNumber: sourceChapter, locked };
   });
 

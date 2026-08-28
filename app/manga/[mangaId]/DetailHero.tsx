@@ -22,7 +22,7 @@ type PosterOption = {
   url: string;
   /** Source chapter number (null = series art, always unlocked). */
   chapterNumber: number | null;
-  /** Locked = drawn from a chapter the reader hasn't reached (spoiler). */
+  /** Locked = drawn from a chapter that has not been published yet. */
   locked: boolean;
 };
 
@@ -163,7 +163,8 @@ export function DetailHero({
             </div>
 
             <p className="yd-sheet-note">
-              Уншсан бүлгүүдээс постер сонгоно. Уншаагүй бүлгийн постер түгжээтэй.
+              Гарсан бүлгүүдийн зургаас постероо сонгоно. Хараахан гараагүй
+              бүлгийн постер түгжээтэй.
             </p>
 
             <div className="yd-poster-grid">

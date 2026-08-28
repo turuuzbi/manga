@@ -56,27 +56,26 @@ export async function setPosterChoiceAction(
       return { ok: false, message: "That poster is not available." };
     }
 
-    // Spoiler gate: if the poster is a chapter cover, the user must have read
-    // up to that chapter. Enforced here so a crafted request can't pick a
-    // locked poster.
+    // Release gate: if the poster is a chapter cover, that chapter has to be
+    // published. Mirrors the detail page's lock so a crafted request can't
+    // pick an unreleased poster — it does not depend on the reader's history.
     const sourceChapter = manga.chapters.find(
       (chapter) => chapter.coverImage === cleanPosterUrl,
     )?.chapterNumber;
 
     if (typeof sourceChapter === "number") {
-      const readAtOrPast = await prisma.readingProgress.findFirst({
+      const published = await prisma.chapter.findFirst({
         where: {
-          userId: user.id,
           mangaId: cleanMangaId,
-          chapter: { chapterNumber: { gte: sourceChapter } },
+          chapterNumber: { gte: sourceChapter },
         },
         select: { id: true },
       });
 
-      if (!readAtOrPast) {
+      if (!published) {
         return {
           ok: false,
-          message: "Энэ постерийн бүлгийг уншаагүй байна.",
+          message: "Энэ постерийн бүлэг хараахан гараагүй байна.",
         };
       }
     }
