@@ -54,6 +54,10 @@ model Manga {
   author      String?
   artist      String?
   status      MangaStatus @default(ONGOING)
+  // Owner-curated homepage hero ("Юмэгийн санал болгох"). Only isFeatured
+  // rows appear, sorted by featuredOrder ascending (nulls last).
+  isFeatured    Boolean @default(false)
+  featuredOrder Int?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -64,6 +68,8 @@ model Manga {
   comments        Comment[]
   readingProgress ReadingProgress[]
   posterChoices   UserPosterChoice[]
+
+  @@index([isFeatured, featuredOrder])
 }
 
 model Genre {

@@ -122,7 +122,18 @@ export default async function HomePage() {
     (manga) => manga.status === "COMPLETED",
   );
 
-  const featured = byPopularity.slice(0, 5).map((manga) => ({
+  // Owner-curated hero. Ordered by the admin-set featuredOrder; anything left
+  // without an order falls to the end, alphabetically.
+  const featuredManga = mangas
+    .filter((manga) => manga.isFeatured)
+    .sort(
+      (left, right) =>
+        (left.featuredOrder ?? Number.MAX_SAFE_INTEGER) -
+          (right.featuredOrder ?? Number.MAX_SAFE_INTEGER) ||
+        left.mangaName.localeCompare(right.mangaName),
+    );
+
+  const featured = featuredManga.map((manga) => ({
     id: manga.id,
     title: manga.mangaName,
     coverUrl:

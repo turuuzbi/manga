@@ -278,6 +278,8 @@ type AdminConsoleProps = {
     author: string;
     artist: string;
     status: MangaStatusValue;
+    isFeatured: boolean;
+    featuredOrder: number | null;
     posterOptions: string[];
     defaultPoster: string;
     genres: string[];
@@ -406,6 +408,20 @@ export function AdminConsole({
     selectedManga?.chapters.find((entry) => entry.id === selectedChapterId) ??
     selectedManga?.chapters[0] ??
     null;
+  // Current hero line-up, so the owner can see the running order while editing
+  // one series at a time.
+  const featuredSummary = useMemo(
+    () =>
+      mangaLibrary
+        .filter((entry) => entry.isFeatured)
+        .sort(
+          (left, right) =>
+            (left.featuredOrder ?? Number.MAX_SAFE_INTEGER) -
+              (right.featuredOrder ?? Number.MAX_SAFE_INTEGER) ||
+            left.mangaName.localeCompare(right.mangaName),
+        ),
+    [mangaLibrary],
+  );
   const selectedChapterPageSignature = getChapterPageSignature(selectedChapter);
   const pageDraft =
     pageDraftState.signature === selectedChapterPageSignature
@@ -737,6 +753,58 @@ export function AdminConsole({
                           }
                         />
                       </UploadField>
+                    </div>
+
+                    <div className="ad-soft p-4 sm:p-5">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Sparkles size={17} style={{ color: "var(--home-gold)" }} />
+                        <h3 className="ad-h3">Юмэгийн санал болгох</h3>
+                      </div>
+                      <p className="ad-sub">
+                        Нүүр хуудасны онцлох слайдер. Зөвхөн энд сонгосон манга
+                        харагдана.
+                      </p>
+
+                      <label className="ad-check mt-4">
+                        <input
+                          type="checkbox"
+                          name="isFeatured"
+                          defaultChecked={selectedManga.isFeatured}
+                          className="mt-0.5 h-4 w-4"
+                        />
+                        <span>Онцлох слайдерт харуулах</span>
+                      </label>
+
+                      <div className="mt-4 max-w-55">
+                        <Field
+                          label="Эрэмбэ (1 = эхний слайд)"
+                          name="featuredOrder"
+                          type="number"
+                          min={1}
+                          step={1}
+                          placeholder="1"
+                          defaultValue={selectedManga.featuredOrder ?? ""}
+                        />
+                      </div>
+
+                      {featuredSummary.length > 0 ? (
+                        <p className="ad-sub mt-4">
+                          Одоогийн дараалал:{" "}
+                          <span style={{ color: "var(--home-plum)" }}>
+                            {featuredSummary
+                              .map(
+                                (entry, index) =>
+                                  `${entry.featuredOrder ?? index + 1}. ${entry.mangaName}`,
+                              )
+                              .join(" · ")}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="ad-sub mt-4">
+                          Одоогоор нэг ч манга онцлогдоогүй байна — слайдер
+                          харагдахгүй.
+                        </p>
+                      )}
                     </div>
 
                     <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>

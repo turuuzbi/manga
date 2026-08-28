@@ -135,6 +135,8 @@ export default async function AdminPage() {
         author: entry.author ?? "",
         artist: entry.artist ?? "",
         status: entry.status,
+        isFeatured: entry.isFeatured,
+        featuredOrder: entry.featuredOrder,
         posterOptions: entry.posterOptions,
         defaultPoster: entry.defaultPoster ?? "",
         genres: entry.genres.map((genreEntry) => genreEntry.genre.name),

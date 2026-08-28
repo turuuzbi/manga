@@ -186,7 +186,22 @@ function parseMangaMetadataInput(formData: FormData) {
     genreInput: String(formData.get("genres") ?? ""),
     rawStatus: String(formData.get("status") ?? "ONGOING").toUpperCase(),
     titleFont: String(formData.get("titleFont") ?? "").trim(),
+    isFeatured: formData.get("isFeatured") === "on",
+    featuredOrder: parseFeaturedOrder(formData.get("featuredOrder")),
   };
+}
+
+/** Hero position: a positive integer, or null for "unordered / end of list". */
+function parseFeaturedOrder(value: FormDataEntryValue | null): number | null {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = Number(raw);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function parseDriveImportMode(formData: FormData): DriveImportMode {
@@ -896,6 +911,8 @@ export async function updateMangaMetadataAction(
         artist: input.artist || null,
         status: input.rawStatus as MangaStatusValue,
         titleFont: input.titleFont || null,
+        isFeatured: input.isFeatured,
+        featuredOrder: input.isFeatured ? input.featuredOrder : null,
         ...posterData,
         genres: {
           deleteMany: {},
