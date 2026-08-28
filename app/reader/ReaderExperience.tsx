@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -12,6 +13,7 @@ import {
   Rows3,
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
+import { FreeReadConfirm } from "@/app/_components/FreeReadConfirm";
 import { FREE_CHAPTERS_PER_DAY } from "@/lib/plans";
 
 type ReaderMode = "scroll" | "paged";
@@ -34,14 +36,15 @@ type ReaderExperienceProps = {
     pageNumber: number;
     imageUrl: string;
   }>;
-  previousChapter: {
-    id: string;
-    number: number;
-  } | null;
-  nextChapter: {
-    id: string;
-    number: number;
-  } | null;
+  previousChapter: ReaderNeighbourChapter | null;
+  nextChapter: ReaderNeighbourChapter | null;
+};
+
+type ReaderNeighbourChapter = {
+  id: string;
+  number: number;
+  /** Opening it would spend one of today's free unlocks. */
+  spendsFreeRead: boolean;
 };
 
 const readerModeStorageKey = "manga-reader-mode";
@@ -55,10 +58,15 @@ function ReaderChapterSwitch({
   previousChapter,
   currentChapterNumber,
   nextChapter,
+  onChapterLinkClick,
 }: {
   previousChapter: ReaderExperienceProps["previousChapter"];
   currentChapterNumber: number;
   nextChapter: ReaderExperienceProps["nextChapter"];
+  onChapterLinkClick: (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    chapter: ReaderNeighbourChapter,
+  ) => void;
 }) {
   return (
     <div className="pointer-events-auto mx-auto w-full max-w-md">
@@ -66,6 +74,7 @@ function ReaderChapterSwitch({
         {previousChapter ? (
           <Link
             href={`/reader/${previousChapter.id}`}
+            onClick={(event) => onChapterLinkClick(event, previousChapter)}
             className="flex items-center justify-center border-r border-[#8b6b2d]/40 text-zinc-100 transition hover:bg-white/5"
             aria-label={`Go to chapter ${previousChapter.number}`}
           >
@@ -89,6 +98,7 @@ function ReaderChapterSwitch({
         {nextChapter ? (
           <Link
             href={`/reader/${nextChapter.id}`}
+            onClick={(event) => onChapterLinkClick(event, nextChapter)}
             className="flex items-center justify-center border-l border-[#8b6b2d]/40 text-zinc-100 transition hover:bg-white/5"
             aria-label={`Go to chapter ${nextChapter.number}`}
           >
@@ -126,8 +136,26 @@ export function ReaderExperience({
   });
   const [currentPage, setCurrentPage] = useState(0);
   const [showChrome, setShowChrome] = useState(true);
+  const [confirming, setConfirming] = useState<ReaderNeighbourChapter | null>(
+    null,
+  );
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
   const chromeHideTimeoutRef = useRef<number | null>(null);
+  const router = useRouter();
+
+  // Confirm before navigating to a chapter that would spend a free unlock.
+  // With no free reads left the reader page shows the paywall as before.
+  function handleChapterLinkClick(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    target: ReaderNeighbourChapter,
+  ) {
+    if (!target.spendsFreeRead || (freeRemaining ?? 0) <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setConfirming(target);
+  }
 
   function clearChromeHideTimeout() {
     if (chromeHideTimeoutRef.current) {
@@ -355,6 +383,9 @@ export function ReaderExperience({
               {previousChapter ? (
                 <Link
                   href={`/reader/${previousChapter.id}`}
+                  onClick={(event) =>
+                    handleChapterLinkClick(event, previousChapter)
+                  }
                   className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#28282d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#34343a]"
                 >
                   Өмнөх бүлэг
@@ -366,6 +397,7 @@ export function ReaderExperience({
               {nextChapter ? (
                 <Link
                   href={`/reader/${nextChapter.id}`}
+                  onClick={(event) => handleChapterLinkClick(event, nextChapter)}
                   className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
                 >
                   Дараагын бүлэг
@@ -438,6 +470,7 @@ export function ReaderExperience({
             previousChapter={previousChapter}
             currentChapterNumber={chapter.number}
             nextChapter={nextChapter}
+            onChapterLinkClick={handleChapterLinkClick}
           />
           <div className="text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
             {readerMode === "scroll"
@@ -446,6 +479,20 @@ export function ReaderExperience({
           </div>
         </div>
       </div>
+
+      <FreeReadConfirm
+        chapterNumber={confirming?.number ?? null}
+        remaining={freeRemaining ?? 0}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          const target = confirming;
+          setConfirming(null);
+
+          if (target) {
+            router.push(`/reader/${target.id}`);
+          }
+        }}
+      />
     </div>
   );
 }

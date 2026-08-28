@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -10,6 +11,7 @@ import {
   Clock3,
   Lock,
 } from "lucide-react";
+import { FreeReadConfirm } from "@/app/_components/FreeReadConfirm";
 
 export type ChapterListItem = {
   id: string;
@@ -25,6 +27,8 @@ export type ChapterListItem = {
   isLastRead: boolean;
   /** One of the newest chapters — subscriber-only, never free. */
   isPaywalled: boolean;
+  /** Opening this would spend one of today's free unlocks. */
+  spendsFreeRead: boolean;
 };
 
 type SortOrder = "asc" | "desc";
@@ -33,15 +37,38 @@ function formatChapterLabel(chapterNumber: number, title: string | null) {
   return title ? `Бүлэг ${chapterNumber} • ${title}` : `Бүлэг ${chapterNumber}`;
 }
 
-export function ChapterList({ items }: { items: ChapterListItem[] }) {
+export function ChapterList({
+  items,
+  freeRemaining = 0,
+}: {
+  items: ChapterListItem[];
+  /** Free unlocks left today; 0 for premium and signed-out readers. */
+  freeRemaining?: number;
+}) {
   // "Сүүлээс" (newest first) is the default, matching the previous behaviour.
   const [order, setOrder] = useState<SortOrder>("desc");
+  const [confirming, setConfirming] = useState<ChapterListItem | null>(null);
+  const router = useRouter();
 
   const sorted = [...items].sort((left, right) =>
     order === "desc"
       ? right.chapterNumber - left.chapterNumber
       : left.chapterNumber - right.chapterNumber,
   );
+
+  // Only intercept when the tap would actually cost the reader something; with
+  // no free reads left the reader page shows the paywall as before.
+  function handleChapterClick(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    chapter: ChapterListItem,
+  ) {
+    if (!chapter.spendsFreeRead || freeRemaining <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setConfirming(chapter);
+  }
 
   return (
     <>
@@ -83,6 +110,7 @@ export function ChapterList({ items }: { items: ChapterListItem[] }) {
             <Link
               key={chapter.id}
               href={`/reader/${chapter.id}`}
+              onClick={(event) => handleChapterClick(event, chapter)}
               className={`group motion-ink-up yd-chapter${chapter.isRead ? " is-read" : ""}`}
               style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
             >
@@ -150,6 +178,20 @@ export function ChapterList({ items }: { items: ChapterListItem[] }) {
           ))}
         </div>
       )}
+
+      <FreeReadConfirm
+        chapterNumber={confirming?.chapterNumber ?? null}
+        remaining={freeRemaining}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          const target = confirming;
+          setConfirming(null);
+
+          if (target) {
+            router.push(`/reader/${target.id}`);
+          }
+        }}
+      />
     </>
   );
 }

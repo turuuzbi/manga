@@ -1,7 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
-import { resolveChapterAccess } from "@/lib/reading-access";
+import {
+  getFreeSpendChapterIds,
+  resolveChapterAccess,
+} from "@/lib/reading-access";
+import { PAYWALLED_LATEST_CHAPTERS } from "@/lib/plans";
 import { ReaderExperience } from "@/app/reader/ReaderExperience";
 import { Paywall } from "@/app/reader/Paywall";
 
@@ -98,6 +102,28 @@ export default async function ReaderChapterPage({
       ? chapters[currentChapterIndex + 1]
       : null;
 
+  // Confirm before a neighbouring chapter spends a free unlock, so a stray tap
+  // on "next" can't burn the daily allowance. `chapters` is ordered ascending,
+  // so the paywalled window is its tail.
+  const neighbourIds = [previousChapter?.id, nextChapter?.id].filter(
+    (id): id is string => Boolean(id),
+  );
+  const neighbourReads =
+    neighbourIds.length > 0
+      ? await prisma.readingProgress.findMany({
+          where: { userId: dbUser.id, chapterId: { in: neighbourIds } },
+          select: { chapterId: true },
+        })
+      : [];
+  const freeSpendChapterIds = await getFreeSpendChapterIds({
+    user: dbUser,
+    chapterIds: neighbourIds,
+    readChapterIds: new Set(neighbourReads.map((row) => row.chapterId)),
+    paywalledChapterIds: new Set(
+      chapters.slice(-PAYWALLED_LATEST_CHAPTERS).map((entry) => entry.id),
+    ),
+  });
+
   return (
     <ReaderExperience
       manga={{
@@ -117,6 +143,7 @@ export default async function ReaderChapterPage({
           ? {
               id: previousChapter.id,
               number: previousChapter.chapterNumber,
+              spendsFreeRead: freeSpendChapterIds.has(previousChapter.id),
             }
           : null
       }
@@ -125,6 +152,7 @@ export default async function ReaderChapterPage({
           ? {
               id: nextChapter.id,
               number: nextChapter.chapterNumber,
+              spendsFreeRead: freeSpendChapterIds.has(nextChapter.id),
             }
           : null
       }

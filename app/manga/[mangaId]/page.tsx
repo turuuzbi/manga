@@ -5,6 +5,10 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
 import { PAYWALLED_LATEST_CHAPTERS, isPremium } from "@/lib/plans";
+import {
+  getFreeReadState,
+  getFreeSpendChapterIds,
+} from "@/lib/reading-access";
 import { ChapterList } from "@/app/manga/[mangaId]/ChapterList";
 import { DetailHero } from "@/app/manga/[mangaId]/DetailHero";
 import { CommentsSection } from "@/app/manga/[mangaId]/CommentsSection";
@@ -631,6 +635,19 @@ export default async function MangaPreviewPage({
       .map((chapter) => chapter.id),
   );
 
+  // Which chapters would cost the reader a free unlock, so the list can ask
+  // for confirmation before spending one. Read-only — nothing is consumed
+  // until the reader actually opens the chapter.
+  const [freeSpendChapterIds, freeReadState] = await Promise.all([
+    getFreeSpendChapterIds({
+      user: currentDbUser,
+      chapterIds: manga.chapters.map((chapter) => chapter.id),
+      readChapterIds,
+      paywalledChapterIds,
+    }),
+    currentDbUser ? getFreeReadState(currentDbUser) : null,
+  ]);
+
   // Plain, serializable view-model for the client-sortable chapter list.
   // Must come after fallbackPageByChapter/read-state are computed above.
   const chapterItems = manga.chapters.map((chapter) => ({
@@ -648,6 +665,7 @@ export default async function MangaPreviewPage({
     // Premium readers never see the lock; everyone else does, including
     // signed-out visitors.
     isPaywalled: !viewerIsPremium && paywalledChapterIds.has(chapter.id),
+    spendsFreeRead: freeSpendChapterIds.has(chapter.id),
   }));
 
   // Admin-chosen default poster wins over the plain cover fields.
@@ -766,7 +784,10 @@ export default async function MangaPreviewPage({
 
         {/* Chapters */}
         <section className="motion-ink-up motion-ink-up-delay-3 yd-panel">
-          <ChapterList items={chapterItems} />
+          <ChapterList
+            items={chapterItems}
+            freeRemaining={freeReadState?.remaining ?? 0}
+          />
         </section>
 
         <CommentsSection
