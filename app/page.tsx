@@ -121,10 +121,6 @@ export default async function HomePage() {
   const featured = byPopularity.slice(0, 5).map((manga) => ({
     id: manga.id,
     title: manga.mangaName,
-    subtitle:
-      manga.description ??
-      "Романтик, уран зөгнөлт ертөнцөд умбан, дуртай цувралаа нээгээрэй.",
-    chapter: manga.chapters[0]?.chapterNumber ?? 1,
     coverUrl:
       manga.detailCoverImage ??
       manga.homeCoverImage ??

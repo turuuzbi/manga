@@ -309,19 +309,6 @@ html[data-theme="dark"] .yume-home {
   box-shadow: 0 8px 18px -8px var(--home-rose-deep);
 }
 
-.yume-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-family: 'Marcellus', serif;
-  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
-  padding: 12px 26px; border-radius: 999px;
-  color: #fff; text-decoration: none;
-  background: linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%);
-  box-shadow: 0 14px 30px -12px var(--home-rose-deep);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.yume-btn:hover { transform: translateY(-2px); box-shadow: 0 20px 36px -12px var(--home-rose-deep); }
-
 .yume-hero {
   position: relative;
   border-radius: 26px;
@@ -364,17 +351,11 @@ html[data-theme="dark"] .yume-home {
   text-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   max-width: 16ch;
 }
-.yume-hero-sub {
-  color: var(--home-on-dark-soft);
-  font-size: 14px; line-height: 1.65;
-  max-width: 52ch; margin-top: 16px;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.yume-hero-actions { margin-top: 22px; }
 .yume-spark { position: absolute; z-index: 4; color: rgba(255, 255, 255, 0.75); pointer-events: none; }
 
 .yume-hero-slide {
   position: absolute; inset: 0;
+  display: block; text-decoration: none; color: inherit;
   opacity: 0; visibility: hidden;
   transition: opacity 0.95s ease, visibility 0.95s ease;
 }
@@ -382,6 +363,9 @@ html[data-theme="dark"] .yume-home {
 .yume-hero-img {
   position: absolute; inset: 0;
   width: 100%; height: 100%; object-fit: cover;
+  /* Faces sit in the upper third of most covers — anchor there so the crop
+     never cuts them off on short/wide viewports. */
+  object-position: center top;
   transform: scale(1.06);
   transition: transform 7.5s ease-out;
 }
@@ -460,8 +444,6 @@ const headerLinks = [
 interface FeaturedSlide {
   id: string;
   title: string;
-  subtitle: string;
-  chapter: number;
   coverUrl?: string;
   titleFont?: string | null;
   genres: string[];
@@ -848,10 +830,13 @@ function HeroCarousel({ slides }: { slides: FeaturedSlide[] }) {
       onTouchEnd={handleTouchEnd}
     >
       {slides.map((slide, index) => (
-        <div
+        <Link
           key={slide.id}
+          href={`/manga/${slide.id}`}
           className={`yume-hero-slide${index === active ? " active" : ""}`}
           aria-hidden={index !== active}
+          tabIndex={index === active ? 0 : -1}
+          aria-label={slide.title}
           style={
             reducedMotion ? { transition: "none" } : undefined
           }
@@ -883,7 +868,6 @@ function HeroCarousel({ slides }: { slides: FeaturedSlide[] }) {
             >
               {slide.title}
             </h2>
-            <p className="yume-hero-sub">{slide.subtitle}</p>
             {slide.genres.length > 0 ? (
               <div className="yume-hero-tags">
                 {slide.genres.map((genre) => (
@@ -893,19 +877,8 @@ function HeroCarousel({ slides }: { slides: FeaturedSlide[] }) {
                 ))}
               </div>
             ) : null}
-            <div className="yume-hero-actions">
-              <Link
-                href={`/manga/${slide.id}`}
-                className="yume-btn"
-                tabIndex={index === active ? 0 : -1}
-              >
-                <BookOpen size={15} />
-                Ch. {slide.chapter} Унших
-                <ChevronRight size={15} />
-              </Link>
-            </div>
           </div>
-        </div>
+        </Link>
       ))}
 
       <Sparkles
