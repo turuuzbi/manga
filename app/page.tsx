@@ -43,7 +43,9 @@ function toSeries(manga: MangaWithMeta) {
     title: manga.mangaName,
     genres: manga.genres.map((entry) => entry.genre.name),
     latestChapter: manga.chapters[0]?.chapterNumber ?? 0,
-    coverUrl: manga.homeCoverImage ?? manga.coverImage ?? undefined,
+    // The owner's chosen poster wins over whatever ingestion guessed.
+    coverUrl:
+      manga.defaultPoster ?? manga.homeCoverImage ?? manga.coverImage ?? undefined,
     status: manga.status,
     titleFont: manga.titleFont ?? null,
   };
@@ -72,6 +74,7 @@ async function loadContinueReading(userId: string) {
     select: {
       id: true,
       mangaName: true,
+      defaultPoster: true,
       homeCoverImage: true,
       coverImage: true,
     },
@@ -85,7 +88,11 @@ async function loadContinueReading(userId: string) {
     .map((manga) => ({
       id: manga.id,
       title: manga.mangaName,
-      coverUrl: manga.homeCoverImage ?? manga.coverImage ?? undefined,
+      coverUrl:
+        manga.defaultPoster ??
+        manga.homeCoverImage ??
+        manga.coverImage ??
+        undefined,
     }));
 }
 
@@ -137,6 +144,7 @@ export default async function HomePage() {
     id: manga.id,
     title: manga.mangaName,
     coverUrl:
+      manga.defaultPoster ??
       manga.detailCoverImage ??
       manga.homeCoverImage ??
       manga.coverImage ??

@@ -31,9 +31,11 @@ import {
   UserRound,
 } from "lucide-react";
 import {
+  addPosterOptionAction,
   deleteChapterAction,
   deleteChapterPageAction,
   grantSubscriptionAction,
+  removePosterOptionAction,
   importGoogleDriveFolderAction,
   ingestMangaAction,
   reorderChapterPagesAction,
@@ -376,6 +378,21 @@ export function AdminConsole({
       setDefaultPosterAction,
       initialAdminActionState,
     );
+  const [addPosterState, addPosterFormAction, addPosterPending] =
+    useActionState<AdminActionState, FormData>(
+      addPosterOptionAction,
+      initialAdminActionState,
+    );
+  const [removePosterState, removePosterFormAction, removePosterPending] =
+    useActionState<AdminActionState, FormData>(
+      removePosterOptionAction,
+      initialAdminActionState,
+    );
+  // "Add poster from existing artwork" picker: a chapter, then one of its
+  // images (its thumbnail or any page).
+  const [posterSourceChapterId, setPosterSourceChapterId] = useState("");
+  const [posterSourceUrl, setPosterSourceUrl] = useState("");
+  const [newPosterName, setNewPosterName] = useState("");
   const [coverName, setCoverName] = useState("");
   const [homeCoverName, setHomeCoverName] = useState("");
   const [detailCoverName, setDetailCoverName] = useState("");
@@ -422,6 +439,31 @@ export function AdminConsole({
         ),
     [mangaLibrary],
   );
+  // Images the selected source chapter can contribute to the poster library.
+  const posterSourceChapter =
+    selectedManga?.chapters.find(
+      (entry) => entry.id === posterSourceChapterId,
+    ) ?? null;
+  const posterSourceImages: Array<{ url: string; label: string }> =
+    posterSourceChapter
+      ? [
+          ...(posterSourceChapter.coverImage
+            ? [
+                {
+                  url: posterSourceChapter.coverImage,
+                  label: "Бүлгийн зураг",
+                },
+              ]
+            : []),
+          ...posterSourceChapter.pages
+            .filter((page) => page.imageUrl !== posterSourceChapter.coverImage)
+            .map((page) => ({
+              url: page.imageUrl,
+              label: `${page.pageNumber}-р хуудас`,
+            })),
+        ]
+      : [];
+
   const selectedChapterPageSignature = getChapterPageSignature(selectedChapter);
   const pageDraft =
     pageDraftState.signature === selectedChapterPageSignature
@@ -468,6 +510,9 @@ export function AdminConsole({
     setSelectedChapterId(nextChapter?.id ?? "");
     setHomeCoverName("");
     setDetailCoverName("");
+    setPosterSourceChapterId("");
+    setPosterSourceUrl("");
+    setNewPosterName("");
     resetPageEditDraft(nextChapter);
   };
 
@@ -830,15 +875,22 @@ export function AdminConsole({
                   </form>
                 ) : null}
 
-                {selectedManga && selectedManga.posterOptions.length > 0 ? (
+                {selectedManga ? (
                   <div className="ad-soft mt-6 p-4 sm:p-5">
                     <div className="mb-1 flex items-center gap-2">
                       <FileImage size={17} style={{ color: "var(--home-gold)" }} />
-                      <h3 className="ad-h3">Үндсэн постер</h3>
+                      <h3 className="ad-h3">Постер сан</h3>
                     </div>
                     <p className="ad-sub">
-                      Хэрэглэгч өөрөө сонгоогүй үед харагдах постер. Дарж сонгоно.
+                      Энэ манганы постерууд. Дарж үндсэн постерыг сонгоно —
+                      үндсэн постер нүүр болон дэлгэрэнгүй хуудсанд харагдана.
                     </p>
+                    {selectedManga.posterOptions.length === 0 ? (
+                      <p className="ad-sub mt-3">
+                        Одоогоор постер алга. Доороос бүлгийн зураг сонгох
+                        эсвэл шинэ постер оруулна уу.
+                      </p>
+                    ) : null}
                     <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
                       <form action={defaultPosterFormAction}>
                         <input type="hidden" name="mangaId" value={selectedManga.id} />
@@ -879,7 +931,11 @@ export function AdminConsole({
                         const active = selectedManga.defaultPoster === url;
 
                         return (
-                          <form key={`${url}-${index}`} action={defaultPosterFormAction}>
+                          <div
+                            key={`${url}-${index}`}
+                            style={{ position: "relative" }}
+                          >
+                          <form action={defaultPosterFormAction}>
                             <input type="hidden" name="mangaId" value={selectedManga.id} />
                             <input type="hidden" name="posterUrl" value={url} />
                             <button
@@ -934,6 +990,36 @@ export function AdminConsole({
                               ) : null}
                             </button>
                           </form>
+
+                          <form action={removePosterFormAction}>
+                            <input type="hidden" name="mangaId" value={selectedManga.id} />
+                            <input type="hidden" name="posterUrl" value={url} />
+                            <button
+                              type="submit"
+                              disabled={removePosterPending}
+                              aria-label={`Постер ${index + 1}-ийг хасах`}
+                              title="Сангаас хасах"
+                              style={{
+                                position: "absolute",
+                                bottom: 4,
+                                right: 4,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 22,
+                                height: 22,
+                                borderRadius: 999,
+                                padding: 0,
+                                cursor: "pointer",
+                                color: "#fff",
+                                background: "rgba(40, 24, 32, 0.72)",
+                                border: "1px solid rgba(255, 255, 255, 0.35)",
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </form>
+                          </div>
                         );
                       })}
                     </div>
@@ -947,13 +1033,170 @@ export function AdminConsole({
                         {defaultPosterState.message}
                       </p>
                     ) : null}
-                  </div>
-                ) : selectedManga ? (
-                  <div
-                    className="ad-dashed mt-6 p-4 text-sm"
-                    style={{ color: "var(--home-plum-soft)" }}
-                  >
-                    Энэ мангад постер сонголт алга.
+                    {removePosterState.message ? (
+                      <p
+                        className="mt-2 text-sm font-medium"
+                        style={{
+                          color: removePosterState.ok ? "#3f7d57" : "#c44d66",
+                        }}
+                      >
+                        {removePosterState.message}
+                      </p>
+                    ) : null}
+
+                    <div
+                      className="mt-6 pt-5"
+                      style={{ borderTop: "1px solid var(--home-line)" }}
+                    >
+                      <h4 className="ad-h3">Постер нэмэх</h4>
+                      <p className="ad-sub">
+                        Байгаа бүлгийн зургаас сонгох, эсвэл зөвхөн постерт
+                        зориулсан шинэ зураг оруулах.
+                      </p>
+
+                      <form
+                        action={addPosterFormAction}
+                        className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]"
+                      >
+                        <input
+                          type="hidden"
+                          name="mangaId"
+                          value={selectedManga.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="posterUrl"
+                          value={posterSourceUrl}
+                        />
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <SelectField
+                            label="Бүлэг"
+                            value={posterSourceChapterId}
+                            onChange={(event) => {
+                              const chapter = selectedManga.chapters.find(
+                                (entry) => entry.id === event.target.value,
+                              );
+
+                              setPosterSourceChapterId(event.target.value);
+                              setPosterSourceUrl(
+                                chapter?.coverImage ||
+                                  chapter?.pages[0]?.imageUrl ||
+                                  "",
+                              );
+                            }}
+                          >
+                            <option value="">— Бүлэг сонгох —</option>
+                            {selectedManga.chapters.map((chapter) => (
+                              <option key={chapter.id} value={chapter.id}>
+                                Бүлэг {chapter.chapterNumber}
+                                {chapter.title ? ` • ${chapter.title}` : ""}
+                              </option>
+                            ))}
+                          </SelectField>
+
+                          <SelectField
+                            label="Зураг"
+                            value={posterSourceUrl}
+                            disabled={posterSourceImages.length === 0}
+                            onChange={(event) =>
+                              setPosterSourceUrl(event.target.value)
+                            }
+                          >
+                            <option value="">— Зураг сонгох —</option>
+                            {posterSourceImages.map((image) => (
+                              <option key={image.url} value={image.url}>
+                                {image.label}
+                              </option>
+                            ))}
+                          </SelectField>
+                        </div>
+
+                        <div className="flex items-end gap-3">
+                          {posterSourceUrl ? (
+                            <img
+                              src={posterSourceUrl}
+                              alt="Сонгосон зураг"
+                              style={{
+                                width: 66,
+                                aspectRatio: "3 / 4",
+                                objectFit: "cover",
+                                borderRadius: 10,
+                                border: "1px solid var(--home-line)",
+                              }}
+                            />
+                          ) : null}
+                          <button
+                            type="submit"
+                            disabled={addPosterPending || !posterSourceUrl}
+                            className="ad-btn ad-btn-primary"
+                          >
+                            <FileImage size={16} />
+                            Санд нэмэх
+                          </button>
+                        </div>
+                      </form>
+
+                      <form
+                        action={addPosterFormAction}
+                        className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end"
+                      >
+                        <input
+                          type="hidden"
+                          name="mangaId"
+                          value={selectedManga.id}
+                        />
+                        <UploadField
+                          label="Тусгай постер оруулах"
+                          helper={
+                            newPosterName ||
+                            "Бүлгийн зурагтай хамааралгүй, зөвхөн постерт зориулсан босоо зураг."
+                          }
+                        >
+                          <input
+                            type="file"
+                            name="posterFile"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) =>
+                              setNewPosterName(
+                                event.target.files?.[0]?.name ?? "",
+                              )
+                            }
+                          />
+                        </UploadField>
+                        <div className="flex flex-col gap-3">
+                          <label className="ad-check">
+                            <input
+                              type="checkbox"
+                              name="makeDefault"
+                              defaultChecked
+                              className="mt-0.5 h-4 w-4"
+                            />
+                            <span>Үндсэн постер болгох</span>
+                          </label>
+                          <button
+                            type="submit"
+                            disabled={addPosterPending}
+                            className="ad-btn ad-btn-primary"
+                          >
+                            <CloudUpload size={16} />
+                            Постер оруулах
+                          </button>
+                        </div>
+                      </form>
+
+                      {addPosterState.message ? (
+                        <p
+                          className="mt-3 text-sm font-medium"
+                          style={{
+                            color: addPosterState.ok ? "#3f7d57" : "#c44d66",
+                          }}
+                        >
+                          {addPosterState.message}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 ) : (
                   <div className="ad-dashed p-5 text-sm" style={{ color: "var(--home-plum-soft)" }}>

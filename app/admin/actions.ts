@@ -1637,3 +1637,190 @@ export async function setDefaultPosterAction(
     };
   }
 }
+
+/**
+ * True when `url` points at an asset that belongs to this manga (its covers,
+ * chapter thumbnails, badges or pages all live under `manga/<mangaId>/`).
+ * Keeps the poster library from being pointed at arbitrary remote images.
+ */
+function isOwnMangaAsset(url: string, mangaId: string) {
+  const key = getR2KeyFromUrl(url);
+
+  return Boolean(key && key.startsWith(`manga/${mangaId}/`));
+}
+
+/**
+ * Adds an image to the manga's poster library. The source is either an image
+ * the manga already owns (a chapter cover or any chapter page) or a freshly
+ * uploaded, dedicated poster file. Optionally makes it the default poster in
+ * the same step.
+ */
+export async function addPosterOptionAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return { ok: false, message: "Admin access is required." };
+    }
+
+    const mangaId = String(formData.get("mangaId") ?? "").trim();
+    const sourceUrl = String(formData.get("posterUrl") ?? "").trim();
+    const posterFile = formData.get("posterFile");
+    const makeDefault = formData.get("makeDefault") === "on";
+
+    if (!mangaId) {
+      return { ok: false, message: "Манга сонгоно уу." };
+    }
+
+    const manga = await prisma.manga.findUnique({
+      where: { id: mangaId },
+      select: { id: true, mangaName: true, posterOptions: true },
+    });
+
+    if (!manga) {
+      return { ok: false, message: "Манга олдсонгүй." };
+    }
+
+    let posterUrl: string;
+
+    if (isUploadFile(posterFile)) {
+      const asset = await uploadAssetFromFile(posterFile);
+      const key = `manga/${mangaId}/poster/${Date.now()}-${
+        slugifySegment(asset.name || manga.mangaName) || "poster"
+      }`;
+      const uploaded = await uploadToR2(
+        asset.buffer,
+        key,
+        asset.contentType || "application/octet-stream",
+      );
+
+      posterUrl = uploaded.url;
+    } else if (sourceUrl) {
+      if (!isOwnMangaAsset(sourceUrl, mangaId)) {
+        return {
+          ok: false,
+          message: "Зөвхөн энэ манганы өөрийн зургийг постер болгож болно.",
+        };
+      }
+
+      posterUrl = sourceUrl;
+    } else {
+      return {
+        ok: false,
+        message: "Зураг сонгох эсвэл файл оруулна уу.",
+      };
+    }
+
+    if (manga.posterOptions.includes(posterUrl)) {
+      if (!makeDefault) {
+        return { ok: false, message: "Энэ зураг постерын санд аль хэдийн байна." };
+      }
+    } else {
+      await prisma.manga.update({
+        where: { id: mangaId },
+        data: { posterOptions: { push: posterUrl } },
+      });
+    }
+
+    if (makeDefault) {
+      await prisma.manga.update({
+        where: { id: mangaId },
+        data: { defaultPoster: posterUrl },
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${mangaId}`);
+
+    return {
+      ok: true,
+      message: makeDefault
+        ? "Постер нэмэгдэж, үндсэн постер болголоо."
+        : "Постер санд нэмэгдлээ.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Постер нэмэхэд алдаа гарлаа.",
+    };
+  }
+}
+
+/**
+ * Drops an image from the poster library. Readers who had picked it fall back
+ * to the default cover. The stored file is only deleted when it was a
+ * dedicated poster upload — chapter art stays untouched.
+ */
+export async function removePosterOptionAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminUser = await requireAdminUser();
+
+    if (!adminUser) {
+      return { ok: false, message: "Admin access is required." };
+    }
+
+    const mangaId = String(formData.get("mangaId") ?? "").trim();
+    const posterUrl = String(formData.get("posterUrl") ?? "").trim();
+
+    if (!mangaId || !posterUrl) {
+      return { ok: false, message: "Постер сонгоно уу." };
+    }
+
+    const manga = await prisma.manga.findUnique({
+      where: { id: mangaId },
+      select: { id: true, posterOptions: true, defaultPoster: true },
+    });
+
+    if (!manga) {
+      return { ok: false, message: "Манга олдсонгүй." };
+    }
+
+    if (!manga.posterOptions.includes(posterUrl)) {
+      return { ok: false, message: "Тэр постер сонголтод алга." };
+    }
+
+    await prisma.$transaction([
+      prisma.manga.update({
+        where: { id: mangaId },
+        data: {
+          posterOptions: manga.posterOptions.filter((url) => url !== posterUrl),
+          defaultPoster:
+            manga.defaultPoster === posterUrl ? null : manga.defaultPoster,
+        },
+      }),
+      prisma.userPosterChoice.deleteMany({ where: { mangaId, posterUrl } }),
+    ]);
+
+    // Only dedicated poster uploads live under `poster/`; chapter covers and
+    // pages are still referenced by their own rows, so they must survive.
+    const key = getR2KeyFromUrl(posterUrl);
+
+    if (key?.startsWith(`manga/${mangaId}/poster/`)) {
+      try {
+        await deleteFromR2(key);
+      } catch {
+        // The DB no longer references it; a stale object can be swept later.
+      }
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath(`/manga/${mangaId}`);
+
+    return { ok: true, message: "Постер сангаас хаслаа." };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "Постер хасахад алдаа гарлаа.",
+    };
+  }
+}
