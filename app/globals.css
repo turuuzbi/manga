@@ -351,6 +351,76 @@ html[data-theme="dark"] .yume-surface {
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
 }
 
+/* ─── Header search + buttons ────────────────────────────────────────────────
+   Used by MangaTopNav. These class names were referenced by the markup but had
+   no rules anywhere, so the search field and the signed-out buttons rendered
+   unstyled. */
+.yu-search {
+  height: 40px;
+  padding: 0 14px 0 32px;
+  border-radius: 999px;
+  border: 2px solid var(--manga-border);
+  background: var(--manga-paper);
+  color: var(--manga-text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  box-shadow: 2px 2px 0 var(--manga-shadow);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.yu-search::placeholder {
+  color: var(--manga-muted-2);
+}
+
+.yu-search:focus {
+  border-color: var(--manga-accent);
+  box-shadow: 2px 2px 0 var(--manga-accent);
+}
+
+.yu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 2px solid var(--manga-border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--manga-shadow);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.2s ease;
+}
+
+.yu-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--manga-shadow);
+}
+
+.yu-btn-paper {
+  background: var(--manga-paper);
+  color: var(--manga-text);
+}
+
+.yu-btn-ink {
+  border-color: transparent;
+  background: linear-gradient(
+    135deg,
+    var(--manga-brand-a) 0%,
+    var(--manga-brand-b) 100%
+  );
+  color: #fff;
+}
+
 /* ─── Overlay header ─────────────────────────────────────────────────────────
    Used on the home and manga-detail pages. On desktop it stays the normal solid
    translucent bar; on phones/tablets it turns transparent and floats over the

@@ -180,28 +180,34 @@ export function MangaTopNav({
           {renderThemeButton()}
 
           {showSearch ? (
-            <div className="relative hidden items-center md:flex">
+            <form
+              action="/manga"
+              role="search"
+              className="relative hidden items-center md:flex"
+            >
               <Search
                 size={13}
                 style={{
                   position: "absolute",
-                  left: 10,
+                  left: 12,
                   color: "var(--manga-muted-2)",
                   pointerEvents: "none",
                 }}
               />
               <input
-                type="text"
+                type="search"
+                name="q"
+                aria-label="Хайх"
                 placeholder={searchPlaceholder}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 className="yu-search"
                 style={{
-                  width: searchFocused ? 200 : 150,
-                  transition: "all 0.25s",
+                  width: searchFocused ? 220 : 160,
+                  transition: "width 0.25s",
                 }}
               />
-            </div>
+            </form>
           ) : null}
 
           <SignedIn>
@@ -294,23 +300,25 @@ export function MangaTopNav({
           ))}
 
           {showSearch ? (
-            <div className="relative">
+            <form action="/manga" role="search" className="relative">
               <Search
                 size={13}
                 style={{
                   position: "absolute",
-                  left: 10,
-                  top: 11,
+                  left: 12,
+                  top: 12,
                   color: "var(--manga-muted-2)",
                   pointerEvents: "none",
                 }}
               />
               <input
-                type="text"
+                type="search"
+                name="q"
+                aria-label="Хайх"
                 placeholder={searchPlaceholder}
                 className="yu-search w-full"
               />
-            </div>
+            </form>
           ) : null}
 
           <div className="flex items-center justify-between gap-3">

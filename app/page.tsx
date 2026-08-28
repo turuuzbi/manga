@@ -118,9 +118,6 @@ export default async function HomePage() {
     ? await loadContinueReading(currentUser.id)
     : [];
 
-  const byPopularity = [...mangas].sort(
-    (left, right) => right._count.chapters - left._count.chapters,
-  );
   const byLatestUpdate = [...mangas].sort(
     (left, right) => latestPublishedAt(right) - latestPublishedAt(left),
   );
@@ -158,10 +155,8 @@ export default async function HomePage() {
       isAdmin={currentUser?.role === "ADMIN"}
       featured={featured}
       continueReading={continueReading}
-      newlyAdded={mangas.slice(0, 12).map(toSeries)}
-      latestUpdates={byLatestUpdate.slice(0, 12).map(toSeries)}
+      latestUpdates={byLatestUpdate.slice(0, 10).map(toSeries)}
       completed={completed.slice(0, 12).map(toSeries)}
-      popular={byPopularity.slice(0, 12).map(toSeries)}
       allManga={mangas.map(toSeries)}
       genreFilters={genreFilters.map((genre) => ({
         name: genre.name,
