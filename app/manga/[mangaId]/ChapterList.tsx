@@ -11,7 +11,10 @@ import {
   Clock3,
   Lock,
 } from "lucide-react";
-import { FreeReadConfirm } from "@/app/_components/FreeReadConfirm";
+import {
+  FreeReadConfirm,
+  isModifiedClick,
+} from "@/app/_components/FreeReadConfirm";
 
 export type ChapterListItem = {
   id: string;
@@ -62,7 +65,11 @@ export function ChapterList({
     event: React.MouseEvent<HTMLAnchorElement>,
     chapter: ChapterListItem,
   ) {
-    if (!chapter.spendsFreeRead || freeRemaining <= 0) {
+    if (
+      !chapter.spendsFreeRead ||
+      freeRemaining <= 0 ||
+      isModifiedClick(event)
+    ) {
       return;
     }
 

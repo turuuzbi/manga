@@ -13,7 +13,10 @@ import {
   Rows3,
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
-import { FreeReadConfirm } from "@/app/_components/FreeReadConfirm";
+import {
+  FreeReadConfirm,
+  isModifiedClick,
+} from "@/app/_components/FreeReadConfirm";
 import { FREE_CHAPTERS_PER_DAY } from "@/lib/plans";
 
 type ReaderMode = "scroll" | "paged";
@@ -149,7 +152,11 @@ export function ReaderExperience({
     event: React.MouseEvent<HTMLAnchorElement>,
     target: ReaderNeighbourChapter,
   ) {
-    if (!target.spendsFreeRead || (freeRemaining ?? 0) <= 0) {
+    if (
+      !target.spendsFreeRead ||
+      (freeRemaining ?? 0) <= 0 ||
+      isModifiedClick(event)
+    ) {
       return;
     }
 

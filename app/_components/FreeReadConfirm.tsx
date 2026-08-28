@@ -87,6 +87,21 @@ const STYLES = `
 }
 `;
 
+/**
+ * True for clicks the browser should handle itself — open in a new tab/window
+ * or a non-primary button. Those never load the reader in this tab, so they
+ * must not be swallowed by the confirmation.
+ */
+export function isModifiedClick(event: React.MouseEvent<HTMLAnchorElement>) {
+  return (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  );
+}
+
 export function FreeReadConfirm({
   chapterNumber,
   remaining,
