@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
+import { PAYWALLED_LATEST_CHAPTERS, isPremium } from "@/lib/plans";
 import { ChapterList } from "@/app/manga/[mangaId]/ChapterList";
 import { DetailHero } from "@/app/manga/[mangaId]/DetailHero";
 import { CommentsSection } from "@/app/manga/[mangaId]/CommentsSection";
@@ -313,6 +314,18 @@ const PREVIEW_STYLES = `
 }
 .yume-detail .yd-chapter-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .yume-detail .yd-chapter-thumb .badge { position: relative; z-index: 1; object-fit: contain; }
+/* Subscriber-only marker on the newest chapters */
+.yume-detail .yd-chapter-lock {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'Marcellus', serif;
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px;
+  color: #fff;
+  background: rgba(40, 24, 32, 0.74);
+  border: 1px solid color-mix(in srgb, var(--home-gold) 62%, transparent);
+  backdrop-filter: blur(4px);
+}
 .yume-detail .yd-chapter-num {
   font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700;
   font-size: 30px; color: var(--home-gold);
@@ -609,6 +622,15 @@ export default async function MangaPreviewPage({
     fallbackPages.map((page) => [page.chapterId, page.imageUrl]),
   );
 
+  // Rolling paywall: the newest PAYWALLED_LATEST_CHAPTERS of the series are
+  // subscriber-only. `manga.chapters` is already ordered by chapterNumber desc.
+  const viewerIsPremium = isPremium(currentDbUser);
+  const paywalledChapterIds = new Set(
+    manga.chapters
+      .slice(0, PAYWALLED_LATEST_CHAPTERS)
+      .map((chapter) => chapter.id),
+  );
+
   // Plain, serializable view-model for the client-sortable chapter list.
   // Must come after fallbackPageByChapter/read-state are computed above.
   const chapterItems = manga.chapters.map((chapter) => ({
@@ -623,6 +645,9 @@ export default async function MangaPreviewPage({
     publishedLabel: `${chapter.publishedAt.toLocaleDateString()}-нд оруулав`,
     isRead: readChapterIds.has(chapter.id),
     isLastRead: chapter.id === lastReadChapterId,
+    // Premium readers never see the lock; everyone else does, including
+    // signed-out visitors.
+    isPaywalled: !viewerIsPremium && paywalledChapterIds.has(chapter.id),
   }));
 
   // Admin-chosen default poster wins over the plain cover fields.

@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, BookOpen, ChevronRight, Clock3 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  ChevronRight,
+  Clock3,
+  Lock,
+} from "lucide-react";
 
 export type ChapterListItem = {
   id: string;
@@ -16,6 +23,8 @@ export type ChapterListItem = {
   publishedLabel: string;
   isRead: boolean;
   isLastRead: boolean;
+  /** One of the newest chapters — subscriber-only, never free. */
+  isPaywalled: boolean;
 };
 
 type SortOrder = "asc" | "desc";
@@ -86,6 +95,12 @@ export function ChapterList({ items }: { items: ChapterListItem[] }) {
                 />
               ) : null}
               <div className="yd-chapter-thumb">
+                {chapter.isPaywalled ? (
+                  <span className="yd-chapter-lock" title="Зөвхөн багцтай уншина">
+                    <Lock size={10} />
+                    Багц
+                  </span>
+                ) : null}
                 {chapter.badgeImage ? (
                   <img
                     src={chapter.badgeImage}

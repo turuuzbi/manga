@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import prisma from "@/lib/db";
-import { FREE_CHAPTERS_PER_DAY, isPremium } from "@/lib/plans";
+import {
+  FREE_CHAPTERS_PER_DAY,
+  PAYWALLED_LATEST_CHAPTERS,
+  isPremium,
+} from "@/lib/plans";
 
 export type AccessReason =
   | "premium"
@@ -9,7 +13,8 @@ export type AccessReason =
   | "already_today"
   | "consumed"
   | "ip_claimed"
-  | "quota_exhausted";
+  | "quota_exhausted"
+  | "latest_locked";
 
 export type ChapterAccess = {
   allowed: boolean;
@@ -42,27 +47,51 @@ export async function getClientIpHash(): Promise<string> {
 }
 
 /**
- * Decide whether `userId` may open `chapterId`, consuming a free unlock when
+ * True when this chapter sits in the series' newest PAYWALLED_LATEST_CHAPTERS,
+ * which are subscriber-only and can never be opened with a daily free unlock.
+ */
+export async function isPaywalledLatestChapter(chapter: {
+  mangaId: string;
+  chapterNumber: number;
+}): Promise<boolean> {
+  const newerChapters = await prisma.chapter.count({
+    where: {
+      mangaId: chapter.mangaId,
+      chapterNumber: { gt: chapter.chapterNumber },
+    },
+  });
+
+  return newerChapters < PAYWALLED_LATEST_CHAPTERS;
+}
+
+/**
+ * Decide whether `userId` may open a chapter, consuming a free unlock when
  * needed. Order:
  *   1. premium                         → allow (unlimited)
  *   2. already read this chapter        → allow (free re-read)
  *   3. already unlocked today           → allow (idempotent)
- *   4. free tier (per user + IP claim):
+ *   4. one of the newest chapters       → block (subscriber-only window)
+ *   5. free tier (per user + IP claim):
  *      - first account on the IP today claims it; other accounts get 0
  *      - claimant may unlock up to FREE_CHAPTERS_PER_DAY new chapters/day
- *   5. otherwise                        → block (paywall)
+ *   6. otherwise                        → block (paywall)
+ *
+ * Steps 2–3 come first on purpose: a chapter someone has already opened stays
+ * open to them even after it is inside the paywalled window.
  *
  * Writes (claim + usage) happen here, so only call it on a real chapter open.
  */
 export async function resolveChapterAccess({
   userId,
-  chapterId,
+  chapter,
   premiumUntil,
 }: {
   userId: string;
-  chapterId: string;
+  chapter: { id: string; mangaId: string; chapterNumber: number };
   premiumUntil: Date | null;
 }): Promise<ChapterAccess> {
+  const chapterId = chapter.id;
+
   if (isPremium({ premiumUntil })) {
     return { allowed: true, reason: "premium", isPremium: true, remainingFree: null };
   }
@@ -92,6 +121,17 @@ export async function resolveChapterAccess({
     return {
       allowed: true,
       reason: "already_today",
+      isPremium: false,
+      remainingFree: await remainingFreeToday(userId, dayKey),
+    };
+  }
+
+  // The newest chapters are subscriber-only: they are never payable with a
+  // free unlock, so this check sits in front of the whole free-tier path.
+  if (await isPaywalledLatestChapter(chapter)) {
+    return {
+      allowed: false,
+      reason: "latest_locked",
       isPremium: false,
       remainingFree: await remainingFreeToday(userId, dayKey),
     };
@@ -179,4 +219,49 @@ export async function getFreeReadState(user: {
     : Math.max(0, FREE_CHAPTERS_PER_DAY - used);
 
   return { isPremium: false, used, remaining, ipClaimedByOther };
+}
+
+/**
+ * Which of `chapterIds` would spend one of the reader's daily free unlocks on
+ * their next open — i.e. not already read, not already unlocked today, and not
+ * inside the subscriber-only window. Read-only: it never consumes anything, so
+ * the UI can put a confirmation in front of the spend.
+ */
+export async function getFreeSpendChapterIds({
+  user,
+  chapterIds,
+  readChapterIds,
+  paywalledChapterIds,
+}: {
+  user: { id: string; premiumUntil: Date | null } | null;
+  chapterIds: string[];
+  readChapterIds: Set<string>;
+  paywalledChapterIds: Set<string>;
+}): Promise<Set<string>> {
+  if (!user || isPremium(user) || chapterIds.length === 0) {
+    return new Set();
+  }
+
+  const candidates = chapterIds.filter(
+    (chapterId) =>
+      !readChapterIds.has(chapterId) && !paywalledChapterIds.has(chapterId),
+  );
+
+  if (candidates.length === 0) {
+    return new Set();
+  }
+
+  const unlockedToday = await prisma.freeReadUsage.findMany({
+    where: {
+      userId: user.id,
+      dayKey: ulaanbaatarDayKey(),
+      chapterId: { in: candidates },
+    },
+    select: { chapterId: true },
+  });
+  const unlockedIds = new Set(unlockedToday.map((row) => row.chapterId));
+
+  return new Set(
+    candidates.filter((chapterId) => !unlockedIds.has(chapterId)),
+  );
 }

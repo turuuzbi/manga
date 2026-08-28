@@ -57,7 +57,11 @@ export default async function ReaderChapterPage({
   // Subscription / free-tier gate. Consumes a free unlock when needed.
   const access = await resolveChapterAccess({
     userId: dbUser.id,
-    chapterId: chapter.id,
+    chapter: {
+      id: chapter.id,
+      mangaId: chapter.mangaId,
+      chapterNumber: chapter.chapterNumber,
+    },
     premiumUntil: dbUser.premiumUntil,
   });
 

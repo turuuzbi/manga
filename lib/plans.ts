@@ -31,6 +31,13 @@ export const PLAN_ORDER: SubscriptionPlan[] = [
 /** Number of free (new) chapters a claiming account gets per Ulaanbaatar day. */
 export const FREE_CHAPTERS_PER_DAY = 3;
 
+/**
+ * How many of a series' newest chapters are subscriber-only. The window rolls
+ * forward as chapters publish: with 40 chapters, 36–40 are locked; once 41
+ * lands, 36 drops out and becomes part of the daily-free pool again.
+ */
+export const PAYWALLED_LATEST_CHAPTERS = 5;
+
 export function isValidPlan(value: string): value is SubscriptionPlan {
   return value in PLANS;
 }

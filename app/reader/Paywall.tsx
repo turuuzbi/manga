@@ -1,9 +1,18 @@
 import Link from "next/link";
 import { Crown, Home, Lock } from "lucide-react";
 import type { AccessReason } from "@/lib/reading-access";
-import { PLANS, PLAN_ORDER, formatTugrug } from "@/lib/plans";
+import {
+  PAYWALLED_LATEST_CHAPTERS,
+  PLANS,
+  PLAN_ORDER,
+  formatTugrug,
+} from "@/lib/plans";
 
 const REASON_COPY: Partial<Record<AccessReason, { title: string; body: string }>> = {
+  latest_locked: {
+    title: "Шинэ бүлэг — зөвхөн багцтай уншина",
+    body: `Цувралын хамгийн сүүлийн ${PAYWALLED_LATEST_CHAPTERS} бүлэг зөвхөн багцтай уншигчдад нээлттэй. Шинэ бүлэг гармагц энэ бүлэг өдрийн үнэгүй эрхээр уншигдах болно.`,
+  },
   quota_exhausted: {
     title: "Өнөөдрийн үнэгүй бүлгүүд дууслаа",
     body: "Та өнөөдөр 3 үнэгүй бүлгээ уншиж дууссан байна. Хязгааргүй унших бол багц авна уу — эсвэл маргааш дахин үнэгүй уншаарай.",
