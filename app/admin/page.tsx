@@ -1,4 +1,5 @@
 import { AdminConsole } from "@/app/admin/AdminConsole";
+import { AppAccountDock } from "@/app/_components/AppAccountDock";
 import prisma from "@/lib/db";
 import { requireAdminUser } from "@/lib/auth";
 
@@ -110,7 +111,9 @@ export default async function AdminPage() {
     ]);
 
   return (
-    <AdminConsole
+    <>
+      <AppAccountDock isAdmin />
+      <AdminConsole
       dbUser={{
         email: dbUser.email,
         username: dbUser.username,
@@ -157,6 +160,7 @@ export default async function AdminPage() {
           })),
         })),
       }))}
-    />
+      />
+    </>
   );
 }

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BookMarked, MessageCircleMore, UserRound } from "lucide-react";
 import prisma from "@/lib/db";
+import { getCurrentDbUser } from "@/lib/auth";
+import { AppAccountDock } from "@/app/_components/AppAccountDock";
 import {
   formatRelativeTime,
   getUserDisplayName,
@@ -68,9 +70,11 @@ export default async function UserProfilePage({
   }
 
   const displayName = getUserDisplayName(user);
+  const viewer = await getCurrentDbUser();
 
   return (
     <main className="min-h-screen bg-[#fffdf8] px-4 pb-14 pt-24 text-[#1f1a16] sm:px-6 lg:px-8">
+      <AppAccountDock isAdmin={viewer?.role === "ADMIN"} />
       <div className="mx-auto flex max-w-6xl flex-col gap-8">
         <Link
           href="/"

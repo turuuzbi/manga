@@ -1,5 +1,6 @@
 import { getCurrentDbUser } from "@/lib/auth";
 import { PLANS, PLAN_ORDER, isPremium, isValidPlan } from "@/lib/plans";
+import { AppAccountDock } from "@/app/_components/AppAccountDock";
 import { SubscribeClient } from "@/app/subscribe/SubscribeClient";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function SubscribePage({
   return (
     <div className="yume-surface yume-subscribe min-h-screen">
       <style>{FONTS}</style>
+      <AppAccountDock isAdmin={user?.role === "ADMIN"} />
       <SubscribeClient
         plans={plans}
         initialPlan={initialPlan}

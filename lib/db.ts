@@ -12,12 +12,21 @@ const globalForPrisma = global as unknown as {
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: ["query", "error", "warn"],
+    // Logging every statement is expensive on the request path — some of our
+    // queries (the chapter-thumbnail fallback) serialize to tens of kilobytes.
+    // Keep the full firehose in development only.
+    log:
+      process.env.NODE_ENV === "production"
+        ? ["error"]
+        : ["query", "error", "warn"],
     adapter: new PrismaPg({
       connectionString: process.env.DATABASE_URL!,
     }),
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Cached in every environment: on Vercel a warm function instance re-evaluates
+// this module, and without the global we would build a fresh client (and a
+// fresh connection pool) instead of reusing the warm one.
+globalForPrisma.prisma = prisma;
 
 export default prisma;

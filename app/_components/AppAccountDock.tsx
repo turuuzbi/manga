@@ -10,7 +10,10 @@ export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
   const isReader = pathname.startsWith("/reader");
   const isAdminPage = pathname.startsWith("/admin");
   const isHome = pathname === "/";
-  const usesSharedTopNav = isHome || pathname.startsWith("/manga/");
+  // `/manga` (the library) renders MangaTopNav too, and startsWith("/manga/")
+  // does not match it — without the exact check the dock doubles up there.
+  const usesSharedTopNav =
+    isHome || pathname === "/manga" || pathname.startsWith("/manga/");
 
   if (isReader || usesSharedTopNav) {
     return null;
