@@ -371,6 +371,40 @@ const PREVIEW_STYLES = `
 .yume-detail .yd-chapter.is-read .yd-chapter-meta { color: var(--home-plum-soft); opacity: 0.85; }
 .yume-detail .yd-chapter.is-read:hover .yd-chapter-title { color: var(--home-rose-deep); }
 
+/* ── Missing chapters ──
+   Placeholders for numbering gaps (e.g. a series that jumps 8 -> 65). Not a
+   link and not hoverable: hatched paper, muted type, no lift on hover, so it
+   reads as unavailable next to the real chapter cards. */
+.yume-detail .yd-chapter.yd-gap {
+  cursor: default;
+  border-style: dashed;
+  border-color: var(--home-line-strong);
+  box-shadow: none;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 9px,
+      color-mix(in srgb, var(--home-gold) 9%, transparent) 9px 18px
+    ),
+    var(--home-paper-2);
+}
+.yume-detail .yd-chapter.yd-gap:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--home-line-strong);
+}
+.yume-detail .yd-gap-thumb {
+  background: color-mix(in srgb, var(--home-gold) 12%, var(--home-paper-2));
+  color: var(--home-gold);
+  border-right: 1px dashed var(--home-line);
+}
+.yume-detail .yd-chapter.yd-gap .yd-chapter-title { color: var(--home-plum-soft); }
+.yume-detail .yd-chapter.yd-gap .yd-chapter-meta { color: var(--home-plum-soft); }
+.yume-detail .yd-gap-go {
+  color: var(--home-plum-soft);
+  border-left: 1px dashed var(--home-line);
+}
+
 /* ── "You left off here" dog-ear on the most recently read chapter ── */
 .yume-detail .yd-dogear {
   position: absolute; top: 0; right: 0; z-index: 4;

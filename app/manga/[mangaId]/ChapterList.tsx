@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Clock3,
   Lock,
+  Wrench,
 } from "lucide-react";
 import {
   FreeReadConfirm,
@@ -36,8 +37,68 @@ export type ChapterListItem = {
 
 type SortOrder = "asc" | "desc";
 
+/** A run of chapter numbers that has no row of its own. */
+type ChapterGap = { from: number; to: number };
+
+type ChapterRow =
+  | { kind: "chapter"; key: string; sortKey: number; chapter: ChapterListItem }
+  | { kind: "gap"; key: string; sortKey: number; gap: ChapterGap };
+
+/**
+ * A series whose numbering jumps — 8 straight to 65, say — is missing those
+ * chapters rather than never having had them, so the list shows them as locked
+ * "being fixed" placeholders instead of silently skipping from 8 to 65.
+ *
+ * Guards worth knowing about:
+ * - Only whole numbers are filled in. A half-chapter like 10.5 counts as
+ *   present when it exists, but is never invented.
+ * - Only the range between the first and last published chapter is considered,
+ *   so a series that has simply not reached chapter 100 yet reports no gap.
+ * - One stray chapter number (a typo'd 9999) would otherwise generate
+ *   thousands of rows, so an implausible span reports nothing at all.
+ */
+const MAX_GAP_SPAN = 2000;
+
+function findChapterGaps(items: ChapterListItem[]): ChapterGap[] {
+  const present = new Set(items.map((item) => item.chapterNumber));
+  const whole = [...present].filter((value) => Number.isInteger(value));
+
+  if (whole.length < 2) {
+    return [];
+  }
+
+  const min = Math.min(...whole);
+  const max = Math.max(...whole);
+
+  if (max - min > MAX_GAP_SPAN) {
+    return [];
+  }
+
+  const gaps: ChapterGap[] = [];
+  let runStart: number | null = null;
+
+  for (let number = min + 1; number < max; number += 1) {
+    if (!present.has(number)) {
+      runStart ??= number;
+    } else if (runStart !== null) {
+      gaps.push({ from: runStart, to: number - 1 });
+      runStart = null;
+    }
+  }
+
+  if (runStart !== null) {
+    gaps.push({ from: runStart, to: max - 1 });
+  }
+
+  return gaps;
+}
+
 function formatChapterLabel(chapterNumber: number, title: string | null) {
   return title ? `Бүлэг ${chapterNumber} • ${title}` : `Бүлэг ${chapterNumber}`;
+}
+
+function formatGapLabel({ from, to }: ChapterGap) {
+  return from === to ? `Бүлэг ${from}` : `Бүлэг ${from}–${to}`;
 }
 
 export function ChapterList({
@@ -54,10 +115,31 @@ export function ChapterList({
   const [confirming, setConfirming] = useState<ChapterListItem | null>(null);
   const router = useRouter();
 
-  const sorted = [...items].sort((left, right) =>
+  const gaps = findChapterGaps(items);
+  const missingCount = gaps.reduce(
+    (total, gap) => total + (gap.to - gap.from + 1),
+    0,
+  );
+
+  // A gap contains no real chapters by definition, so keying it on `from` seats
+  // it correctly whichever way the list is sorted.
+  const rows: ChapterRow[] = [
+    ...items.map((chapter) => ({
+      kind: "chapter" as const,
+      key: chapter.id,
+      sortKey: chapter.chapterNumber,
+      chapter,
+    })),
+    ...gaps.map((gap) => ({
+      kind: "gap" as const,
+      key: `gap-${gap.from}`,
+      sortKey: gap.from,
+      gap,
+    })),
+  ].sort((left, right) =>
     order === "desc"
-      ? right.chapterNumber - left.chapterNumber
-      : left.chapterNumber - right.chapterNumber,
+      ? right.sortKey - left.sortKey
+      : left.sortKey - right.sortKey,
   );
 
   // Only intercept when the tap would actually cost the reader something; with
@@ -83,7 +165,10 @@ export function ChapterList({
       <div className="mb-7 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h2 className="yd-section-title">Бүлгүүд</h2>
-          <p className="yd-count">{items.length} нийт бүлэг</p>
+          <p className="yd-count">
+            {items.length} нийт бүлэг
+            {missingCount > 0 ? ` · ${missingCount} засварт` : ""}
+          </p>
         </div>
 
         {items.length > 0 ? (
@@ -114,13 +199,49 @@ export function ChapterList({
         <div className="yd-empty">Одоогоор бүлэг алга</div>
       ) : (
         <div className="grid gap-4">
-          {sorted.map((chapter, index) => (
+          {rows.map((row, index) => {
+            const delay = { animationDelay: `${Math.min(index, 8) * 55}ms` };
+
+            if (row.kind === "gap") {
+              const { gap } = row;
+              const count = gap.to - gap.from + 1;
+
+              return (
+                <div
+                  key={row.key}
+                  className="motion-ink-up yd-chapter yd-gap"
+                  style={delay}
+                  aria-disabled="true"
+                >
+                  <div className="yd-chapter-thumb yd-gap-thumb">
+                    <Wrench size={24} />
+                  </div>
+
+                  <div className="yd-chapter-body">
+                    <p className="yd-chapter-title">{formatGapLabel(gap)}</p>
+                    <div className="yd-chapter-meta">
+                      <span>
+                        <Wrench size={14} />
+                        Засварт байна
+                      </span>
+                      {count > 1 ? <span>{count} бүлэг</span> : null}
+                    </div>
+                  </div>
+
+                  <div className="yd-chapter-go yd-gap-go">Түр хаалттай</div>
+                </div>
+              );
+            }
+
+            const chapter = row.chapter;
+
+            return (
             <Link
-              key={chapter.id}
+              key={row.key}
               href={`/reader/${chapter.id}`}
               onClick={(event) => handleChapterClick(event, chapter)}
               className={`group motion-ink-up yd-chapter${chapter.isRead ? " is-read" : ""}`}
-              style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
+              style={delay}
             >
               {chapter.isLastRead ? (
                 <span
@@ -183,7 +304,8 @@ export function ChapterList({
                 <ChevronRight size={16} />
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 
