@@ -3,6 +3,12 @@ import { premiumDaysRemaining } from "@/lib/plans";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 import { CelestialFrame } from "@/app/_components/CelestialFrame";
 import { YUME_CARD_STYLES } from "@/app/_components/MangaPosterCard";
+import { AboutCountdown } from "@/app/about/AboutCountdown";
+import {
+  ABOUT_UNLOCK_AT,
+  ABOUT_UNLOCK_LABEL,
+  getAboutGateState,
+} from "@/lib/about-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -126,10 +132,63 @@ const ABOUT_STYLES = `
   font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--home-plum-soft); text-align: center;
 }
+
+/* ── Countdown gate ── */
+.yume-about .ya-gate {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; text-align: center;
+  padding: clamp(36px, 7vw, 72px) 24px;
+  border-radius: 24px;
+  background: var(--home-paper);
+  border: 1px solid var(--home-line);
+  box-shadow: 0 22px 48px -30px var(--home-shadow-strong);
+}
+.yume-about .ya-gate-dial {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px;
+}
+.yume-about .ya-gate-lock { color: var(--home-gold); opacity: 0.3; }
+.yume-about .ya-gate-time {
+  /* Sits low in the icon so the digits land on the lock's body rather than
+     across the shackle. Tabular figures keep the width from twitching each
+     second. */
+  position: absolute; top: 59%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
+  font-size: clamp(28px, 6.4vw, 44px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  color: var(--home-plum);
+  white-space: nowrap;
+}
+.yume-about .ya-gate-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700; font-style: italic;
+  font-size: clamp(26px, 4.4vw, 40px); line-height: 1.1;
+  color: var(--home-plum);
+}
+.yume-about .ya-gate-note {
+  font-size: 15px; line-height: 1.7; color: var(--home-plum-soft);
+}
+.yume-about .ya-gate-when {
+  margin-top: 6px;
+  font-family: 'Marcellus', serif;
+  font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--home-gold);
+}
 `;
 
 export default async function AboutPage() {
   const user = await getCurrentDbUser();
+
+  // The gate is decided here, on the server, and the locked branch never
+  // renders SECTIONS — so the page content is not in the HTML at all before
+  // the unlock time, rather than merely hidden. The route is force-dynamic, so
+  // the first request after the deadline reveals it.
+  const { locked, remainingMs } = getAboutGateState();
 
   return (
     <>
@@ -145,7 +204,14 @@ export default async function AboutPage() {
         />
 
         <main className="motion-ink-fade relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pb-20 pt-10 md:px-8">
-          {SECTIONS.map((section, index) => (
+          {locked ? (
+            <AboutCountdown
+              unlockAtIso={ABOUT_UNLOCK_AT.toISOString()}
+              initialRemainingMs={remainingMs}
+              unlockLabel={ABOUT_UNLOCK_LABEL}
+            />
+          ) : (
+            SECTIONS.map((section, index) => (
             <section
               key={index}
               className="motion-ink-up ya-panel"
@@ -203,7 +269,8 @@ export default async function AboutPage() {
                 </div>
               )}
             </section>
-          ))}
+            ))
+          )}
         </main>
       </div>
     </>
