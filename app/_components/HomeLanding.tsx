@@ -208,19 +208,20 @@ html[data-theme="dark"] .yume-home {
   .yume-hero-img { transition: none; transform: scale(1); }
 }
 
-/* Phones/tablets: the hero still bleeds edge to edge, but it now sits mid-page
-   under its own heading instead of behind the header, so the page keeps its
-   normal top padding. Desktop is unchanged. */
+/* Phones/tablets: the hero leads the page, bleeding to every edge and pushing
+   up under the transparent header so it blends into the content below.
+   Desktop is unchanged. */
 @media (max-width: 900px) {
+  .yume-home main { padding-top: 0; }
   .yume-home #featured { margin-bottom: 34px; }
   .yume-home #featured .yume-hero {
     width: 100vw;
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
     min-height: 60vh;
-    border-left: none;
-    border-right: none;
+    border: none;
     border-radius: 0;
+    box-shadow: none;
   }
 }
 `;
@@ -304,15 +305,25 @@ export function HomeLanding({
           navLinks={headerLinks}
           isAdmin={isAdmin}
           premiumDaysLeft={premiumDaysLeft}
+          overlay
         />
 
         <main
           className="motion-ink-fade mx-auto max-w-7xl px-4 py-8 md:px-8"
           style={{ position: "relative", zIndex: 1 }}
         >
+          {/* The curated hero leads the page: full-bleed on phones, tucked up
+              under the transparent header. No section heading above it — the
+              slide's own "Онцлох" badge names it. */}
+          {featured.length > 0 ? (
+            <section id="featured" className="motion-ink-up mb-16">
+              <HeroCarousel slides={featured} />
+            </section>
+          ) : null}
+
           {continueReading.length > 0 ? (
             <ContinueReadingShelf
-              className="motion-ink-up"
+              className="motion-ink-up motion-ink-up-delay-1"
               items={continueReading}
             />
           ) : null}
@@ -320,22 +331,12 @@ export function HomeLanding({
           {latestUpdates.length > 0 ? (
             <Shelf
               id="updates"
-              className="motion-ink-up motion-ink-up-delay-1"
+              className="motion-ink-up motion-ink-up-delay-2"
               eyebrow="Шинэчлэл"
               title="Сүүлийн шинэчлэл"
               viewAllHref="/manga"
               series={latestUpdates}
             />
-          ) : null}
-
-          {featured.length > 0 ? (
-            <section id="featured" className="motion-ink-up mb-16">
-              <SectionHeader
-                eyebrow="Онцлох"
-                title="Юмэгийн санал болгох"
-              />
-              <HeroCarousel slides={featured} />
-            </section>
           ) : null}
 
           {completed.length > 0 ? (
