@@ -5,7 +5,7 @@ import {
   getFreeSpendChapterIds,
   resolveChapterAccess,
 } from "@/lib/reading-access";
-import { PAYWALLED_LATEST_CHAPTERS } from "@/lib/plans";
+import { resolvePaywalledChapters } from "@/lib/plans";
 import { ReaderExperience } from "@/app/reader/ReaderExperience";
 import { Paywall } from "@/app/reader/Paywall";
 
@@ -39,6 +39,7 @@ export default async function ReaderChapterPage({
         select: {
           id: true,
           mangaName: true,
+          paywalledChapters: true,
         },
       },
       pages: {
@@ -65,6 +66,7 @@ export default async function ReaderChapterPage({
       id: chapter.id,
       mangaId: chapter.mangaId,
       chapterNumber: chapter.chapterNumber,
+      paywalledChapters: chapter.manga.paywalledChapters,
     },
     premiumUntil: dbUser.premiumUntil,
   });
@@ -75,6 +77,7 @@ export default async function ReaderChapterPage({
         reason={access.reason}
         manga={{ id: chapter.manga.id, name: chapter.manga.mangaName }}
         chapterNumber={chapter.chapterNumber}
+        paywallWindow={resolvePaywalledChapters(chapter.manga.paywalledChapters)}
       />
     );
   }
@@ -115,12 +118,17 @@ export default async function ReaderChapterPage({
           select: { chapterId: true },
         })
       : [];
+  const paywallWindow = resolvePaywalledChapters(
+    chapter.manga.paywalledChapters,
+  );
   const freeSpendChapterIds = await getFreeSpendChapterIds({
     user: dbUser,
     chapterIds: neighbourIds,
     readChapterIds: new Set(neighbourReads.map((row) => row.chapterId)),
     paywalledChapterIds: new Set(
-      chapters.slice(-PAYWALLED_LATEST_CHAPTERS).map((entry) => entry.id),
+      paywallWindow > 0
+        ? chapters.slice(-paywallWindow).map((entry) => entry.id)
+        : [],
     ),
   });
 

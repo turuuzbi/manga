@@ -48,8 +48,9 @@ export function ChapterList({
   /** Free unlocks left today; 0 for premium and signed-out readers. */
   freeRemaining?: number;
 }) {
-  // "Сүүлээс" (newest first) is the default, matching the previous behaviour.
-  const [order, setOrder] = useState<SortOrder>("desc");
+  // Readers start at the beginning, so the list opens ascending from chapter 1.
+  // "Сүүлээс" (newest first) stays one tap away.
+  const [order, setOrder] = useState<SortOrder>("asc");
   const [confirming, setConfirming] = useState<ChapterListItem | null>(null);
   const router = useRouter();
 

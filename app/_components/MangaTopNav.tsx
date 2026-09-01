@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
+import { Crown, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -19,7 +19,8 @@ type NavLink = {
 
 const defaultLinks: NavLink[] = [
   { label: "Онцлох", href: "/#featured" },
-  { label: "Сан", href: "/#all" },
+  { label: "Сан", href: "/manga" },
+  { label: "Бидний тухай", href: "/about" },
 ];
 
 function isLinkActive(pathname: string, href: string) {
@@ -40,6 +41,7 @@ export function MangaTopNav({
   showSearch = true,
   isAdmin = false,
   overlay = false,
+  premiumDaysLeft = null,
 }: {
   navLinks?: NavLink[];
   searchPlaceholder?: string;
@@ -50,6 +52,11 @@ export function MangaTopNav({
    * phones/tablets (see `.yume-nav-overlay`), staying a solid bar on desktop.
    */
   overlay?: boolean;
+  /**
+   * Days left on the reader's subscription, or null when they have none. Drives
+   * the "Эрх авах" entry's subtitle.
+   */
+  premiumDaysLeft?: number | null;
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -82,6 +89,11 @@ export function MangaTopNav({
     () => (theme === "dark" ? "Switch to light mode" : "Switch to dark mode"),
     [theme],
   );
+
+  const accessLabel =
+    typeof premiumDaysLeft === "number"
+      ? `${premiumDaysLeft} хоног үлдсэн`
+      : "Эрх авах";
 
   function applyTheme(nextTheme: "light" | "dark") {
     document.documentElement.dataset.theme = nextTheme;
@@ -174,6 +186,21 @@ export function MangaTopNav({
               </Link>
             );
           })}
+
+          <Link
+            href="/subscribe"
+            className="nav-link inline-flex items-center gap-1.5"
+            style={{
+              color:
+                typeof premiumDaysLeft === "number"
+                  ? "var(--manga-text)"
+                  : "var(--manga-accent)",
+              textDecoration: "none",
+            }}
+          >
+            <Crown size={13} />
+            {accessLabel}
+          </Link>
         </div>
 
         <div className="flex items-center gap-2">
@@ -298,6 +325,55 @@ export function MangaTopNav({
               {entry.label}
             </Link>
           ))}
+
+          <Link
+            href="/subscribe"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5"
+            style={{
+              border: "2px solid var(--manga-border)",
+              background: "var(--manga-paper)",
+              boxShadow: "2px 2px 0 var(--manga-shadow)",
+              textDecoration: "none",
+            }}
+          >
+            <span
+              className="inline-flex items-center gap-2"
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "var(--manga-text)",
+              }}
+            >
+              <Crown size={15} />
+              Эрх авах
+            </span>
+            {typeof premiumDaysLeft === "number" ? (
+              <span
+                className="rounded-full px-2.5 py-1"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#fff",
+                  background: "var(--manga-accent)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {premiumDaysLeft} хоног үлдсэн
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--manga-muted-2)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Багц идэвхгүй
+              </span>
+            )}
+          </Link>
 
           {showSearch ? (
             <form action="/manga" role="search" className="relative">

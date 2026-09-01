@@ -12,8 +12,7 @@ enum MangaStatus {
   ONGOING
   COMPLETED
   CATCHING_UP
-  FINISHED_RELEASING
-  HIATUS
+  STOPPED
 }
 
 enum UserRole {
@@ -58,6 +57,9 @@ model Manga {
   // rows appear, sorted by featuredOrder ascending (nulls last).
   isFeatured    Boolean @default(false)
   featuredOrder Int?
+  // How many of this series' newest chapters are subscriber-only. Null falls
+  // back to PAYWALLED_LATEST_CHAPTERS in lib/plans.
+  paywalledChapters Int?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 

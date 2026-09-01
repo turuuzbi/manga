@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import prisma from "@/lib/db";
 import {
   FREE_CHAPTERS_PER_DAY,
-  PAYWALLED_LATEST_CHAPTERS,
   isPremium,
+  resolvePaywalledChapters,
 } from "@/lib/plans";
 
 export type AccessReason =
@@ -47,13 +47,22 @@ export async function getClientIpHash(): Promise<string> {
 }
 
 /**
- * True when this chapter sits in the series' newest PAYWALLED_LATEST_CHAPTERS,
- * which are subscriber-only and can never be opened with a daily free unlock.
+ * True when this chapter sits inside the series' subscriber-only window — the
+ * newest N chapters, where N is the manga's own setting or the site default.
+ * These can never be opened with a daily free unlock.
  */
 export async function isPaywalledLatestChapter(chapter: {
   mangaId: string;
   chapterNumber: number;
+  /** The manga's paywalledChapters column; null uses the site default. */
+  paywalledChapters?: number | null;
 }): Promise<boolean> {
+  const windowSize = resolvePaywalledChapters(chapter.paywalledChapters);
+
+  if (windowSize === 0) {
+    return false;
+  }
+
   const newerChapters = await prisma.chapter.count({
     where: {
       mangaId: chapter.mangaId,
@@ -61,7 +70,7 @@ export async function isPaywalledLatestChapter(chapter: {
     },
   });
 
-  return newerChapters < PAYWALLED_LATEST_CHAPTERS;
+  return newerChapters < windowSize;
 }
 
 /**
@@ -87,7 +96,13 @@ export async function resolveChapterAccess({
   premiumUntil,
 }: {
   userId: string;
-  chapter: { id: string; mangaId: string; chapterNumber: number };
+  chapter: {
+    id: string;
+    mangaId: string;
+    chapterNumber: number;
+    /** The manga's paywalledChapters column; null uses the site default. */
+    paywalledChapters?: number | null;
+  };
   premiumUntil: Date | null;
 }): Promise<ChapterAccess> {
   const chapterId = chapter.id;

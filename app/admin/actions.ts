@@ -11,7 +11,13 @@ import {
   listGoogleDriveImages,
 } from "@/lib/google-drive";
 import { deleteFromR2, getR2KeyFromUrl, uploadToR2 } from "@/lib/r2";
-import { PLANS, extendExpiry, formatTugrug, isValidPlan } from "@/lib/plans";
+import {
+  MAX_PAYWALLED_LATEST_CHAPTERS,
+  PLANS,
+  extendExpiry,
+  formatTugrug,
+  isValidPlan,
+} from "@/lib/plans";
 
 export type AdminActionState = {
   ok: boolean;
@@ -104,16 +110,14 @@ const allowedStatuses = new Set([
   "ONGOING",
   "COMPLETED",
   "CATCHING_UP",
-  "FINISHED_RELEASING",
-  "HIATUS",
+  "STOPPED",
 ]);
 
 type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
   | "CATCHING_UP"
-  | "FINISHED_RELEASING"
-  | "HIATUS";
+  | "STOPPED";
 
 type IngestionInput = {
   mangaName: string;
@@ -188,7 +192,32 @@ function parseMangaMetadataInput(formData: FormData) {
     titleFont: String(formData.get("titleFont") ?? "").trim(),
     isFeatured: formData.get("isFeatured") === "on",
     featuredOrder: parseFeaturedOrder(formData.get("featuredOrder")),
+    paywalledChapters: parsePaywalledChapters(
+      formData.get("paywalledChapters"),
+    ),
   };
+}
+
+/**
+ * How many newest chapters this manga locks. Blank means "use the site
+ * default"; 0 is a real value meaning nothing is locked.
+ */
+function parsePaywalledChapters(
+  value: FormDataEntryValue | null,
+): number | null {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = Number(raw);
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return Math.min(parsed, MAX_PAYWALLED_LATEST_CHAPTERS);
 }
 
 /** Hero position: a positive integer, or null for "unordered / end of list". */
@@ -913,6 +942,7 @@ export async function updateMangaMetadataAction(
         titleFont: input.titleFont || null,
         isFeatured: input.isFeatured,
         featuredOrder: input.isFeatured ? input.featuredOrder : null,
+        paywalledChapters: input.paywalledChapters,
         ...posterData,
         genres: {
           deleteMany: {},

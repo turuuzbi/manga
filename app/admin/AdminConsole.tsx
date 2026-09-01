@@ -22,6 +22,7 @@ import {
   FileImage,
   FolderSync,
   Layers3,
+  Lock,
   MoveDown,
   MoveUp,
   PencilLine,
@@ -45,7 +46,13 @@ import {
   updateMangaMetadataAction,
   type AdminActionState,
 } from "@/app/admin/actions";
-import { PLANS, PLAN_ORDER, formatTugrug } from "@/lib/plans";
+import {
+  MAX_PAYWALLED_LATEST_CHAPTERS,
+  PAYWALLED_LATEST_CHAPTERS,
+  PLANS,
+  PLAN_ORDER,
+  formatTugrug,
+} from "@/lib/plans";
 import { ImageEditorField } from "@/app/admin/ImageEditor";
 
 const initialAdminActionState: AdminActionState = {
@@ -248,8 +255,7 @@ type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
   | "CATCHING_UP"
-  | "FINISHED_RELEASING"
-  | "HIATUS";
+  | "STOPPED";
 
 type AdminConsoleProps = {
   dbUser: {
@@ -282,6 +288,7 @@ type AdminConsoleProps = {
     status: MangaStatusValue;
     isFeatured: boolean;
     featuredOrder: number | null;
+    paywalledChapters: number | null;
     posterOptions: string[];
     defaultPoster: string;
     genres: string[];
@@ -850,6 +857,30 @@ export function AdminConsole({
                           харагдахгүй.
                         </p>
                       )}
+                    </div>
+
+                    <div className="ad-soft p-4 sm:p-5">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Lock size={16} style={{ color: "var(--home-gold)" }} />
+                        <h3 className="ad-h3">Түгжээтэй бүлгийн тоо</h3>
+                      </div>
+                      <p className="ad-sub">
+                        Хамгийн сүүлийн хэдэн бүлгийг зөвхөн багцтай уншигчдад
+                        нээх вэ. Хоосон орхивол сайтын үндсэн тохиргоо (
+                        {PAYWALLED_LATEST_CHAPTERS}) хэрэглэнэ. 0 бол түгжээгүй.
+                      </p>
+                      <div className="mt-4 max-w-55">
+                        <Field
+                          label={`Сүүлийн бүлгүүд (0–${MAX_PAYWALLED_LATEST_CHAPTERS})`}
+                          name="paywalledChapters"
+                          type="number"
+                          min={0}
+                          max={MAX_PAYWALLED_LATEST_CHAPTERS}
+                          step={1}
+                          placeholder={String(PAYWALLED_LATEST_CHAPTERS)}
+                          defaultValue={selectedManga.paywalledChapters ?? ""}
+                        />
+                      </div>
                     </div>
 
                     <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
@@ -1907,8 +1938,7 @@ function MetadataFields({
           <option value="ONGOING">Гарч байгаа</option>
           <option value="COMPLETED">Дууссан</option>
           <option value="CATCHING_UP">Орчуулж гүйцэж байна</option>
-          <option value="FINISHED_RELEASING">Эх хувилбар дууссан</option>
-          <option value="HIATUS">Завсарласан</option>
+          <option value="STOPPED">Зогссон</option>
         </SelectField>
         <Field
           label="Зохиолч"
@@ -2176,8 +2206,7 @@ function getStatusLabel(status: MangaStatusValue) {
     ONGOING: "Гарч байгаа",
     COMPLETED: "Дууссан",
     CATCHING_UP: "Орчуулж гүйцэж байна",
-    FINISHED_RELEASING: "Эх хувилбар дууссан",
-    HIATUS: "Завсарласан",
+    STOPPED: "Зогссон",
   };
 
   return labels[status];

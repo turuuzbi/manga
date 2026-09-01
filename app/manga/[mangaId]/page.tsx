@@ -4,7 +4,11 @@ import { ArrowLeft } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
-import { PAYWALLED_LATEST_CHAPTERS, isPremium } from "@/lib/plans";
+import {
+  isPremium,
+  premiumDaysRemaining,
+  resolvePaywalledChapters,
+} from "@/lib/plans";
 import {
   getFreeReadState,
   getFreeSpendChapterIds,
@@ -481,8 +485,7 @@ const STATUS_LABELS: Record<string, string> = {
   ONGOING: "Гарч байгаа",
   COMPLETED: "Дууссан",
   CATCHING_UP: "Гүйцэж байна",
-  FINISHED_RELEASING: "Эх дууссан",
-  HIATUS: "Завсарласан",
+  STOPPED: "Зогссон",
 };
 
 type MangaPreviewPageProps = {
@@ -626,13 +629,13 @@ export default async function MangaPreviewPage({
     fallbackPages.map((page) => [page.chapterId, page.imageUrl]),
   );
 
-  // Rolling paywall: the newest PAYWALLED_LATEST_CHAPTERS of the series are
-  // subscriber-only. `manga.chapters` is already ordered by chapterNumber desc.
+  // Rolling paywall: the newest N chapters are subscriber-only, where N is this
+  // manga's own setting or the site default. `manga.chapters` is already
+  // ordered by chapterNumber desc, so the window is its head.
   const viewerIsPremium = isPremium(currentDbUser);
+  const paywallWindow = resolvePaywalledChapters(manga.paywalledChapters);
   const paywalledChapterIds = new Set(
-    manga.chapters
-      .slice(0, PAYWALLED_LATEST_CHAPTERS)
-      .map((chapter) => chapter.id),
+    manga.chapters.slice(0, paywallWindow).map((chapter) => chapter.id),
   );
 
   // Which chapters would cost the reader a free unlock, so the list can ask
@@ -729,7 +732,11 @@ export default async function MangaPreviewPage({
     <div className="yume-surface yume-detail relative min-h-screen">
       <style>{PREVIEW_STYLES}</style>
 
-      <MangaTopNav isAdmin={currentDbUser?.role === "ADMIN"} overlay />
+      <MangaTopNav
+        isAdmin={currentDbUser?.role === "ADMIN"}
+        premiumDaysLeft={premiumDaysRemaining(currentDbUser)}
+        overlay
+      />
 
       <main className="motion-ink-fade relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-16 pt-8 sm:px-6 lg:px-8">
         <Link href="/" className="motion-ink-up yd-back">

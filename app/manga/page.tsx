@@ -3,6 +3,7 @@ import { ArrowLeft, Moon, Search } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { getCurrentDbUser } from "@/lib/auth";
+import { premiumDaysRemaining } from "@/lib/plans";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 import {
   MangaPosterCard,
@@ -83,8 +84,7 @@ const STATUS_FILTERS: Array<{ value: MangaStatusValue; label: string }> = [
   { value: "ONGOING", label: "Гарч байгаа" },
   { value: "COMPLETED", label: "Дууссан" },
   { value: "CATCHING_UP", label: "Гүйцэж байна" },
-  { value: "FINISHED_RELEASING", label: "Эх дууссан" },
-  { value: "HIATUS", label: "Завсарласан" },
+  { value: "STOPPED", label: "Зогссон" },
 ];
 
 const VALID_STATUSES = new Set(STATUS_FILTERS.map((entry) => entry.value));
@@ -196,8 +196,10 @@ export default async function MangaLibraryPage({
           navLinks={[
             { label: "Нүүр", href: "/" },
             { label: "Сан", href: "/manga" },
+            { label: "Бидний тухай", href: "/about" },
           ]}
           isAdmin={currentUser?.role === "ADMIN"}
+          premiumDaysLeft={premiumDaysRemaining(currentUser)}
         />
 
         <main className="motion-ink-fade relative z-10 mx-auto w-full max-w-7xl px-4 pb-20 pt-8 md:px-8">

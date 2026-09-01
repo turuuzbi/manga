@@ -32,11 +32,30 @@ export const PLAN_ORDER: SubscriptionPlan[] = [
 export const FREE_CHAPTERS_PER_DAY = 3;
 
 /**
- * How many of a series' newest chapters are subscriber-only. The window rolls
- * forward as chapters publish: with 40 chapters, 36–40 are locked; once 41
- * lands, 36 drops out and becomes part of the daily-free pool again.
+ * Default number of a series' newest chapters that are subscriber-only, used
+ * when a manga has no per-series override. The window rolls forward as
+ * chapters publish: with 40 chapters, 36–40 are locked; once 41 lands, 36
+ * drops out and becomes part of the daily-free pool again.
  */
 export const PAYWALLED_LATEST_CHAPTERS = 5;
+
+/** Largest per-manga paywall window the admin form accepts. */
+export const MAX_PAYWALLED_LATEST_CHAPTERS = 100;
+
+/**
+ * The paywall window actually in force for a manga: its own setting when the
+ * admin has chosen one, otherwise the site default. 0 is meaningful (nothing
+ * locked), so only null/undefined falls back.
+ */
+export function resolvePaywalledChapters(
+  paywalledChapters: number | null | undefined,
+): number {
+  if (typeof paywalledChapters !== "number" || paywalledChapters < 0) {
+    return PAYWALLED_LATEST_CHAPTERS;
+  }
+
+  return Math.min(paywalledChapters, MAX_PAYWALLED_LATEST_CHAPTERS);
+}
 
 export function isValidPlan(value: string): value is SubscriptionPlan {
   return value in PLANS;
@@ -49,6 +68,27 @@ export function getPlan(plan: SubscriptionPlan): PlanConfig {
 /** Format an MNT amount as e.g. "5,500₮". */
 export function formatTugrug(amount: number): string {
   return `${amount.toLocaleString("en-US")}₮`;
+}
+
+/**
+ * Whole days of subscription left, rounded up so the last partial day still
+ * reads as "1 day left". Null when the user has no active subscription.
+ */
+export function premiumDaysRemaining(
+  user: { premiumUntil?: Date | null } | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  if (!user?.premiumUntil) {
+    return null;
+  }
+
+  const msLeft = user.premiumUntil.getTime() - now.getTime();
+
+  if (msLeft <= 0) {
+    return null;
+  }
+
+  return Math.ceil(msLeft / 86_400_000);
 }
 
 /** True when the user currently has an active subscription. */

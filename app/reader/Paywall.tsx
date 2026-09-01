@@ -2,26 +2,31 @@ import Link from "next/link";
 import { Crown, Home, Lock } from "lucide-react";
 import type { AccessReason } from "@/lib/reading-access";
 import {
-  PAYWALLED_LATEST_CHAPTERS,
+  FREE_CHAPTERS_PER_DAY,
   PLANS,
   PLAN_ORDER,
   formatTugrug,
 } from "@/lib/plans";
 
-const REASON_COPY: Partial<Record<AccessReason, { title: string; body: string }>> = {
-  latest_locked: {
-    title: "Шинэ бүлэг — зөвхөн багцтай уншина",
-    body: `Цувралын хамгийн сүүлийн ${PAYWALLED_LATEST_CHAPTERS} бүлэг зөвхөн багцтай уншигчдад нээлттэй. Шинэ бүлэг гармагц энэ бүлэг өдрийн үнэгүй эрхээр уншигдах болно.`,
-  },
-  quota_exhausted: {
-    title: "Өнөөдрийн үнэгүй бүлгүүд дууслаа",
-    body: "Та өнөөдөр 3 үнэгүй бүлгээ уншиж дууссан байна. Хязгааргүй унших бол багц авна уу — эсвэл маргааш дахин үнэгүй уншаарай.",
-  },
-  ip_claimed: {
-    title: "Энэ сүлжээний үнэгүй бүлгүүд дууссан",
-    body: "Энэ сүлжээнээс өнөөдрийн үнэгүй бүлгүүд аль хэдийн уншигдсан байна. Хязгааргүй унших бол багц авна уу.",
-  },
-};
+/** Copy depends on the series' own paywall window, so it is built per render. */
+function buildReasonCopy(
+  paywallWindow: number,
+): Partial<Record<AccessReason, { title: string; body: string }>> {
+  return {
+    latest_locked: {
+      title: "Шинэ бүлэг — зөвхөн багцтай уншина",
+      body: `Цувралын хамгийн сүүлийн ${paywallWindow} бүлэг зөвхөн багцтай уншигчдад нээлттэй. Шинэ бүлэг гармагц энэ бүлэг өдрийн үнэгүй эрхээр уншигдах болно.`,
+    },
+    quota_exhausted: {
+      title: "Өнөөдрийн үнэгүй бүлгүүд дууслаа",
+      body: `Та өнөөдөр ${FREE_CHAPTERS_PER_DAY} үнэгүй бүлгээ уншиж дууссан байна. Хязгааргүй унших бол багц авна уу — эсвэл маргааш дахин үнэгүй уншаарай.`,
+    },
+    ip_claimed: {
+      title: "Энэ сүлжээний үнэгүй бүлгүүд дууссан",
+      body: "Энэ сүлжээнээс өнөөдрийн үнэгүй бүлгүүд аль хэдийн уншигдсан байна. Хязгааргүй унших бол багц авна уу.",
+    },
+  };
+}
 
 const FALLBACK_COPY = {
   title: "Үргэлжлүүлэн унших",
@@ -32,12 +37,15 @@ export function Paywall({
   reason,
   manga,
   chapterNumber,
+  paywallWindow,
 }: {
   reason: AccessReason;
   manga: { id: string; name: string };
   chapterNumber: number;
+  /** This series' subscriber-only window, for the explanatory copy. */
+  paywallWindow: number;
 }) {
-  const copy = REASON_COPY[reason] ?? FALLBACK_COPY;
+  const copy = buildReasonCopy(paywallWindow)[reason] ?? FALLBACK_COPY;
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#050505] px-4 py-16 text-zinc-100">

@@ -140,6 +140,7 @@ export default async function AdminPage() {
         status: entry.status,
         isFeatured: entry.isFeatured,
         featuredOrder: entry.featuredOrder,
+        paywalledChapters: entry.paywalledChapters,
         posterOptions: entry.posterOptions,
         defaultPoster: entry.defaultPoster ?? "",
         genres: entry.genres.map((genreEntry) => genreEntry.genre.name),

@@ -1,33 +1,63 @@
+/**
+ * Dark ink + gold, matching the logo. Everything shares one radius (rounded-xl)
+ * and one control height (set in AuthLayout) so the social buttons and the
+ * email form read as a single stack rather than competing blocks.
+ */
 export const authAppearance = {
+  variables: {
+    colorPrimary: "#c8a24c",
+    colorBackground: "#141019",
+    colorText: "#f3ece4",
+    colorTextSecondary: "rgba(243, 236, 228, 0.58)",
+    colorInputBackground: "#0e0b13",
+    colorInputText: "#f3ece4",
+    colorDanger: "#e2879f",
+    borderRadius: "0.75rem",
+    fontSize: "14px",
+  },
   elements: {
     rootBox: "w-full",
-    cardBox: "w-full",
-    card: "w-full border-2 border-[#1a1108] bg-[#fffdf8] shadow-[8px_8px_0_#1a1108] rounded-none",
-    headerTitle:
-      "text-[#1a1108] text-3xl font-black tracking-tight",
-    headerSubtitle: "text-[#6b594d] text-sm",
+    cardBox:
+      "w-full rounded-2xl border border-[#c8a24c]/28 shadow-[0_30px_70px_-24px_rgba(0,0,0,0.85)]",
+    card: "w-full rounded-2xl bg-[#141019] px-7 py-8",
+
+    header: "gap-1",
+    headerTitle: "text-[#f3ece4] text-2xl font-semibold tracking-tight",
+    headerSubtitle: "text-[rgba(243,236,228,0.55)] text-sm",
+
+    socialButtons: "gap-2.5",
     socialButtonsBlockButton:
-      "border-2 border-[#1a1108] bg-[#fffaf1] text-[#1a1108] shadow-[3px_3px_0_#1a1108] hover:bg-[#fff5e6] rounded-none font-semibold",
-    socialButtonsBlockButtonText: "font-semibold text-[#1a1108]",
-    dividerLine: "bg-[#1a1108]/15",
-    dividerText: "text-[#8a6a57] text-xs uppercase tracking-[0.22em]",
+      "rounded-xl border border-[#c8a24c]/25 bg-white/[0.04] text-[#f3ece4] transition hover:border-[#c8a24c]/55 hover:bg-white/[0.08] normal-case",
+    socialButtonsBlockButtonText: "font-medium text-[#f3ece4]",
+
+    dividerLine: "bg-[#c8a24c]/18",
+    dividerText:
+      "text-[rgba(243,236,228,0.4)] text-[10px] uppercase tracking-[0.28em]",
+
     formFieldLabel:
-      "text-[#1a1108] text-xs font-extrabold uppercase tracking-[0.2em]",
+      "text-[rgba(243,236,228,0.7)] text-[11px] font-semibold uppercase tracking-[0.16em]",
     formFieldInput:
-      "rounded-none border-2 border-[#1a1108] bg-white text-[#1a1108] shadow-none focus:border-[#e8637e] focus:ring-0",
+      "rounded-xl border border-[#c8a24c]/22 bg-[#0e0b13] text-[#f3ece4] placeholder:text-[rgba(243,236,228,0.32)] focus:border-[#c8a24c]/70 focus:ring-0",
+    formFieldInputShowPasswordButton:
+      "text-[rgba(243,236,228,0.5)] hover:text-[#e4cd93]",
+
     formButtonPrimary:
-      "rounded-none border-2 border-[#1a1108] bg-[#1a1108] text-[#fffaf1] shadow-[4px_4px_0_#e8637e] hover:bg-[#30241c]",
-    footerActionLink: "text-[#e8637e] font-semibold",
-    identityPreviewText: "text-[#1a1108]",
-    formResendCodeLink: "text-[#e8637e] font-semibold",
+      "rounded-xl border-0 bg-gradient-to-r from-[#d8b56a] to-[#c8a24c] text-[#161009] font-semibold tracking-wide normal-case shadow-[0_12px_26px_-12px_rgba(200,162,76,0.85)] transition hover:brightness-108",
+
+    footer: "bg-transparent",
+    footerActionText: "text-[rgba(243,236,228,0.55)]",
+    footerActionLink: "text-[#e4cd93] font-semibold hover:text-[#f6e3c4]",
+
+    identityPreviewText: "text-[#f3ece4]",
+    identityPreviewEditButton: "text-[#e4cd93]",
+    formResendCodeLink: "text-[#e4cd93] font-semibold",
     otpCodeFieldInput:
-      "rounded-none border-2 border-[#1a1108] bg-white text-[#1a1108]",
+      "rounded-xl border border-[#c8a24c]/25 bg-[#0e0b13] text-[#f3ece4]",
+
     alertText: "text-sm",
-    formFieldSuccessText: "text-emerald-700",
-    formFieldWarningText: "text-amber-700",
-    formFieldErrorText: "text-red-700",
-    footer: "bg-[#fff8ee]",
-    footerActionText: "text-[#6b594d]",
+    formFieldSuccessText: "text-emerald-300",
+    formFieldWarningText: "text-amber-300",
+    formFieldErrorText: "text-[#e2879f]",
   },
 } as const;
 

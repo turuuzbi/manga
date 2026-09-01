@@ -5,8 +5,7 @@ export type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
   | "CATCHING_UP"
-  | "FINISHED_RELEASING"
-  | "HIATUS";
+  | "STOPPED";
 
 export interface MangaSeries {
   id: string;
@@ -22,8 +21,15 @@ export const STATUS_LABELS: Record<MangaStatusValue, string> = {
   ONGOING: "Гарч байгаа",
   COMPLETED: "Дууссан",
   CATCHING_UP: "Гүйцэж байна",
-  FINISHED_RELEASING: "Эх дууссан",
-  HIATUS: "Завсарласан",
+  STOPPED: "Зогссон",
+};
+
+/** Extra class per status, so the ribbon reads differently at a glance. */
+const STATUS_BADGE_MODIFIER: Record<MangaStatusValue, string> = {
+  ONGOING: "",
+  COMPLETED: " is-completed",
+  CATCHING_UP: " is-catching-up",
+  STOPPED: " is-stopped",
 };
 
 const DEFAULT_TITLE_FONT = "Cormorant Garamond";
@@ -199,6 +205,16 @@ export const YUME_CARD_STYLES = `
   color: color-mix(in srgb, var(--home-gold) 78%, var(--home-plum));
   border-color: var(--home-line-strong);
 }
+/* Back-translation in progress — the one status readers actively look for, so
+   it gets a solid rose ribbon instead of the paper-toned default. */
+.yume-status.is-catching-up {
+  color: #fff;
+  background: linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%);
+  border-color: transparent;
+}
+.yume-status.is-stopped {
+  color: var(--home-plum-soft);
+}
 .yume-card-title {
   font-family: 'Cormorant Garamond', serif;
   font-weight: 600;
@@ -248,8 +264,9 @@ export function MangaPosterCard({
   activeGenre?: string | null;
   delayIndex?: number;
 }) {
-  const isCompleted =
-    manga.status === "COMPLETED" || manga.status === "FINISHED_RELEASING";
+  const statusModifier = manga.status
+    ? STATUS_BADGE_MODIFIER[manga.status]
+    : "";
 
   return (
     <Link
@@ -263,7 +280,7 @@ export function MangaPosterCard({
     >
       <div className="yume-poster">
         {manga.status ? (
-          <span className={`yume-status${isCompleted ? " is-completed" : ""}`}>
+          <span className={`yume-status${statusModifier}`}>
             {STATUS_LABELS[manga.status]}
           </span>
         ) : null}

@@ -228,6 +228,7 @@ html[data-theme="dark"] .yume-home {
 const headerLinks = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
+  { label: "Бидний тухай", href: "/about" },
 ];
 
 interface FeaturedSlide {
@@ -254,6 +255,8 @@ type HomeLandingProps = {
   allManga?: MangaSeries[];
   genreFilters?: GenreFilter[];
   isAdmin?: boolean;
+  /** Days left on the reader's subscription; null when they have none. */
+  premiumDaysLeft?: number | null;
 };
 
 export function HomeLanding({
@@ -264,6 +267,7 @@ export function HomeLanding({
   allManga = [],
   genreFilters = [],
   isAdmin = false,
+  premiumDaysLeft = null,
 }: HomeLandingProps) {
   const [activeGenre, setActiveGenre] = useState<string | null>(null);
 
@@ -296,7 +300,11 @@ export function HomeLanding({
       >
         <CelestialFrame />
 
-        <MangaTopNav navLinks={headerLinks} isAdmin={isAdmin} />
+        <MangaTopNav
+          navLinks={headerLinks}
+          isAdmin={isAdmin}
+          premiumDaysLeft={premiumDaysLeft}
+        />
 
         <main
           className="motion-ink-fade mx-auto max-w-7xl px-4 py-8 md:px-8"

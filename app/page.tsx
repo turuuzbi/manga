@@ -1,6 +1,7 @@
 import prisma from "@/lib/db";
 import { HomeLanding } from "@/app/_components/HomeLanding";
 import { getCurrentDbUser } from "@/lib/auth";
+import { premiumDaysRemaining } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,7 @@ export default async function HomePage() {
   return (
     <HomeLanding
       isAdmin={currentUser?.role === "ADMIN"}
+      premiumDaysLeft={premiumDaysRemaining(currentUser)}
       featured={featured}
       continueReading={continueReading}
       latestUpdates={byLatestUpdate.slice(0, 10).map(toSeries)}
