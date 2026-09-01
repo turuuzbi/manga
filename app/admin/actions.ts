@@ -889,6 +889,7 @@ export async function updateMangaMetadataAction(
         coverImage: true,
         homeCoverImage: true,
         detailCoverImage: true,
+        posterOptions: true,
       },
     });
 
@@ -906,6 +907,7 @@ export async function updateMangaMetadataAction(
       coverImage?: string;
       homeCoverImage?: string;
       detailCoverImage?: string;
+      defaultPoster?: null;
     } = {};
 
     if (isUploadFile(homeCoverFile)) {
@@ -927,6 +929,18 @@ export async function updateMangaMetadataAction(
         coverAsset: await uploadAssetFromFile(detailCoverFile),
         target: "detail",
       });
+    }
+
+    // Uploading a poster here clears the poster-library default.
+    //
+    // `defaultPoster` is checked before homeCoverImage/detailCoverImage on every
+    // surface that renders a cover, so while it is set these two upload fields
+    // save correctly but change nothing the reader sees. That precedence exists
+    // so an owner's deliberate pick beats a cover auto-guessed at import — but a
+    // poster uploaded through this form is just as deliberate and more recent,
+    // so it wins. Ingestion (attachCoverToManga) still defers to the pick.
+    if (posterData.homeCoverImage || posterData.detailCoverImage) {
+      posterData.defaultPoster = null;
     }
 
     await prisma.manga.update({
@@ -966,13 +980,18 @@ export async function updateMangaMetadataAction(
       posterData.homeCoverImage ?? manga.homeCoverImage,
       posterData.detailCoverImage ?? manga.detailCoverImage,
     ]);
+    // A replaced cover can still be listed in the poster library — options are
+    // sometimes added straight from the cover fields — and deleting the file
+    // out from under the library would leave a broken tile in the reader's
+    // poster chooser. Keep anything posterOptions still points at.
+    const stillReferenced = new Set(manga.posterOptions);
     const replacedPosterUrls = [
       manga.coverImage,
       manga.homeCoverImage,
       manga.detailCoverImage,
-    ].filter(
-      (url): url is string => Boolean(url) && !currentPosterUrls.has(url),
-    );
+    ]
+      .filter((url): url is string => Boolean(url))
+      .filter((url) => !currentPosterUrls.has(url) && !stillReferenced.has(url));
 
     if (replacedPosterUrls.length > 0) {
       try {
