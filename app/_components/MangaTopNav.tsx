@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
+import { Crown, Leaf, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -11,6 +11,22 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
+import {
+  DEFAULT_THEME,
+  THEME_CHANGE_EVENT,
+  THEME_LABELS,
+  applyTheme,
+  nextTheme,
+  readAppliedTheme,
+  type Theme,
+} from "@/lib/theme";
+
+/** The button shows the theme it will switch *to*, so the icon is the destination. */
+const THEME_ICON: Record<Theme, typeof Sun> = {
+  light: Sun,
+  autumn: Leaf,
+  dark: Moon,
+};
 
 type NavLink = {
   label: string;
@@ -70,24 +86,24 @@ export function MangaTopNav({
     const notify = () => callback();
 
     window.addEventListener("storage", notify);
-    window.addEventListener("yume-theme-change", notify as EventListener);
+    window.addEventListener(THEME_CHANGE_EVENT, notify as EventListener);
 
     return () => {
       window.removeEventListener("storage", notify);
-      window.removeEventListener("yume-theme-change", notify as EventListener);
+      window.removeEventListener(THEME_CHANGE_EVENT, notify as EventListener);
     };
   }, []);
 
-  const theme = useSyncExternalStore(
+  const theme = useSyncExternalStore<Theme>(
     subscribeToTheme,
-    () =>
-      document.documentElement.dataset.theme === "dark" ? "dark" : "light",
-    () => "light",
+    readAppliedTheme,
+    () => DEFAULT_THEME,
   );
 
+  const upcoming = nextTheme(theme);
   const themeLabel = useMemo(
-    () => (theme === "dark" ? "Switch to light mode" : "Switch to dark mode"),
-    [theme],
+    () => `${THEME_LABELS[upcoming]} загварт шилжих`,
+    [upcoming],
   );
 
   const accessLabel =
@@ -95,17 +111,13 @@ export function MangaTopNav({
       ? `${premiumDaysLeft} хоног үлдсэн`
       : "Эрх авах";
 
-  function applyTheme(nextTheme: "light" | "dark") {
-    document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem("yume-theme", nextTheme);
-    window.dispatchEvent(new Event("yume-theme-change"));
-  }
-
   function renderThemeButton() {
+    const Icon = THEME_ICON[upcoming];
+
     return (
       <button
         type="button"
-        onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}
+        onClick={() => applyTheme(upcoming)}
         aria-label={themeLabel}
         title={themeLabel}
         className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 transition hover:-translate-x-px hover:-translate-y-px"
@@ -116,7 +128,7 @@ export function MangaTopNav({
           boxShadow: "2px 2px 0 var(--manga-shadow)",
         }}
       >
-        {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        <Icon size={16} />
       </button>
     );
   }
@@ -398,14 +410,25 @@ export function MangaTopNav({
           ) : null}
 
           <div className="flex items-center justify-between gap-3">
-            <span
-              className="text-[11px] font-bold uppercase"
-              style={{
-                letterSpacing: "0.18em",
-                color: "var(--manga-muted-2)",
-              }}
-            >
-              Theme
+            <span className="flex flex-col gap-0.5">
+              <span
+                className="text-[11px] font-bold uppercase"
+                style={{
+                  letterSpacing: "0.18em",
+                  color: "var(--manga-muted-2)",
+                }}
+              >
+                Загвар
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "var(--manga-text)",
+                }}
+              >
+                {THEME_LABELS[theme]}
+              </span>
             </span>
             {renderThemeButton()}
           </div>

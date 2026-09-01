@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BookOpen, ChevronLeft, ChevronRight, Moon, Sparkles } from "lucide-react";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
+import { CelestialFrame } from "@/app/_components/CelestialFrame";
 import {
   MangaPosterCard,
   SectionHeader,
@@ -70,6 +71,33 @@ html[data-theme="dark"] .yume-home {
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
 }
 
+/* Autumn: the same layout in warm cream, amber and maple, with the watercolour
+   corner blooms of the reference frame painted in as background washes. */
+html[data-theme="autumn"] .yume-home {
+  --home-cream: #fdf4e8;
+  --home-blush: #f9dfc2;
+  --home-rose: #e08a4a;
+  --home-rose-deep: #c25f2a;
+  --home-gold: #c19434;
+  --home-gold-soft: #e6cd94;
+  --home-plum: #59402e;
+  --home-plum-soft: #927759;
+  --home-paper: #fffaf2;
+  --home-paper-2: #f9ead6;
+  --home-line: rgba(193, 148, 52, 0.4);
+  --home-line-strong: rgba(193, 148, 52, 0.68);
+  --home-shadow: rgba(180, 120, 62, 0.2);
+  --home-shadow-strong: rgba(150, 88, 40, 0.32);
+  --home-overlay: linear-gradient(to top, rgba(58, 34, 18, 0.92) 4%, rgba(58, 34, 18, 0.45) 38%, transparent 72%);
+  --home-on-dark-soft: rgba(255, 246, 234, 0.84);
+  background-image:
+    radial-gradient(circle at 6% 3%, rgba(233, 138, 69, 0.30), transparent 34%),
+    radial-gradient(circle at 95% 7%, rgba(207, 95, 43, 0.20), transparent 31%),
+    radial-gradient(circle at 3% 94%, rgba(207, 95, 43, 0.22), transparent 33%),
+    radial-gradient(circle at 97% 97%, rgba(233, 138, 69, 0.28), transparent 34%),
+    radial-gradient(circle at 50% 48%, rgba(255, 251, 244, 0.55), transparent 58%);
+}
+
 /* Soften the shared nav tokens inside the home theme */
 .yume-home {
   --manga-border: var(--home-line-strong);
@@ -81,21 +109,6 @@ html[data-theme="dark"] .yume-home {
   --manga-paper: var(--home-paper);
   --manga-paper-2: var(--home-paper-2);
   --manga-nav-bg: color-mix(in srgb, var(--home-cream) 86%, transparent);
-}
-
-.yume-frame { position: fixed; inset: 0; z-index: 0; pointer-events: none; color: var(--home-gold); }
-.yume-frame .corner { position: absolute; opacity: 0.6; }
-.yume-frame .c-tl { top: 14px; left: 14px; }
-.yume-frame .c-tr { top: 14px; right: 14px; transform: scaleX(-1); }
-.yume-frame .c-bl { bottom: 14px; left: 14px; transform: scaleY(-1); }
-.yume-frame .c-br { bottom: 14px; right: 14px; transform: scale(-1, -1); }
-.yume-frame .edge { position: absolute; opacity: 0.5; }
-.yume-frame .e-l { top: 50%; left: 10px; transform: translateY(-50%); }
-.yume-frame .e-r { top: 50%; right: 10px; transform: translateY(-50%) scaleX(-1); }
-@media (max-width: 900px) {
-  .yume-frame .edge { display: none; }
-  .yume-frame .corner { opacity: 0.4; transform-origin: center; }
-  .yume-frame .c-tl, .yume-frame .c-bl, .yume-frame .c-tr, .yume-frame .c-br { width: 88px; }
 }
 
 .yume-hero {
@@ -656,117 +669,6 @@ function EmptyState({ genre }: { genre: string | null }) {
         {genre ? `"${genre}" төрөлд манга алга байна.` : "Манга алга байна."}
       </p>
     </div>
-  );
-}
-
-/** Gold celestial corner + edge ornaments inspired by the reference frame. */
-function CelestialFrame() {
-  return (
-    <div className="yume-frame" aria-hidden="true">
-      <CornerOrnament className="corner c-tl" />
-      <CornerOrnament className="corner c-tr" />
-      <CornerOrnament className="corner c-bl" />
-      <CornerOrnament className="corner c-br" />
-      <EdgeOrnament className="edge e-l" />
-      <EdgeOrnament className="edge e-r" />
-    </div>
-  );
-}
-
-function CornerOrnament({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="118"
-      height="118"
-      viewBox="0 0 118 118"
-      fill="none"
-      stroke="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* sweeping arc */}
-      <path
-        d="M6 112 C 6 56 56 6 112 6"
-        strokeWidth="1.2"
-        opacity="0.7"
-        fill="none"
-      />
-      <path
-        d="M6 92 C 6 46 46 6 92 6"
-        strokeWidth="0.7"
-        opacity="0.4"
-        fill="none"
-      />
-      {/* crescent moon */}
-      <path
-        d="M30 30 a 13 13 0 1 0 13 13 a 10 10 0 1 1 -13 -13 z"
-        fill="currentColor"
-        stroke="none"
-        opacity="0.85"
-      />
-      {/* sparkle stars */}
-      <FourStar cx={64} cy={20} r={6} />
-      <FourStar cx={20} cy={64} r={6} />
-      <FourStar cx={86} cy={40} r={4} />
-      <FourStar cx={40} cy={86} r={4} />
-      {/* dotted strand */}
-      {[0, 1, 2, 3, 4].map((i) => (
-        <circle
-          key={i}
-          cx={100}
-          cy={28 + i * 11}
-          r={i % 2 === 0 ? 1.6 : 1}
-          fill="currentColor"
-          stroke="none"
-          opacity="0.6"
-        />
-      ))}
-    </svg>
-  );
-}
-
-function EdgeOrnament({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="26"
-      height="150"
-      viewBox="0 0 26 150"
-      fill="none"
-      stroke="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-        <circle
-          key={i}
-          cx={13}
-          cy={10 + i * 18}
-          r={i % 2 === 0 ? 1.4 : 0.9}
-          fill="currentColor"
-          stroke="none"
-          opacity="0.55"
-        />
-      ))}
-      <FourStar cx={13} cy={75} r={7} />
-      <path
-        d="M7 60 a 7 7 0 1 0 7 7 a 5.4 5.4 0 1 1 -7 -7 z"
-        fill="currentColor"
-        stroke="none"
-        opacity="0.7"
-      />
-    </svg>
-  );
-}
-
-function FourStar({ cx, cy, r }: { cx: number; cy: number; r: number }) {
-  const w = r * 0.32;
-  return (
-    <path
-      d={`M${cx} ${cy - r} C ${cx + w} ${cy - w}, ${cx + w} ${cy - w}, ${cx + r} ${cy} C ${cx + w} ${cy + w}, ${cx + w} ${cy + w}, ${cx} ${cy + r} C ${cx - w} ${cy + w}, ${cx - w} ${cy + w}, ${cx - r} ${cy} C ${cx - w} ${cy - w}, ${cx - w} ${cy - w}, ${cx} ${cy - r} Z`}
-      fill="currentColor"
-      stroke="none"
-      opacity="0.8"
-    />
   );
 }
 

@@ -1,6 +1,7 @@
 import { getCurrentDbUser } from "@/lib/auth";
 import { premiumDaysRemaining } from "@/lib/plans";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
+import { CelestialFrame } from "@/app/_components/CelestialFrame";
 import { YUME_CARD_STYLES } from "@/app/_components/MangaPosterCard";
 
 export const dynamic = "force-dynamic";
@@ -136,6 +137,8 @@ export default async function AboutPage() {
       <style>{ABOUT_STYLES}</style>
 
       <div className="yume-surface yume-about relative min-h-screen">
+        <CelestialFrame />
+
         <MangaTopNav
           isAdmin={user?.role === "ADMIN"}
           premiumDaysLeft={premiumDaysRemaining(user)}

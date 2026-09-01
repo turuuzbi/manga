@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { mongolianLocalization } from "@/lib/clerk-auth-ui";
+import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,13 +27,18 @@ export default function RootLayout({
     >
       <html lang="en" suppressHydrationWarning>
         <body className="antialiased">
+          {/* Runs before paint so the saved theme is on <html> for the first
+              frame — otherwise the page flashes light before hydration. The
+              theme list comes from lib/theme so it cannot drift from the
+              header's cycle order. */}
           <script
             dangerouslySetInnerHTML={{
               __html: `
                 try {
-                  var savedTheme = window.localStorage.getItem("yume-theme");
-                  var theme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
-                  document.documentElement.dataset.theme = theme;
+                  var themes = ${JSON.stringify(THEMES)};
+                  var saved = window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
+                  document.documentElement.dataset.theme =
+                    themes.indexOf(saved) === -1 ? ${JSON.stringify(DEFAULT_THEME)} : saved;
                 } catch (error) {}
               `,
             }}

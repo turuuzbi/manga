@@ -5,6 +5,7 @@ import prisma from "@/lib/db";
 import { getCurrentDbUser } from "@/lib/auth";
 import { premiumDaysRemaining } from "@/lib/plans";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
+import { CelestialFrame } from "@/app/_components/CelestialFrame";
 import {
   MangaPosterCard,
   SectionHeader,
@@ -192,6 +193,8 @@ export default async function MangaLibraryPage({
       <style>{LIBRARY_STYLES}</style>
 
       <div className="yume-surface yume-library relative min-h-screen">
+        <CelestialFrame />
+
         <MangaTopNav
           navLinks={[
             { label: "Нүүр", href: "/" },

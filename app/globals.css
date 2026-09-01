@@ -121,6 +121,42 @@ html[data-theme="dark"] {
   --skeleton-shimmer: rgba(255, 255, 255, 0.14);
 }
 
+/* Autumn — a third theme alongside light and dark, drawn from the pressed-leaf
+   reference frame: warm cream paper, maple accents, the same gold line work. */
+html[data-theme="autumn"] {
+  --background: #fdf4e8;
+  --foreground: #59402e;
+  --manga-bg: #fdf4e8;
+  --manga-paper: #fffaf2;
+  --manga-paper-2: #f9ead6;
+  --manga-paper-3: #fdf0dc;
+  --manga-border: #59402e;
+  --manga-text: #59402e;
+  --manga-muted: #8a6f52;
+  --manga-muted-2: #a3866a;
+  --manga-accent: #d4622e;
+  --manga-gold: #c19434;
+  --manga-shadow: #c9a273;
+  --manga-nav-bg: rgba(253, 244, 232, 0.92);
+  --manga-grid: rgba(89, 64, 46, 0.04);
+  --manga-radial-a: rgba(255, 250, 242, 0.94);
+  --manga-radial-b: rgba(246, 226, 200, 0.45);
+  --manga-brand-a: #f0a45c;
+  --manga-brand-b: #d4622e;
+  --manga-brand-c: #f7d9b4;
+  --manga-highlight: #e8a13c;
+  --manga-highlight-text: #3a2617;
+  --manga-accent-shadow: #c25f2a;
+  --manga-hero-overlay: rgba(58, 34, 18, 0.88);
+  --manga-hero-overlay-soft: rgba(255, 246, 234, 0.22);
+  --manga-card-overlay: rgba(58, 34, 18, 0.8);
+  --skeleton-tone-1: #f6e2ca;
+  --skeleton-tone-2: #fffaf2;
+  --skeleton-strong-1: #f0cfa4;
+  --skeleton-strong-2: #f9ead6;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.7);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -349,6 +385,45 @@ html[data-theme="dark"] .yume-surface {
     radial-gradient(circle at 16% 8%, rgba(140, 111, 255, 0.14), transparent 44%),
     radial-gradient(circle at 88% 2%, rgba(223, 159, 191, 0.1), transparent 40%),
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
+}
+
+/* Autumn surface. Mirrors the `.yume-home` block in HomeLanding so the library,
+   detail, about and subscribe pages carry the same paper as the landing page. */
+html[data-theme="autumn"] .yume-surface {
+  --home-cream: #fdf4e8;
+  --home-blush: #f9dfc2;
+  --home-rose: #e08a4a;
+  --home-rose-deep: #c25f2a;
+  --home-gold: #c19434;
+  --home-gold-soft: #e6cd94;
+  --home-plum: #59402e;
+  --home-plum-soft: #927759;
+  --home-paper: #fffaf2;
+  --home-paper-2: #f9ead6;
+  --home-line: rgba(193, 148, 52, 0.4);
+  --home-line-strong: rgba(193, 148, 52, 0.68);
+  --home-shadow: rgba(180, 120, 62, 0.2);
+  --home-shadow-strong: rgba(150, 88, 40, 0.32);
+  --home-overlay: linear-gradient(
+    to top,
+    rgba(58, 34, 18, 0.92) 4%,
+    rgba(58, 34, 18, 0.45) 38%,
+    transparent 72%
+  );
+  --home-on-dark-soft: rgba(255, 246, 234, 0.84);
+
+  --skeleton-tone-1: #f6e2ca;
+  --skeleton-tone-2: #fffaf2;
+  --skeleton-strong-1: #f0cfa4;
+  --skeleton-strong-2: #f9ead6;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.7);
+
+  background-image:
+    radial-gradient(circle at 6% 3%, rgba(233, 138, 69, 0.3), transparent 34%),
+    radial-gradient(circle at 95% 7%, rgba(207, 95, 43, 0.2), transparent 31%),
+    radial-gradient(circle at 3% 94%, rgba(207, 95, 43, 0.22), transparent 33%),
+    radial-gradient(circle at 97% 97%, rgba(233, 138, 69, 0.28), transparent 34%),
+    radial-gradient(circle at 50% 48%, rgba(255, 251, 244, 0.55), transparent 58%);
 }
 
 /* ─── Header search + buttons ────────────────────────────────────────────────
