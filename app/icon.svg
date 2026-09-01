@@ -1,11 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#d27d9c"/>
-      <stop offset="100%" stop-color="#b9577b"/>
+    <linearGradient id="pink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffb0cf"/>
+      <stop offset="100%" stop-color="#ee6a9b"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe486"/>
+      <stop offset="100%" stop-color="#f4b52c"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="8" fill="url(#g)"/>
-  <path d="M19.5 8.5a8 8 0 1 0 6.2 12.7A9.2 9.2 0 0 1 19.5 8.5z" fill="#f6e3c4"/>
-  <path d="M10.6 10.2 11.5 12.6 13.9 13.5 11.5 14.4 10.6 16.8 9.7 14.4 7.3 13.5 9.7 12.6 Z" fill="#f6e3c4"/>
+
+  <rect width="32" height="32" rx="8" fill="url(#pink)"/>
+
+  <!-- crown: three peaks over a banded base -->
+  <path d="M6.5 21.4 V12.1 l4.6 4.2 L16 8.5 l4.9 7.8 4.6 -4.2 V21.4 Z" fill="url(#gold)"/>
+  <rect x="6.5" y="22.4" width="19" height="3.2" rx="1.6" fill="url(#gold)"/>
+  <circle cx="6.5" cy="10.9" r="1.7" fill="#ffe486"/>
+  <circle cx="16" cy="7.1" r="1.9" fill="#ffe486"/>
+  <circle cx="25.5" cy="10.9" r="1.7" fill="#ffe486"/>
+
+  <!-- sparkle -->
+  <path d="M25.4 4.2 26.1 6.1 28 6.8 26.1 7.5 25.4 9.4 24.7 7.5 22.8 6.8 24.7 6.1 Z" fill="#fff6fa" opacity="0.85"/>
 </svg>

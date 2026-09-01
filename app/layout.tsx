@@ -5,7 +5,7 @@ import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ЮУМЭ Орчуулагч",
+  title: "ЮҮМЭ Орчуулагч",
   description: "Монгол хэл дээрх манга, манхва унших сан.",
 };
 

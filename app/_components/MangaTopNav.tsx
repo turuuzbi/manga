@@ -156,11 +156,11 @@ export function MangaTopNav({
           href="/"
           className="flex shrink-0 items-center no-underline"
           onClick={() => setMobileMenuOpen(false)}
-          aria-label="ЮУМЭ Орчуулагч — Нүүр"
+          aria-label="ЮҮМЭ Орчуулагч — Нүүр"
         >
           <img
             src="/yume-logo.jpeg"
-            alt="ЮУМЭ Орчуулагч"
+            alt="ЮҮМЭ Орчуулагч"
             width={1688}
             height={2048}
             className="block h-12 w-auto rounded-xl border-2 object-contain transition hover:-translate-x-px hover:-translate-y-px"

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Crown, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Copy, Crown, Instagram, Sparkles } from "lucide-react";
 import type { SubscriptionPlan } from "@prisma/client";
 import { formatTugrug } from "@/lib/plans";
-import { startCheckoutAction, type CheckoutState } from "@/app/subscribe/actions";
 
 type PlanView = {
   plan: SubscriptionPlan;
@@ -14,6 +13,15 @@ type PlanView = {
   days: number;
   perDay: number;
 };
+
+/** Where readers send payment until QPay is wired up. */
+const BANK = {
+  name: "Худалдаа хөгжлийн банк",
+  account: "MN510004000820031706",
+  holder: "Гантөмөр Алтанзаяа",
+};
+
+const INSTAGRAM_HANDLE = "yume_orchuulagch";
 
 export function SubscribeClient({
   plans,
@@ -27,15 +35,6 @@ export function SubscribeClient({
   premiumUntilLabel: string | null;
 }) {
   const [selected, setSelected] = useState<SubscriptionPlan>(initialPlan);
-  const [result, setResult] = useState<CheckoutState | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function checkout() {
-    setResult(null);
-    startTransition(async () => {
-      setResult(await startCheckoutAction(selected));
-    });
-  }
 
   const selectedPlan = plans.find((entry) => entry.plan === selected) ?? plans[0];
 
@@ -131,42 +130,159 @@ export function SubscribeClient({
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={checkout}
-        disabled={isPending}
-        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white transition disabled:opacity-70"
+      {/*
+        Manual bank transfer. QPay is not wired up yet, so readers pay into the
+        account below and message the receipt on Instagram; an admin then grants
+        access by hand. The steps mirror the wording the owner uses there.
+      */}
+      <section
+        className="mt-8 rounded-3xl border p-6 sm:p-8"
         style={{
-          background: "linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%)",
-          boxShadow: "0 16px 34px -14px var(--home-rose-deep)",
+          borderColor: "var(--home-line-strong)",
+          background: "var(--home-paper)",
+          boxShadow: "0 22px 48px -30px var(--home-shadow-strong)",
         }}
       >
-        {isPending ? <Loader2 size={17} className="animate-spin" /> : <Crown size={17} />}
-        {selectedPlan
-          ? `${selectedPlan.label} — ${formatTugrug(selectedPlan.price)} төлөх`
-          : "Багц авах"}
-      </button>
+        <h2
+          className="flex items-center gap-2 text-2xl font-bold italic"
+          style={{ fontFamily: "'Cormorant Garamond', serif", color: "var(--home-plum)" }}
+        >
+          <Crown size={19} style={{ color: "var(--home-gold)" }} />
+          Эрх авах
+        </h2>
 
-      {result ? (
-        <div
-          className="mt-5 rounded-2xl border p-5 text-center"
+        <ol className="mt-6 flex flex-col gap-6">
+          <li className="flex gap-4">
+            <StepNumber n={1} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm leading-6" style={{ color: "var(--home-plum)" }}>
+                Доорх данс руу төлбөрөө шилжүүлнэ
+                {selectedPlan ? (
+                  <>
+                    {" — "}
+                    <strong style={{ color: "var(--home-rose-deep)" }}>
+                      {formatTugrug(selectedPlan.price)}
+                    </strong>{" "}
+                    <span style={{ color: "var(--home-plum-soft)" }}>
+                      ({selectedPlan.label})
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              <BankDetails />
+            </div>
+          </li>
+
+          <li className="flex gap-4">
+            <StepNumber n={2} />
+            <p className="flex-1 text-sm leading-6" style={{ color: "var(--home-plum)" }}>
+              Инстаграм{" "}
+              <a
+                href={`https://instagram.com/${INSTAGRAM_HANDLE}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold"
+                style={{ color: "var(--home-rose-deep)" }}
+              >
+                <Instagram size={14} />@{INSTAGRAM_HANDLE}
+              </a>{" "}
+              руу чатаар холбогдож бүртгэлтэй мэйл хаяг, шилжүүлгийн баримтаа
+              илгээнэ үү.
+            </p>
+          </li>
+
+          <li className="flex gap-4">
+            <StepNumber n={3} />
+            <p className="flex-1 text-sm leading-6" style={{ color: "var(--home-plum)" }}>
+              Юүмэ төд удалгүй админ эрх олгох болно💞
+            </p>
+          </li>
+        </ol>
+
+        <p
+          className="mt-7 border-t pt-5 text-center text-sm font-semibold"
+          style={{ borderColor: "var(--home-line)", color: "var(--home-plum)" }}
+        >
+          Бүртгүүлсэнд баярлалаа❣️
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+      style={{
+        background:
+          "linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%)",
+      }}
+    >
+      {n}
+    </span>
+  );
+}
+
+function BankDetails() {
+  const [copied, setCopied] = useState(false);
+
+  async function copyAccount() {
+    try {
+      await navigator.clipboard.writeText(BANK.account);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (insecure context, or permission denied) — the number
+      // is on screen to copy by hand, so there is nothing to recover from.
+    }
+  }
+
+  return (
+    <div
+      className="mt-4 rounded-2xl border p-4"
+      style={{
+        borderColor: "var(--home-line)",
+        background: "color-mix(in srgb, var(--home-gold) 8%, var(--home-paper-2))",
+      }}
+    >
+      <p
+        className="text-[10px] font-semibold uppercase tracking-[0.24em]"
+        style={{ color: "var(--home-gold)" }}
+      >
+        Дансны мэдээлэл
+      </p>
+
+      <p className="mt-3 text-sm font-semibold" style={{ color: "var(--home-plum)" }}>
+        {BANK.name}
+      </p>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <code
+          className="text-base font-bold tracking-wide"
+          style={{ fontFamily: "var(--font-mono)", color: "var(--home-plum)" }}
+        >
+          {BANK.account}
+        </code>
+        <button
+          type="button"
+          onClick={copyAccount}
+          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition"
           style={{
-            borderColor: result.ok ? "var(--home-line-strong)" : "#c44d66",
+            borderColor: copied ? "var(--home-rose)" : "var(--home-line-strong)",
+            color: copied ? "var(--home-rose-deep)" : "var(--home-plum-soft)",
             background: "var(--home-paper)",
-            color: "var(--home-plum)",
           }}
         >
-          {result.pending ? (
-            <p className="text-sm font-semibold" style={{ color: "var(--home-plum)" }}>
-              ⏳ {result.message}
-            </p>
-          ) : (
-            <p className="text-sm" style={{ color: result.ok ? "var(--home-plum)" : "#c44d66" }}>
-              {result.message}
-            </p>
-          )}
-        </div>
-      ) : null}
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? "Хуулагдлаа" : "Хуулах"}
+        </button>
+      </div>
+
+      <p className="mt-2 text-sm" style={{ color: "var(--home-plum-soft)" }}>
+        {BANK.holder}
+      </p>
     </div>
   );
 }

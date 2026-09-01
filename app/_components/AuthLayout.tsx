@@ -34,7 +34,7 @@ export function AuthLayout({
 
           <img
             src="/yume-logo.jpeg"
-            alt="ЮУМЭ Орчуулагч"
+            alt="ЮҮМЭ Орчуулагч"
             width={1688}
             height={2048}
             className="ya-logo"

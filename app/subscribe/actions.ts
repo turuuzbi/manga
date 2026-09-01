@@ -21,10 +21,12 @@ export type CheckoutState = {
 /**
  * Starts a checkout: records a PENDING payment for the chosen plan.
  *
- * QPay is not wired yet (credentials pending). Once it is, this is where we
- * create the QPay invoice and return its QR/deeplinks; a webhook + status poll
- * will then flip the payment to PAID and activate the subscription. For now it
- * returns a pending placeholder so the UI flow is complete and testable.
+ * NOT CURRENTLY CALLED. While QPay credentials are pending, /subscribe asks
+ * readers to transfer to a bank account and send the receipt on Instagram, and
+ * an admin grants access by hand — see SubscribeClient. This is kept as the
+ * integration point for when QPay lands: create the invoice here and return its
+ * QR/deeplinks, then have a webhook plus a status poll flip the payment to PAID
+ * and activate the subscription.
  */
 export async function startCheckoutAction(
   planValue: string,
