@@ -115,7 +115,11 @@ html[data-theme="autumn"] .yume-home {
   position: relative;
   border-radius: 26px;
   overflow: hidden;
-  min-height: clamp(360px, 52vw, 540px);
+  /* Height tracks the shorter of viewport width and height. Sizing on width
+     alone pinned this to 540px on any screen wider than ~1040px, which on a
+     short laptop (1045x641) filled the entire fold and pushed every shelf
+     below the hero out of sight. */
+  min-height: clamp(320px, min(46vw, 58vh), 500px);
   border: 1px solid var(--home-line-strong);
   box-shadow: 0 30px 60px -28px var(--home-shadow-strong);
   background: var(--home-paper-2);
@@ -165,9 +169,12 @@ html[data-theme="autumn"] .yume-home {
 .yume-hero-img {
   position: absolute; inset: 0;
   width: 100%; height: 100%; object-fit: cover;
-  /* Faces sit in the upper third of most covers — anchor there so the crop
-     never cuts them off on short/wide viewports. */
-  object-position: center top;
+  /* Covers are portrait (~1240x1480) but the desktop hero is a wide box, so
+     only about a third of the image is ever visible. Anchoring at the top framed
+     the empty space above the character; a third of the way down puts the crop
+     window on the faces instead. Phones show the full image height, so this
+     only changes wide viewports. */
+  object-position: center 32%;
   transform: scale(1.06);
   transition: transform 7.5s ease-out;
 }
