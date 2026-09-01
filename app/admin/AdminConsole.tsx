@@ -46,6 +46,7 @@ import {
   updateMangaMetadataAction,
   type AdminActionState,
 } from "@/app/admin/actions";
+import { UserSearchPanel } from "@/app/admin/UserSearchPanel";
 import {
   MAX_PAYWALLED_LATEST_CHAPTERS,
   PAYWALLED_LATEST_CHAPTERS,
@@ -683,6 +684,8 @@ export function AdminConsole({
             </p>
           ) : null}
         </section>
+
+        <UserSearchPanel />
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">

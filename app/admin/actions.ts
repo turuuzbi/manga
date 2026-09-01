@@ -25,10 +25,63 @@ export type AdminActionState = {
   createdMangaId?: string;
 };
 
+export type AdminUserRow = {
+  id: string;
+  email: string;
+  username: string | null;
+  /** ISO string, or null when the reader has no active pass. */
+  premiumUntil: string | null;
+};
+
+/** Most-recent readers shown before the admin types anything. */
+const USER_SEARCH_LIMIT = 20;
+
 /**
- * Manually grant a subscription period to a user by email. Used to test the
- * premium gate end-to-end before QPay is wired, and to comp users. Records a
- * PAID Payment (manual) + a Subscription and extends the user's premiumUntil.
+ * Readers matching a free-text query, for the admin's grant panel.
+ *
+ * Searched on demand rather than shipped with the page: /admin already sends a
+ * very large payload, and this keeps working as the reader count grows. Matches
+ * email or username so an admin who only knows a display name can still find
+ * someone — which is the whole point when the reader signed up through an OAuth
+ * provider and does not know which address it used.
+ */
+export async function searchUsersAction(
+  query: string,
+): Promise<AdminUserRow[]> {
+  const adminUser = await requireAdminUser();
+
+  if (!adminUser) {
+    return [];
+  }
+
+  const term = query.trim();
+
+  const users = await prisma.user.findMany({
+    where: term
+      ? {
+          OR: [
+            { email: { contains: term, mode: "insensitive" } },
+            { username: { contains: term, mode: "insensitive" } },
+          ],
+        }
+      : {},
+    select: { id: true, email: true, username: true, premiumUntil: true },
+    orderBy: { createdAt: "desc" },
+    take: USER_SEARCH_LIMIT,
+  });
+
+  return users.map((user) => ({
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    premiumUntil: user.premiumUntil?.toISOString() ?? null,
+  }));
+}
+
+/**
+ * Manually grant a subscription period to a user. Used to test the premium gate
+ * end-to-end before QPay is wired, and to comp users. Records a PAID Payment
+ * (manual) + a Subscription and extends the user's premiumUntil.
  */
 export async function grantSubscriptionAction(
   _prevState: AdminActionState,
@@ -41,10 +94,14 @@ export async function grantSubscriptionAction(
       return { ok: false, message: "Admin access is required." };
     }
 
+    // The search panel posts a userId; the typed form still posts an email.
+    // Accepting either means a reader whose address the admin does not know —
+    // an OAuth sign-up, say — can still be found and granted.
+    const userId = String(formData.get("userId") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const planValue = String(formData.get("plan") ?? "").trim();
 
-    if (!email) {
+    if (!userId && !email) {
       return { ok: false, message: "Хэрэглэгчийн и-мэйл оруулна уу." };
     }
 
@@ -53,12 +110,12 @@ export async function grantSubscriptionAction(
     }
 
     const target = await prisma.user.findUnique({
-      where: { email },
+      where: userId ? { id: userId } : { email },
       select: { id: true, email: true, premiumUntil: true },
     });
 
     if (!target) {
-      return { ok: false, message: `"${email}" хэрэглэгч олдсонгүй.` };
+      return { ok: false, message: `"${email || userId}" хэрэглэгч олдсонгүй.` };
     }
 
     const plan = PLANS[planValue];
@@ -95,7 +152,7 @@ export async function grantSubscriptionAction(
 
     return {
       ok: true,
-      message: `${email} — ${plan.label} (${formatTugrug(plan.price)}) багц ${expiresAt.toLocaleDateString()} хүртэл идэвхжлээ.`,
+      message: `${target.email} — ${plan.label} (${formatTugrug(plan.price)}) багц ${expiresAt.toLocaleDateString()} хүртэл идэвхжлээ.`,
     };
   } catch (error) {
     return {

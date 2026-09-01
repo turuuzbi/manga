@@ -74,7 +74,10 @@ const commonMongolianLocalization = {
   formFieldInputPlaceholder__firstName: "Нэр",
   formFieldInputPlaceholder__lastName: "Овог",
   formFieldInputPlaceholder__username: "Хэрэглэгчийн нэр",
-  socialButtonsBlockButton: "Google-ээр үргэлжлүүлэх",
+  // Clerk interpolates the provider here. Hardcoding "Google" made every
+  // social button say Google — a Facebook button would have read
+  // "Google-ээр үргэлжлүүлэх".
+  socialButtonsBlockButton: "{{provider|titleize}}-ээр үргэлжлүүлэх",
   formResendCodeLink: "Код дахин илгээх",
   badge__default: "Хөгжүүлэлтийн горим",
 } as const;

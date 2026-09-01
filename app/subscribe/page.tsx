@@ -39,6 +39,9 @@ export default async function SubscribePage({
         premiumUntilLabel={
           user?.premiumUntil ? user.premiumUntil.toLocaleDateString() : null
         }
+        // Shown so the reader sends the admin the exact address the grant form
+        // searches for, whichever provider they signed up with.
+        accountEmail={user?.email ?? null}
       />
     </div>
   );

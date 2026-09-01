@@ -28,11 +28,14 @@ export function SubscribeClient({
   initialPlan,
   isPremium,
   premiumUntilLabel,
+  accountEmail,
 }: {
   plans: PlanView[];
   initialPlan: SubscriptionPlan;
   isPremium: boolean;
   premiumUntilLabel: string | null;
+  /** The reader's own address; null when signed out. */
+  accountEmail: string | null;
 }) {
   const [selected, setSelected] = useState<SubscriptionPlan>(initialPlan);
 
@@ -175,20 +178,23 @@ export function SubscribeClient({
 
           <li className="flex gap-4">
             <StepNumber n={2} />
-            <p className="flex-1 text-sm leading-6" style={{ color: "var(--home-plum)" }}>
-              Инстаграм{" "}
-              <a
-                href={`https://instagram.com/${INSTAGRAM_HANDLE}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-semibold"
-                style={{ color: "var(--home-rose-deep)" }}
-              >
-                <Instagram size={14} />@{INSTAGRAM_HANDLE}
-              </a>{" "}
-              руу чатаар холбогдож бүртгэлтэй мэйл хаяг, шилжүүлгийн баримтаа
-              илгээнэ үү.
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm leading-6" style={{ color: "var(--home-plum)" }}>
+                Инстаграм{" "}
+                <a
+                  href={`https://instagram.com/${INSTAGRAM_HANDLE}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold"
+                  style={{ color: "var(--home-rose-deep)" }}
+                >
+                  <Instagram size={14} />@{INSTAGRAM_HANDLE}
+                </a>{" "}
+                руу чатаар холбогдож бүртгэлтэй мэйл хаяг, шилжүүлгийн баримтаа
+                илгээнэ үү.
+              </p>
+              <AccountAddress email={accountEmail} />
+            </div>
           </li>
 
           <li className="flex gap-4">
@@ -225,20 +231,98 @@ function StepNumber({ n }: { n: number }) {
   );
 }
 
-function BankDetails() {
+/**
+ * Copy-to-clipboard button. Shared by the bank account number and the reader's
+ * own address so the two behave identically.
+ */
+function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
 
-  async function copyAccount() {
+  async function copy() {
     try {
-      await navigator.clipboard.writeText(BANK.account);
+      await navigator.clipboard.writeText(value);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard blocked (insecure context, or permission denied) — the number
+      // Clipboard blocked (insecure context, or permission denied) — the value
       // is on screen to copy by hand, so there is nothing to recover from.
     }
   }
 
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={`${label} хуулах`}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition"
+      style={{
+        borderColor: copied ? "var(--home-rose)" : "var(--home-line-strong)",
+        color: copied ? "var(--home-rose-deep)" : "var(--home-plum-soft)",
+        background: "var(--home-paper)",
+      }}
+    >
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+      {copied ? "Хуулагдлаа" : "Хуулах"}
+    </button>
+  );
+}
+
+/**
+ * The address the admin's grant form looks the reader up by. Shown because the
+ * step above asks them to send it, and a reader who signed in with Facebook or
+ * Google has no reliable way to know which address that is.
+ */
+function AccountAddress({ email }: { email: string | null }) {
+  if (!email) {
+    return (
+      <p
+        className="mt-3 rounded-xl border px-3 py-2.5 text-xs leading-5"
+        style={{
+          borderColor: "var(--home-line)",
+          background: "var(--home-paper-2)",
+          color: "var(--home-plum-soft)",
+        }}
+      >
+        <Link
+          href="/sign-in"
+          className="font-semibold"
+          style={{ color: "var(--home-rose-deep)" }}
+        >
+          Нэвтэрч орвол
+        </Link>{" "}
+        бүртгэлтэй хаягаа эндээс хараад хуулж авах боломжтой.
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="mt-3 rounded-xl border p-3"
+      style={{
+        borderColor: "var(--home-line)",
+        background: "var(--home-paper-2)",
+      }}
+    >
+      <p
+        className="text-[10px] font-semibold uppercase tracking-[0.24em]"
+        style={{ color: "var(--home-gold)" }}
+      >
+        Таны бүртгэлтэй хаяг
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span
+          className="min-w-0 break-all text-sm font-semibold"
+          style={{ color: "var(--home-plum)" }}
+        >
+          {email}
+        </span>
+        <CopyButton value={email} label="Бүртгэлтэй хаяг" />
+      </div>
+    </div>
+  );
+}
+
+function BankDetails() {
   return (
     <div
       className="mt-4 rounded-2xl border p-4"
@@ -265,19 +349,7 @@ function BankDetails() {
         >
           {BANK.account}
         </code>
-        <button
-          type="button"
-          onClick={copyAccount}
-          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition"
-          style={{
-            borderColor: copied ? "var(--home-rose)" : "var(--home-line-strong)",
-            color: copied ? "var(--home-rose-deep)" : "var(--home-plum-soft)",
-            background: "var(--home-paper)",
-          }}
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Хуулагдлаа" : "Хуулах"}
-        </button>
+        <CopyButton value={BANK.account} label="Дансны дугаар" />
       </div>
 
       <p className="mt-2 text-sm" style={{ color: "var(--home-plum-soft)" }}>
