@@ -111,6 +111,25 @@ html[data-theme="autumn"] .yume-home {
   --manga-nav-bg: color-mix(in srgb, var(--home-cream) 86%, transparent);
 }
 
+/* Ranked rail. The badge sits in the poster's top-left: the status ribbon owns
+   the top-right and the chapter chip the bottom-left, and the rail clips
+   horizontal overflow, so anything hanging off the card edge is cut. */
+.yume-ranked { position: relative; }
+.yume-ranked .yume-rank {
+  position: absolute; z-index: 4;
+  top: 8px; left: 8px;
+  min-width: 26px; height: 26px; padding: 0 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px;
+  font-family: 'Marcellus', serif;
+  font-size: 13px; font-weight: 700; line-height: 1;
+  color: #fff;
+  background: linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px -4px rgba(40, 24, 32, 0.5);
+  pointer-events: none;
+}
+
 .yume-hero {
   position: relative;
   border-radius: 26px;
@@ -249,7 +268,6 @@ html[data-theme="autumn"] .yume-home {
 const headerLinks = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
-  { label: "Бидний тухай", href: "/about" },
 ];
 
 interface FeaturedSlide {
@@ -272,6 +290,8 @@ type HomeLandingProps = {
   featured?: FeaturedSlide[];
   continueReading?: ContinueReadingItem[];
   latestUpdates?: MangaSeries[];
+  /** Most-opened series, already ranked. Counts themselves are never sent. */
+  topViewed?: MangaSeries[];
   completed?: MangaSeries[];
   allManga?: MangaSeries[];
   genreFilters?: GenreFilter[];
@@ -284,6 +304,7 @@ export function HomeLanding({
   featured = [],
   continueReading = [],
   latestUpdates = [],
+  topViewed = [],
   completed = [],
   allManga = [],
   genreFilters = [],
@@ -356,6 +377,13 @@ export function HomeLanding({
               title="Сүүлийн шинэчлэл"
               viewAllHref="/manga"
               series={latestUpdates}
+            />
+          ) : null}
+
+          {topViewed.length > 0 ? (
+            <TopViewedShelf
+              className="motion-ink-up motion-ink-up-delay-2"
+              series={topViewed}
             />
           ) : null}
 
@@ -444,6 +472,38 @@ function Shelf({
       <div className="yume-rail">
         {series.map((manga) => (
           <MangaPosterCard key={manga.id} manga={manga} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Most-opened series, ranked. The position is the whole point, so each card
+ * carries its rank — but never the view count itself, which stays admin-only
+ * and is not sent to the browser at all.
+ */
+function TopViewedShelf({
+  series,
+  className,
+}: {
+  series: MangaSeries[];
+  className?: string;
+}) {
+  return (
+    <section id="top-viewed" className={`mb-14 ${className ?? ""}`}>
+      <SectionHeader
+        eyebrow="Хамгийн их үзсэн"
+        title="Топ 10 үзэлттэй манга"
+      />
+      <div className="yume-rail">
+        {series.map((manga, index) => (
+          <div key={manga.id} className="yume-ranked">
+            <span className="yume-rank" aria-hidden="true">
+              {index + 1}
+            </span>
+            <MangaPosterCard manga={manga} />
+          </div>
         ))}
       </div>
     </section>

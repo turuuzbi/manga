@@ -188,9 +188,10 @@ export function ReaderExperience({
   }, [readerMode]);
 
   // Mark this chapter as read once the reader actually mounts in the browser.
+  // The series is resolved server-side from the chapter, so it is not passed.
   useEffect(() => {
-    void markChapterRead(chapter.id, manga.id);
-  }, [chapter.id, manga.id]);
+    void markChapterRead(chapter.id);
+  }, [chapter.id]);
 
   useEffect(() => {
     if (!showChrome || !isTouchDevice()) {
@@ -407,7 +408,7 @@ export function ReaderExperience({
                   onClick={(event) => handleChapterLinkClick(event, nextChapter)}
                   className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
                 >
-                  Дараагын бүлэг
+                  Дараагийн бүлэг
                 </Link>
               ) : (
                 <div></div>

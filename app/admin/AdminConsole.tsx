@@ -275,6 +275,8 @@ type AdminConsoleProps = {
     mangaName: string;
     status: MangaStatusValue;
     chapterCount: number;
+    /** Total chapter opens. Admin-only — never sent to readers. */
+    viewCount: number;
   }>;
   mangaLibrary: Array<{
     id: string;
@@ -294,6 +296,8 @@ type AdminConsoleProps = {
     defaultPoster: string;
     genres: string[];
     chapterCount: number;
+    /** Total chapter opens. Admin-only — never sent to readers. */
+    viewCount: number;
     chapters: Array<{
       id: string;
       chapterNumber: number;
@@ -886,10 +890,18 @@ export function AdminConsole({
                       </div>
                     </div>
 
-                    <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
-                      Одоогийн бүлгийн тоо:{" "}
-                      <span style={{ color: "var(--home-plum)", fontWeight: 600 }}>
-                        {selectedManga.chapterCount}
+                    <div className="ad-soft flex flex-wrap gap-x-8 gap-y-2 p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
+                      <span>
+                        Одоогийн бүлгийн тоо:{" "}
+                        <span style={{ color: "var(--home-plum)", fontWeight: 600 }}>
+                          {selectedManga.chapterCount}
+                        </span>
+                      </span>
+                      <span>
+                        Нийт үзэлт:{" "}
+                        <span style={{ color: "var(--home-plum)", fontWeight: 600 }}>
+                          {selectedManga.viewCount.toLocaleString()}
+                        </span>
                       </span>
                     </div>
 
@@ -1875,8 +1887,13 @@ export function AdminConsole({
                             {getStatusLabel(entry.status)}
                           </p>
                         </div>
-                        <div className="ad-chip shrink-0">
-                          {entry.chapterCount} бүлэг
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <div className="ad-chip">
+                            {entry.chapterCount} бүлэг
+                          </div>
+                          <div className="ad-chip">
+                            {entry.viewCount.toLocaleString()} үзэлт
+                          </div>
                         </div>
                       </div>
                     </div>

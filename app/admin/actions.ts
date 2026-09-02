@@ -25,6 +25,20 @@ export type AdminActionState = {
   createdMangaId?: string;
 };
 
+/**
+ * Deletes genres that no longer have a single manga attached.
+ *
+ * Retagging a manga leaves its old genre rows behind, and because genre names
+ * are matched exactly, a casing slip creates a second tag ("өөр ертөнц" beside
+ * "Өөр ертөнц") that keeps showing in the filter rail with nothing behind it.
+ * Run after any write that can detach a genre; the reader-facing queries also
+ * filter on a non-empty count, so a stale row can never surface even between
+ * a write and this cleanup.
+ */
+async function pruneOrphanGenres() {
+  await prisma.genre.deleteMany({ where: { mangas: { none: {} } } });
+}
+
 export type AdminUserRow = {
   id: string;
   email: string;
@@ -1031,6 +1045,9 @@ export async function updateMangaMetadataAction(
         },
       },
     });
+
+    // Retagging just detached this manga's old genres; drop any left empty.
+    await pruneOrphanGenres();
 
     const currentPosterUrls = new Set([
       posterData.coverImage ?? manga.coverImage,

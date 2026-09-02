@@ -126,6 +126,7 @@ export default async function AdminPage() {
         mangaName: entry.mangaName,
         status: entry.status,
         chapterCount: entry._count.chapters,
+        viewCount: entry.viewCount,
       }))}
       mangaLibrary={mangaLibrary.map((entry) => ({
         id: entry.id,
@@ -145,6 +146,7 @@ export default async function AdminPage() {
         defaultPoster: entry.defaultPoster ?? "",
         genres: entry.genres.map((genreEntry) => genreEntry.genre.name),
         chapterCount: entry._count.chapters,
+        viewCount: entry.viewCount,
         chapters: entry.chapters.map((chapter) => ({
           id: chapter.id,
           chapterNumber: chapter.chapterNumber,

@@ -102,6 +102,14 @@ export default async function HomePage() {
     getCurrentDbUser(),
     loadMangas(),
     prisma.genre.findMany({
+      // Only tags something is actually filed under. Admin writes prune empty
+      // genres, but filtering here means a stale row can never reach a reader
+      // even in the window before that runs.
+      where: {
+        mangas: {
+          some: {},
+        },
+      },
       orderBy: {
         name: "asc",
       },
@@ -126,6 +134,21 @@ export default async function HomePage() {
   const completed = byLatestUpdate.filter(
     (manga) => manga.status === "COMPLETED",
   );
+
+  // Most-opened series, highest first. Sorted from the already-loaded rows
+  // rather than re-querying. Series with no opens yet are left out so the rail
+  // ranks real interest instead of padding itself with arbitrary titles.
+  // `toSeries` deliberately does not carry viewCount — readers see the order,
+  // never the numbers.
+  const topViewed = [...mangas]
+    .filter((manga) => manga.viewCount > 0)
+    .sort(
+      (left, right) =>
+        right.viewCount - left.viewCount ||
+        left.mangaName.localeCompare(right.mangaName),
+    )
+    .slice(0, 10)
+    .map(toSeries);
 
   // Owner-curated hero. Ordered by the admin-set featuredOrder; anything left
   // without an order falls to the end, alphabetically.
@@ -158,6 +181,7 @@ export default async function HomePage() {
       featured={featured}
       continueReading={continueReading}
       latestUpdates={byLatestUpdate.slice(0, 10).map(toSeries)}
+      topViewed={topViewed}
       completed={completed.slice(0, 12).map(toSeries)}
       allManga={mangas.map(toSeries)}
       genreFilters={genreFilters.map((genre) => ({

@@ -60,6 +60,9 @@ model Manga {
   // How many of this series' newest chapters are subscriber-only. Null falls
   // back to PAYWALLED_LATEST_CHAPTERS in lib/plans.
   paywalledChapters Int?
+  // Total chapter opens, signed in or not. Drives the "Топ 10 үзэлттэй манга"
+  // rail; the raw number is admin-only.
+  viewCount   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -72,6 +75,7 @@ model Manga {
   posterChoices   UserPosterChoice[]
 
   @@index([isFeatured, featuredOrder])
+  @@index([viewCount])
 }
 
 model Genre {

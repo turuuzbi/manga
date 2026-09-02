@@ -200,7 +200,7 @@ export function SubscribeClient({
           <li className="flex gap-4">
             <StepNumber n={3} />
             <p className="flex-1 text-sm leading-6" style={{ color: "var(--home-plum)" }}>
-              Юүмэ төд удалгүй админ эрх олгох болно💞
+              Юүмэ төд удалгүй эрх олгох болно💞
             </p>
           </li>
         </ol>

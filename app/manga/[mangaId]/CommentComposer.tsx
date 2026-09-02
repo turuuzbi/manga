@@ -48,7 +48,7 @@ export function CommentComposer({
             <MessageCircleMore size={18} />
           </span>
           <p style={{ fontSize: 14, color: "var(--home-plum)" }}>
-            Хаягаараа нэвтэрч сэтгэгдэлээ хуваалцана уу.
+            Сэтгэгдэл үлдээхийн тулд хаягаараа нэвтрэх шаардлагатай.
           </p>
         </div>
         <Link href="/sign-in" className="yd-btn yd-btn-sm shrink-0">

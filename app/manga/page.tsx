@@ -157,6 +157,8 @@ export default async function MangaLibraryPage({
       },
     }),
     prisma.genre.findMany({
+      // See app/page.tsx: never offer a filter with nothing behind it.
+      where: { mangas: { some: {} } },
       orderBy: { name: "asc" },
       include: { _count: { select: { mangas: true } } },
     }),
@@ -199,7 +201,6 @@ export default async function MangaLibraryPage({
           navLinks={[
             { label: "Нүүр", href: "/" },
             { label: "Сан", href: "/manga" },
-            { label: "Бидний тухай", href: "/about" },
           ]}
           isAdmin={currentUser?.role === "ADMIN"}
           premiumDaysLeft={premiumDaysRemaining(currentUser)}

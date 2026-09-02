@@ -36,7 +36,6 @@ type NavLink = {
 const defaultLinks: NavLink[] = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
-  { label: "Бидний тухай", href: "/about" },
 ];
 
 function isLinkActive(pathname: string, href: string) {

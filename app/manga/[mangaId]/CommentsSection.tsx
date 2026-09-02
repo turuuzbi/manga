@@ -83,10 +83,7 @@ export function CommentsSection({
                 color: "var(--home-plum)",
               }}
             >
-              Одоогоор сэтгэгдэл алга.
-            </p>
-            <p className="yd-desc-soft" style={{ marginTop: 6 }}>
-              Энэ цувралын анхны сэтгэгдэлээ үлдээсэн уншигч болоорой.
+              Анхны сэтгэгдэл таных.
             </p>
           </div>
         ) : (
