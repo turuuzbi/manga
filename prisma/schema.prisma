@@ -63,6 +63,10 @@ model Manga {
   // Total chapter opens, signed in or not. Drives the "Топ 10 үзэлттэй манга"
   // rail; the raw number is admin-only.
   viewCount   Int         @default(0)
+  // Distinct readers who have opened at least one chapter. Denormalised from
+  // ReadingProgress so the detail page never runs COUNT DISTINCT to render;
+  // maintained on first read and rebuildable with scripts/backfill-reader-counts.mjs.
+  readerCount Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -189,6 +193,9 @@ model ReadingProgress {
   @@unique([userId, chapterId])
   @@index([userId, readAt])
   @@index([userId, mangaId])
+  // Serves "distinct readers of this series" as an index-only scan. The
+  // (userId, mangaId) index above leads with the wrong column for that.
+  @@index([mangaId, userId])
 }
 
 model UserPosterChoice {
