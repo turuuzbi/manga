@@ -90,6 +90,17 @@ const PREVIEW_STYLES = `
   border: 1px solid rgba(255, 255, 255, 0.24);
   backdrop-filter: blur(4px);
 }
+/* Reader total, sitting under the genre tags in the hero. */
+.yume-detail .yd-hero-stat {
+  margin-top: 16px;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; color: rgba(255, 245, 248, 0.82);
+}
+.yume-detail .yd-hero-stat strong {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px; font-weight: 700; color: #fff;
+  font-variant-numeric: tabular-nums;
+}
 .yume-detail .yd-hero-actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; }
 
 /* ── Buttons ── */
@@ -783,6 +794,7 @@ export default async function MangaPreviewPage({
           mangaId={manga.id}
           mangaName={manga.mangaName}
           statusLabel={formatStatusLabel(manga.status)}
+          readerCount={manga.readerCount}
           genreTags={genreTags}
           defaultCover={heroCover}
           posterOptions={posterOptionViews}

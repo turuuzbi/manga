@@ -9,9 +9,11 @@ import {
   Images,
   Lock,
   Sparkles,
+  Users,
   X,
 } from "lucide-react";
 import { setPosterChoiceAction } from "@/app/manga/[mangaId]/actions";
+import { formatCompactCount } from "@/lib/format";
 
 type GenreTag = {
   id: string;
@@ -30,6 +32,8 @@ type DetailHeroProps = {
   mangaId: string;
   mangaName: string;
   statusLabel: string;
+  /** Distinct signed-in readers who have opened at least one chapter. */
+  readerCount: number;
   genreTags: GenreTag[];
   defaultCover: string | null;
   posterOptions: PosterOption[];
@@ -42,6 +46,7 @@ export function DetailHero({
   mangaId,
   mangaName,
   statusLabel,
+  readerCount,
   genreTags,
   defaultCover,
   posterOptions,
@@ -114,6 +119,13 @@ export function DetailHero({
             </span>
           ))}
         </div>
+        {readerCount > 0 ? (
+          <p className="yd-hero-stat">
+            <Users size={14} />
+            <strong>{formatCompactCount(readerCount)}</strong> уншигч
+          </p>
+        ) : null}
+
         <div className="yd-hero-actions">
           {firstChapterId ? (
             <Link href={`/reader/${firstChapterId}`} className="yd-btn">
