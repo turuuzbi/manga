@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { Crown, RefreshCw, UserRound, Users } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { Crown, RefreshCw, Search, Users } from "lucide-react";
 import {
   getUsersOverviewAction,
   type AdminUsersOverview,
@@ -14,7 +14,11 @@ const EMPTY: AdminUsersOverview = {
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString();
+  const date = new Date(iso);
+
+  // Short and fixed-width-ish: long dates were a big part of what pushed the
+  // old three-column table off the side of a phone.
+  return `${String(date.getFullYear()).slice(2)}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
 }
 
 /** Whole days left on a pass, or null when there is none / it has lapsed. */
@@ -29,13 +33,20 @@ function daysLeft(premiumUntil: string | null): number | null {
 }
 
 /**
- * Registered readers, with the headline totals above them. Data comes from a
- * server action so the roster is never part of the page payload and never
- * reachable without the admin check.
+ * Registered readers, with the headline totals above them.
+ *
+ * Laid out as rows rather than a `<table>`: with 547 readers the addresses are
+ * long, and three fixed columns pushed the entitlement column off the side of a
+ * phone. A wrapping flex row cannot overflow — the address takes the space it
+ * has and the date/entitlement pair drops beneath it when there is not enough.
+ *
+ * Data comes from a server action, so the roster is never in the page payload
+ * and never reachable without the admin check.
  */
 export function UsersTablePanel() {
   const [data, setData] = useState<AdminUsersOverview>(EMPTY);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [query, setQuery] = useState("");
   const [isLoading, startLoad] = useTransition();
 
   function load() {
@@ -47,15 +58,29 @@ export function UsersTablePanel() {
 
   useEffect(load, []);
 
+  // Filtered in the browser over rows already fetched — no extra round trip,
+  // and with hundreds of readers scrolling alone is not a way to find someone.
+  const visible = useMemo(() => {
+    const term = query.trim().toLowerCase();
+
+    if (!term) {
+      return data.users;
+    }
+
+    return data.users.filter(
+      (user) =>
+        user.email.toLowerCase().includes(term) ||
+        (user.username ?? "").toLowerCase().includes(term),
+    );
+  }, [data.users, query]);
+
   return (
-    <section className="ad-card motion-ink-up p-5 sm:p-7">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-2">
+    <section className="ad-card motion-ink-up p-4 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1.5">
           <p className="ad-eyebrow">Бүртгэл</p>
-          <h2 className="ad-h2">Хэрэглэгчдийн хүснэгт</h2>
-          <p className="ad-sub">
-            Бүртгүүлсэн уншигчид, эрхийн төлөв. Зөвхөн админд харагдана.
-          </p>
+          <h2 className="ad-h3">Хэрэглэгчдийн хүснэгт</h2>
+          <p className="ad-sub">Зөвхөн админд харагдана.</p>
         </div>
         <button
           type="button"
@@ -63,18 +88,20 @@ export function UsersTablePanel() {
           disabled={isLoading}
           className="ad-btn"
         >
-          <RefreshCw size={15} />
+          <RefreshCw size={14} />
           {isLoading ? "Ачаалж байна..." : "Сэргээх"}
         </button>
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2">
-        <div className="ad-soft flex items-center gap-3 p-4">
-          <Users size={20} style={{ color: "var(--home-gold)" }} />
-          <div>
-            <p className="ad-inforow-label">Нийт бүртгэлтэй</p>
+      {/* Two across even on the narrowest phone: these are short numbers, and
+          stacking them wasted most of a screen before the list began. */}
+      <div className="mb-4 grid grid-cols-2 gap-2.5">
+        <div className="ad-soft flex items-center gap-2.5 p-3">
+          <Users size={17} style={{ color: "var(--home-gold)" }} />
+          <div className="min-w-0">
+            <p className="ad-inforow-label">Нийт</p>
             <p
-              className="text-2xl font-bold"
+              className="text-xl font-bold leading-tight"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 color: "var(--home-plum)",
@@ -84,12 +111,12 @@ export function UsersTablePanel() {
             </p>
           </div>
         </div>
-        <div className="ad-soft flex items-center gap-3 p-4">
-          <Crown size={20} style={{ color: "var(--home-gold)" }} />
-          <div>
-            <p className="ad-inforow-label">Эрхтэй хэрэглэгч</p>
+        <div className="ad-soft flex items-center gap-2.5 p-3">
+          <Crown size={17} style={{ color: "var(--home-gold)" }} />
+          <div className="min-w-0">
+            <p className="ad-inforow-label">Эрхтэй</p>
             <p
-              className="text-2xl font-bold"
+              className="text-xl font-bold leading-tight"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 color: "var(--home-plum)",
@@ -101,92 +128,107 @@ export function UsersTablePanel() {
         </div>
       </div>
 
-      {hasLoaded && data.users.length === 0 ? (
+      <div className="relative mb-3">
+        <Search
+          size={14}
+          style={{
+            position: "absolute",
+            left: 11,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "var(--home-plum-soft)",
+            pointerEvents: "none",
+          }}
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="и-мэйл эсвэл нэрээр шүүх…"
+          aria-label="Хэрэглэгч шүүх"
+          className="ad-input w-full"
+          style={{ paddingLeft: 32, fontSize: 13 }}
+        />
+      </div>
+
+      {hasLoaded ? (
+        <p
+          className="mb-2 text-[11px]"
+          style={{ color: "var(--home-plum-soft)" }}
+        >
+          {query.trim()
+            ? `${visible.length} илэрц`
+            : `Сүүлийн ${data.users.length} бүртгэл`}
+        </p>
+      ) : null}
+
+      {hasLoaded && visible.length === 0 ? (
         <div
           className="ad-dashed p-4 text-sm"
           style={{ color: "var(--home-plum-soft)" }}
         >
-          Хэрэглэгч алга байна.
+          {query.trim() ? "Илэрц олдсонгүй." : "Хэрэглэгч алга байна."}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                {["Хэрэглэгч", "Бүртгүүлсэн", "Эрх"].map((heading) => (
-                  <th
-                    key={heading}
-                    className="whitespace-nowrap px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.18em]"
-                    style={{
-                      color: "var(--home-gold)",
-                      borderBottom: "1px solid var(--home-line)",
-                    }}
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.users.map((user) => {
-                const left = daysLeft(user.premiumUntil);
+        <div className="flex flex-col">
+          {visible.map((user) => {
+            const left = daysLeft(user.premiumUntil);
 
-                return (
-                  <tr key={user.id}>
-                    <td
-                      className="px-3 py-2.5"
-                      style={{ borderBottom: "1px solid var(--home-line)" }}
-                    >
-                      <span
-                        className="flex items-center gap-2 font-semibold"
-                        style={{ color: "var(--home-plum)" }}
-                      >
-                        <UserRound size={14} style={{ opacity: 0.6 }} />
-                        {user.email}
-                        {user.role === "ADMIN" ? (
-                          <span className="ad-chip">Админ</span>
-                        ) : null}
-                      </span>
-                      {user.username ? (
-                        <span
-                          className="mt-0.5 block text-xs"
-                          style={{ color: "var(--home-plum-soft)" }}
-                        >
-                          {user.username}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td
-                      className="whitespace-nowrap px-3 py-2.5"
+            return (
+              <div
+                key={user.id}
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5"
+                style={{ borderBottom: "1px solid var(--home-line)" }}
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span
+                    className="truncate text-[13px] font-semibold"
+                    style={{ color: "var(--home-plum)" }}
+                    title={user.email}
+                  >
+                    {user.email}
+                  </span>
+                  {user.role === "ADMIN" ? (
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
                       style={{
-                        color: "var(--home-plum-soft)",
-                        borderBottom: "1px solid var(--home-line)",
+                        background:
+                          "color-mix(in srgb, var(--home-gold) 22%, transparent)",
+                        color: "var(--home-plum)",
                       }}
                     >
-                      {formatDate(user.createdAt)}
-                    </td>
-                    <td
-                      className="whitespace-nowrap px-3 py-2.5"
-                      style={{ borderBottom: "1px solid var(--home-line)" }}
+                      Админ
+                    </span>
+                  ) : null}
+                </span>
+
+                <span className="flex shrink-0 items-center gap-2.5">
+                  <span
+                    className="text-[11px] tabular-nums"
+                    style={{ color: "var(--home-plum-soft)" }}
+                  >
+                    {formatDate(user.createdAt)}
+                  </span>
+                  {left === null ? (
+                    <span
+                      className="text-[11px]"
+                      style={{ color: "var(--home-plum-soft)", opacity: 0.7 }}
                     >
-                      {left === null ? (
-                        <span style={{ color: "var(--home-plum-soft)" }}>
-                          Эрхгүй
-                        </span>
-                      ) : (
-                        <span
-                          className="rounded-full px-2.5 py-1 text-xs font-bold text-white"
-                          style={{ background: "var(--home-rose-deep)" }}
-                        >
-                          {left} хоног
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      —
+                    </span>
+                  ) : (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                      style={{ background: "var(--home-rose-deep)" }}
+                      title={`Эрх дуусах хүртэл ${left} хоног`}
+                    >
+                      {left}х
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

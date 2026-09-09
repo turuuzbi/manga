@@ -91,46 +91,67 @@ export function ViewAnalyticsPanel({ series }: { series: SeriesRow[] }) {
           return (
             <div
               key={row.id}
-              className="rounded-xl border"
+              // min-w-0 is load-bearing: a grid item defaults to min-width:auto,
+              // which lets it grow past the track to fit a long series name
+              // instead of letting the title truncate. Without it the view chip
+              // is pushed off the side of a phone.
+              className="min-w-0 rounded-xl border"
               style={{
                 borderColor: "var(--home-line)",
                 background: "var(--home-paper-2)",
               }}
             >
+              {/* Wraps rather than squeezing: on a phone the title keeps the
+                  first line and the two figures drop underneath it. */}
               <button
                 type="button"
                 onClick={() => toggle(row.id)}
                 aria-expanded={isOpen}
-                className="flex w-full items-center gap-3 p-3 text-left"
+                className="flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 p-3 text-left"
               >
                 {isOpen ? (
-                  <ChevronDown size={16} style={{ color: "var(--home-gold)" }} />
+                  <ChevronDown
+                    size={15}
+                    className="shrink-0"
+                    style={{ color: "var(--home-gold)" }}
+                  />
                 ) : (
                   <ChevronRight
-                    size={16}
+                    size={15}
+                    className="shrink-0"
                     style={{ color: "var(--home-plum-soft)" }}
                   />
                 )}
                 <span
-                  className="w-6 shrink-0 text-xs font-bold"
+                  className="shrink-0 text-[11px] font-bold tabular-nums"
                   style={{ color: "var(--home-plum-soft)" }}
                 >
                   {index + 1}
                 </span>
                 <span
-                  className="min-w-0 flex-1 truncate font-semibold"
+                  className="min-w-0 flex-1 truncate text-[13px] font-semibold"
                   style={{ color: "var(--home-plum)" }}
+                  title={row.mangaName}
                 >
                   {row.mangaName}
                 </span>
-                <span
-                  className="shrink-0 text-xs"
-                  style={{ color: "var(--home-plum-soft)" }}
-                >
-                  {row.chapterCount} бүлэг
-                </span>
-                <span className="ad-chip shrink-0">
-                  {row.viewCount.toLocaleString()} үзэлт
+                <span className="ml-auto flex shrink-0 items-center gap-2">
+                  <span
+                    className="text-[11px]"
+                    style={{ color: "var(--home-plum-soft)" }}
+                  >
+                    {row.chapterCount} бүлэг
+                  </span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--home-gold) 20%, transparent)",
+                      color: "var(--home-plum)",
+                    }}
+                  >
+                    {row.viewCount.toLocaleString()}
+                  </span>
                 </span>
               </button>
 
