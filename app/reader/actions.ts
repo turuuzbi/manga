@@ -51,6 +51,13 @@ export async function markChapterRead(chapterId: string) {
       data: { viewCount: { increment: 1 } },
     });
 
+    // Same transaction as the series counter, so the per-chapter breakdown in
+    // the admin panel always sums to the series total.
+    await tx.chapter.update({
+      where: { id: chapterId },
+      data: { viewCount: { increment: 1 } },
+    });
+
     await tx.readingProgress.upsert({
       where: {
         userId_chapterId: {

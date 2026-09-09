@@ -67,6 +67,11 @@ model Manga {
   // ReadingProgress so the detail page never runs COUNT DISTINCT to render;
   // maintained on first read and rebuildable with scripts/backfill-reader-counts.mjs.
   readerCount Int         @default(0)
+  // Homepage promo strip. A 3:1 banner the owner supplies per series; setting
+  // the image is what promotes the title, and promoOrder sorts the strip
+  // (nulls last). Separate from isFeatured, which drives the cover-art hero.
+  promoImageUrl String?
+  promoOrder    Int?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -80,6 +85,7 @@ model Manga {
 
   @@index([isFeatured, featuredOrder])
   @@index([viewCount])
+  @@index([promoOrder])
 }
 
 model Genre {
@@ -108,6 +114,14 @@ model Chapter {
   coverImage    String?
   badgeImage    String?
   badgeScale    Int?
+  // Opens of this chapter. Bumped in the same transaction as Manga.viewCount,
+  // so the two move together from here on. They do not start equal: chapter
+  // counts were seeded from the ReadingProgress floor after the series counter
+  // had already been live, so the chapters sum to less than the series total by
+  // the re-reads counted in between. That history cannot be recovered per
+  // chapter, so the admin panel shows the gap rather than inventing it.
+  // Admin-only, powering the breakdown in the "Үзэлт шалгах" panel.
+  viewCount     Int      @default(0)
   publishedAt   DateTime @default(now())
   createdAt     DateTime @default(now())
 
