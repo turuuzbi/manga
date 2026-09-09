@@ -17,7 +17,6 @@ import {
   Check,
   CheckCircle2,
   CloudUpload,
-  Crown,
   Database,
   GripVertical,
   FileImage,
@@ -38,7 +37,6 @@ import {
   addPosterOptionAction,
   deleteChapterAction,
   deleteChapterPageAction,
-  grantSubscriptionAction,
   removePosterOptionAction,
   importGoogleDriveFolderAction,
   ingestMangaAction,
@@ -55,9 +53,6 @@ import { ViewAnalyticsPanel } from "@/app/admin/ViewAnalyticsPanel";
 import {
   MAX_PAYWALLED_LATEST_CHAPTERS,
   PAYWALLED_LATEST_CHAPTERS,
-  PLANS,
-  PLAN_ORDER,
-  formatTugrug,
 } from "@/lib/plans";
 import { ImageEditorField } from "@/app/admin/ImageEditor";
 
@@ -393,11 +388,6 @@ export function AdminConsole({
       deleteChapterPageAction,
       initialAdminActionState,
     );
-  const [grantState, grantFormAction, grantPending] =
-    useActionState<AdminActionState, FormData>(
-      grantSubscriptionAction,
-      initialAdminActionState,
-    );
   const [defaultPosterState, defaultPosterFormAction, defaultPosterPending] =
     useActionState<AdminActionState, FormData>(
       setDefaultPosterAction,
@@ -670,52 +660,6 @@ export function AdminConsole({
             <p>{activeState.message}</p>
           </div>
         ) : null}
-
-        <section className="ad-card motion-ink-up p-4 sm:p-5">
-          <div className="mb-1 flex items-center gap-2">
-            <Crown size={17} style={{ color: "var(--home-gold)" }} />
-            <h2 className="ad-h3">Premium гараар олгох</h2>
-          </div>
-          <p className="ad-sub max-w-2xl">
-            И-мэйлээр хэрэглэгчид багц идэвхжүүлнэ. Дахин олговол хугацаа сунадаг.
-            (QPay холбогдох хүртэл туршилт болон бэлэглэлд.)
-          </p>
-          <form
-            action={grantFormAction}
-            className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]"
-          >
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="хэрэглэгчийн и-мэйл"
-              className="ad-input"
-            />
-            <select name="plan" defaultValue="ONE_MONTH" className="ad-input">
-              {PLAN_ORDER.map((key) => (
-                <option key={key} value={key}>
-                  {PLANS[key].label} — {formatTugrug(PLANS[key].price)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={grantPending}
-              className="ad-btn ad-btn-primary"
-            >
-              <Crown size={16} />
-              {grantPending ? "Олгож байна..." : "Олгох"}
-            </button>
-          </form>
-          {grantState.message ? (
-            <p
-              className="mt-3 text-sm font-medium"
-              style={{ color: grantState.ok ? "#3f7d57" : "#c44d66" }}
-            >
-              {grantState.message}
-            </p>
-          ) : null}
-        </section>
 
         <UserSearchPanel />
 
