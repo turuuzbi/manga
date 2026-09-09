@@ -111,6 +111,33 @@ html[data-theme="autumn"] .yume-home {
   --manga-nav-bg: color-mix(in srgb, var(--home-cream) 86%, transparent);
 }
 
+/* Promo strip. aspect-ratio holds the 3:1 box before the image loads, so the
+   page below never jumps. One banner fills the row; more share it on desktop
+   and stack on phones. */
+.yume-promo { display: grid; gap: 16px; }
+@media (min-width: 900px) {
+  .yume-promo { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+}
+.yume-promo-card {
+  display: block;
+  position: relative;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--home-line);
+  background: var(--home-paper-2);
+  box-shadow: 0 16px 36px -22px var(--home-shadow-strong);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s, border-color 0.35s;
+}
+.yume-promo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 26px 46px -22px var(--home-shadow-strong);
+  border-color: var(--home-line-strong);
+}
+.yume-promo-card img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
 /* Ranked rail. The badge sits in the poster's top-left: the status ribbon owns
    the top-right and the chapter chip the bottom-left, and the rail clips
    horizontal overflow, so anything hanging off the card edge is cut. */
@@ -286,12 +313,20 @@ interface ContinueReadingItem {
   coverUrl?: string;
 }
 
+interface PromoBanner {
+  id: string;
+  title: string;
+  imageUrl: string;
+}
+
 type HomeLandingProps = {
   featured?: FeaturedSlide[];
   continueReading?: ContinueReadingItem[];
   latestUpdates?: MangaSeries[];
   /** Most-opened series, already ranked. Counts themselves are never sent. */
   topViewed?: MangaSeries[];
+  /** Owner-curated 3:1 promo banners, already ordered. */
+  promoBanners?: PromoBanner[];
   completed?: MangaSeries[];
   allManga?: MangaSeries[];
   genreFilters?: GenreFilter[];
@@ -305,6 +340,7 @@ export function HomeLanding({
   continueReading = [],
   latestUpdates = [],
   topViewed = [],
+  promoBanners = [],
   completed = [],
   allManga = [],
   genreFilters = [],
@@ -377,6 +413,13 @@ export function HomeLanding({
               title="Сүүлийн шинэчлэл"
               viewAllHref="/manga"
               series={latestUpdates}
+            />
+          ) : null}
+
+          {promoBanners.length > 0 ? (
+            <PromoStrip
+              className="motion-ink-up motion-ink-up-delay-2"
+              banners={promoBanners}
             />
           ) : null}
 
@@ -472,6 +515,41 @@ function Shelf({
       <div className="yume-rail">
         {series.map((manga) => (
           <MangaPosterCard key={manga.id} manga={manga} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Owner-supplied promo banners. Fixed 3:1 artwork, so the strip holds its shape
+ * before the images load and never reflows the page under the reader. A single
+ * banner spans the row; several sit side by side on desktop and stack on
+ * phones. No section heading — the artwork carries its own message.
+ */
+function PromoStrip({
+  banners,
+  className,
+}: {
+  banners: PromoBanner[];
+  className?: string;
+}) {
+  return (
+    <section
+      id="promo"
+      className={`mb-14 ${className ?? ""}`}
+      aria-label="Онцгой санал"
+    >
+      <div className="yume-promo">
+        {banners.map((banner) => (
+          <Link
+            key={banner.id}
+            href={`/manga/${banner.id}`}
+            className="yume-promo-card"
+            aria-label={banner.title}
+          >
+            <img src={banner.imageUrl} alt={banner.title} loading="lazy" />
+          </Link>
         ))}
       </div>
     </section>

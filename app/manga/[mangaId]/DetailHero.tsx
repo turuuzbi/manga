@@ -32,8 +32,11 @@ type DetailHeroProps = {
   mangaId: string;
   mangaName: string;
   statusLabel: string;
-  /** Distinct signed-in readers who have opened at least one chapter. */
-  readerCount: number;
+  /**
+   * Distinct signed-in readers who have opened at least one chapter, or null
+   * for non-admins — audience figures are not shown to readers.
+   */
+  readerCount: number | null;
   genreTags: GenreTag[];
   defaultCover: string | null;
   posterOptions: PosterOption[];
@@ -119,8 +122,8 @@ export function DetailHero({
             </span>
           ))}
         </div>
-        {readerCount > 0 ? (
-          <p className="yd-hero-stat">
+        {readerCount !== null && readerCount > 0 ? (
+          <p className="yd-hero-stat" title="Зөвхөн админд харагдана">
             <Users size={14} />
             <strong>{formatCompactCount(readerCount)}</strong> уншигч
           </p>

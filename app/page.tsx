@@ -150,6 +150,22 @@ export default async function HomePage() {
     .slice(0, 10)
     .map(toSeries);
 
+  // Promo strip. Having artwork is what promotes a title, so there is no second
+  // toggle to keep in sync; promoOrder sorts, unordered entries fall to the end.
+  const promoBanners = mangas
+    .filter((manga) => Boolean(manga.promoImageUrl))
+    .sort(
+      (left, right) =>
+        (left.promoOrder ?? Number.MAX_SAFE_INTEGER) -
+          (right.promoOrder ?? Number.MAX_SAFE_INTEGER) ||
+        left.mangaName.localeCompare(right.mangaName),
+    )
+    .map((manga) => ({
+      id: manga.id,
+      title: manga.mangaName,
+      imageUrl: manga.promoImageUrl as string,
+    }));
+
   // Owner-curated hero. Ordered by the admin-set featuredOrder; anything left
   // without an order falls to the end, alphabetically.
   const featuredManga = mangas
@@ -182,6 +198,7 @@ export default async function HomePage() {
       continueReading={continueReading}
       latestUpdates={byLatestUpdate.slice(0, 10).map(toSeries)}
       topViewed={topViewed}
+      promoBanners={promoBanners}
       completed={completed.slice(0, 12).map(toSeries)}
       allManga={mangas.map(toSeries)}
       genreFilters={genreFilters.map((genre) => ({

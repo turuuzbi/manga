@@ -39,6 +39,102 @@ async function pruneOrphanGenres() {
   await prisma.genre.deleteMany({ where: { mangas: { none: {} } } });
 }
 
+export type AdminUsersOverview = {
+  totalUsers: number;
+  /** Users whose premium window has not expired. */
+  entitledUsers: number;
+  users: Array<{
+    id: string;
+    email: string;
+    username: string | null;
+    role: "READER" | "ADMIN";
+    createdAt: string;
+    premiumUntil: string | null;
+  }>;
+};
+
+/** Newest-first page size for the users table. */
+const USERS_TABLE_LIMIT = 200;
+
+/**
+ * Registered readers plus the two headline totals, for the admin users table.
+ *
+ * Fetched through a server action rather than shipped in the page payload:
+ * /admin already sends a very large one, and this keeps the roster off the wire
+ * for anyone who never opens the tab. Returns empty for non-admins, so there is
+ * no public route exposing the roster.
+ */
+export async function getUsersOverviewAction(): Promise<AdminUsersOverview> {
+  const adminUser = await requireAdminUser();
+
+  if (!adminUser) {
+    return { totalUsers: 0, entitledUsers: 0, users: [] };
+  }
+
+  const now = new Date();
+
+  const [totalUsers, entitledUsers, users] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { premiumUntil: { gt: now } } }),
+    prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        createdAt: true,
+        premiumUntil: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: USERS_TABLE_LIMIT,
+    }),
+  ]);
+
+  return {
+    totalUsers,
+    entitledUsers,
+    users: users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      createdAt: user.createdAt.toISOString(),
+      premiumUntil: user.premiumUntil?.toISOString() ?? null,
+    })),
+  };
+}
+
+export type AdminChapterViews = {
+  id: string;
+  chapterNumber: number;
+  title: string | null;
+  viewCount: number;
+};
+
+/**
+ * Per-chapter opens for one series, for the "Үзэлт шалгах" drill-down.
+ *
+ * Loaded on expand rather than with the page, so opening the panel does not
+ * pull every chapter of every series. Admin-gated; returns nothing otherwise.
+ */
+export async function getChapterViewsAction(
+  mangaId: string,
+): Promise<AdminChapterViews[]> {
+  const adminUser = await requireAdminUser();
+
+  if (!adminUser || !mangaId) {
+    return [];
+  }
+
+  const chapters = await prisma.chapter.findMany({
+    where: { mangaId },
+    select: { id: true, chapterNumber: true, title: true, viewCount: true },
+    orderBy: { chapterNumber: "asc" },
+  });
+
+  return chapters;
+}
+
 export type AdminUserRow = {
   id: string;
   email: string;
@@ -263,6 +359,9 @@ function parseMangaMetadataInput(formData: FormData) {
     titleFont: String(formData.get("titleFont") ?? "").trim(),
     isFeatured: formData.get("isFeatured") === "on",
     featuredOrder: parseFeaturedOrder(formData.get("featuredOrder")),
+    // Same shape as featuredOrder: a positive integer, or null for "unordered".
+    promoOrder: parseFeaturedOrder(formData.get("promoOrder")),
+    removePromoImage: formData.get("removePromoImage") === "on",
     paywalledChapters: parsePaywalledChapters(
       formData.get("paywalledChapters"),
     ),
@@ -411,7 +510,7 @@ async function attachCoverToManga({
   mangaId: string;
   mangaName: string;
   coverAsset?: UploadAsset | null;
-  target?: "all" | "home" | "detail";
+  target?: "all" | "home" | "detail" | "promo";
 }) {
   if (!coverAsset) {
     return null;
@@ -456,7 +555,7 @@ async function uploadMangaCoverAsset({
   mangaId: string;
   mangaName: string;
   coverAsset: UploadAsset;
-  target: "all" | "home" | "detail";
+  target: "all" | "home" | "detail" | "promo";
 }) {
   const coverKey = `manga/${mangaId}/cover/${target}-${Date.now()}-${slugifySegment(coverAsset.name || mangaName) || "cover"}`;
   const { url } = await uploadToR2(
@@ -1014,6 +1113,23 @@ export async function updateMangaMetadataAction(
       posterData.defaultPoster = null;
     }
 
+    // Promo banner. Uploading replaces, ticking the box clears; leaving both
+    // alone keeps whatever is stored, so an unrelated metadata edit cannot drop
+    // the banner by omission.
+    const promoFile = formData.get("promoImage");
+    let promoImageUrl: string | null | undefined;
+
+    if (isUploadFile(promoFile)) {
+      promoImageUrl = await uploadMangaCoverAsset({
+        mangaId: input.mangaId,
+        mangaName: input.mangaName,
+        coverAsset: await uploadAssetFromFile(promoFile),
+        target: "promo",
+      });
+    } else if (input.removePromoImage) {
+      promoImageUrl = null;
+    }
+
     await prisma.manga.update({
       where: {
         id: input.mangaId,
@@ -1028,6 +1144,8 @@ export async function updateMangaMetadataAction(
         isFeatured: input.isFeatured,
         featuredOrder: input.isFeatured ? input.featuredOrder : null,
         paywalledChapters: input.paywalledChapters,
+        promoOrder: input.promoOrder,
+        ...(promoImageUrl !== undefined ? { promoImageUrl } : {}),
         ...posterData,
         genres: {
           deleteMany: {},

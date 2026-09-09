@@ -794,7 +794,12 @@ export default async function MangaPreviewPage({
           mangaId={manga.id}
           mangaName={manga.mangaName}
           statusLabel={formatStatusLabel(manga.status)}
-          readerCount={manga.readerCount}
+          // Audience figures are admin-only. Passing null rather than 0 keeps
+          // the number off the wire entirely for everyone else, instead of
+          // shipping it and hiding it in CSS.
+          readerCount={
+            currentDbUser?.role === "ADMIN" ? manga.readerCount : null
+          }
           genreTags={genreTags}
           defaultCover={heroCover}
           posterOptions={posterOptionViews}

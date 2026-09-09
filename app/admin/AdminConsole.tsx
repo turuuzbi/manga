@@ -13,6 +13,7 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
+  BarChart3,
   Check,
   CheckCircle2,
   CloudUpload,
@@ -23,6 +24,7 @@ import {
   FolderSync,
   Layers3,
   Lock,
+  Megaphone,
   MoveDown,
   MoveUp,
   PencilLine,
@@ -30,6 +32,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
+  Users,
 } from "lucide-react";
 import {
   addPosterOptionAction,
@@ -47,6 +50,8 @@ import {
   type AdminActionState,
 } from "@/app/admin/actions";
 import { UserSearchPanel } from "@/app/admin/UserSearchPanel";
+import { UsersTablePanel } from "@/app/admin/UsersTablePanel";
+import { ViewAnalyticsPanel } from "@/app/admin/ViewAnalyticsPanel";
 import {
   MAX_PAYWALLED_LATEST_CHAPTERS,
   PAYWALLED_LATEST_CHAPTERS,
@@ -292,6 +297,8 @@ type AdminConsoleProps = {
     isFeatured: boolean;
     featuredOrder: number | null;
     paywalledChapters: number | null;
+    promoImageUrl: string;
+    promoOrder: number | null;
     posterOptions: string[];
     defaultPoster: string;
     genres: string[];
@@ -316,7 +323,13 @@ type AdminConsoleProps = {
   }>;
 };
 
-type AdminView = "manage" | "chapters" | "upload" | "drive";
+type AdminView =
+  | "manage"
+  | "chapters"
+  | "upload"
+  | "drive"
+  | "analytics"
+  | "users";
 type DriveImportMode =
   | "new_manga_from_chapter"
   | "existing_manga_chapter"
@@ -407,6 +420,7 @@ export function AdminConsole({
   const [newPosterName, setNewPosterName] = useState("");
   const [coverName, setCoverName] = useState("");
   const [homeCoverName, setHomeCoverName] = useState("");
+  const [promoImageName, setPromoImageName] = useState("");
   const [detailCoverName, setDetailCoverName] = useState("");
   const [chapterBadgeName, setChapterBadgeName] = useState("");
   const [pageCount, setPageCount] = useState(0);
@@ -447,6 +461,19 @@ export function AdminConsole({
           (left, right) =>
             (left.featuredOrder ?? Number.MAX_SAFE_INTEGER) -
               (right.featuredOrder ?? Number.MAX_SAFE_INTEGER) ||
+            left.mangaName.localeCompare(right.mangaName),
+        ),
+    [mangaLibrary],
+  );
+  // Current promo-strip line-up, shown for the same reason as the hero one.
+  const promoSummary = useMemo(
+    () =>
+      mangaLibrary
+        .filter((entry) => Boolean(entry.promoImageUrl))
+        .sort(
+          (left, right) =>
+            (left.promoOrder ?? Number.MAX_SAFE_INTEGER) -
+              (right.promoOrder ?? Number.MAX_SAFE_INTEGER) ||
             left.mangaName.localeCompare(right.mangaName),
         ),
     [mangaLibrary],
@@ -521,6 +548,7 @@ export function AdminConsole({
     setSelectedMangaId(mangaId);
     setSelectedChapterId(nextChapter?.id ?? "");
     setHomeCoverName("");
+    setPromoImageName("");
     setDetailCoverName("");
     setPosterSourceChapterId("");
     setPosterSourceUrl("");
@@ -719,6 +747,18 @@ export function AdminConsole({
                   label="Drive импорт"
                   onClick={() => setActiveView("drive")}
                 />
+                <ViewButton
+                  active={activeView === "analytics"}
+                  icon={BarChart3}
+                  label="Үзэлт шалгах"
+                  onClick={() => setActiveView("analytics")}
+                />
+                <ViewButton
+                  active={activeView === "users"}
+                  icon={Users}
+                  label="Хэрэглэгчдийн хүснэгт"
+                  onClick={() => setActiveView("users")}
+                />
               </div>
             </section>
 
@@ -861,6 +901,102 @@ export function AdminConsole({
                       ) : (
                         <p className="ad-sub mt-4">
                           Одоогоор нэг ч манга онцлогдоогүй байна — слайдер
+                          харагдахгүй.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="ad-soft p-4 sm:p-5">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Megaphone
+                          size={17}
+                          style={{ color: "var(--home-gold)" }}
+                        />
+                        <h3 className="ad-h3">Зар сурталчилгааны баннер</h3>
+                      </div>
+                      <p className="ad-sub">
+                        Нүүр хуудасны 3:1 харьцаатай баннер. Зураг оруулсан
+                        манга л энэ хэсэгт харагдана — зургийг устгавал
+                        хасагдана. Онцлох слайдераас тусдаа.
+                      </p>
+
+                      <div className="mt-4">
+                        <UploadField
+                          label="Баннер зураг (3:1)"
+                          helper={
+                            promoImageName ||
+                            (selectedManga.promoImageUrl
+                              ? "Одоогийн баннер хадгалагдсан."
+                              : "Өргөн, 3:1 харьцаатай зураг сонгоно уу.")
+                          }
+                        >
+                          <input
+                            type="file"
+                            name="promoImage"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) =>
+                              setPromoImageName(
+                                event.target.files?.[0]?.name ?? "",
+                              )
+                            }
+                          />
+                        </UploadField>
+                      </div>
+
+                      {selectedManga.promoImageUrl ? (
+                        <>
+                          <div
+                            className="mt-4 overflow-hidden rounded-xl border"
+                            style={{
+                              borderColor: "var(--home-line)",
+                              aspectRatio: "3 / 1",
+                            }}
+                          >
+                            <img
+                              src={selectedManga.promoImageUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <label className="ad-check mt-3">
+                            <input
+                              type="checkbox"
+                              name="removePromoImage"
+                              className="mt-0.5 h-4 w-4"
+                            />
+                            <span>Баннерыг хасах</span>
+                          </label>
+                        </>
+                      ) : null}
+
+                      <div className="mt-4 max-w-55">
+                        <Field
+                          label="Эрэмбэ (1 = эхний баннер)"
+                          name="promoOrder"
+                          type="number"
+                          min={1}
+                          step={1}
+                          placeholder="1"
+                          defaultValue={selectedManga.promoOrder ?? ""}
+                        />
+                      </div>
+
+                      {promoSummary.length > 0 ? (
+                        <p className="ad-sub mt-4">
+                          Одоогийн дараалал:{" "}
+                          <span style={{ color: "var(--home-plum)" }}>
+                            {promoSummary
+                              .map(
+                                (entry, index) =>
+                                  `${entry.promoOrder ?? index + 1}. ${entry.mangaName}`,
+                              )
+                              .join(" · ")}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="ad-sub mt-4">
+                          Одоогоор баннер алга — нүүр хуудсанд энэ хэсэг
                           харагдахгүй.
                         </p>
                       )}
@@ -1834,6 +1970,19 @@ export function AdminConsole({
                 </form>
               </section>
             ) : null}
+
+            {activeView === "analytics" ? (
+              <ViewAnalyticsPanel
+                series={mangaLibrary.map((entry) => ({
+                  id: entry.id,
+                  mangaName: entry.mangaName,
+                  viewCount: entry.viewCount,
+                  chapterCount: entry.chapterCount,
+                }))}
+              />
+            ) : null}
+
+            {activeView === "users" ? <UsersTablePanel /> : null}
           </div>
 
           <aside className="space-y-6">
