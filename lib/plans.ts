@@ -6,19 +6,60 @@ export type PlanConfig = {
   days: number;
   /** Price in MNT (₮), integer. */
   price: number;
+  /**
+   * Price when renewing while a pass is still active, in MNT. Null for plans
+   * the discount excludes.
+   *
+   * Stored rather than derived: 1 сар is rounded to a clean 5,000₮, not the
+   * exact 10% (4,950₮), so a multiplier would give the wrong number. There is
+   * deliberately no `* 0.9` anywhere in this codebase.
+   */
+  renewalPrice: number | null;
   /** Mongolian label shown in the UI. */
   label: string;
 };
 
 // Fixed-day durations, confirmed with the client:
-//   2 weeks = 14d / 3,000₮ · 1 month = 30d / 5,500₮
-//   3 months = 90d / 15,000₮ · 6 months = 180d / 28,000₮
+//   2 weeks = 14d / 3,000₮ · 1 month = 30d / 5,500₮ (renew 5,000₮)
+//   3 months = 90d / 15,000₮ (renew 13,500₮) · 6 months = 180d / 28,000₮ (renew 25,200₮)
 export const PLANS: Record<SubscriptionPlan, PlanConfig> = {
-  TWO_WEEKS: { plan: "TWO_WEEKS", days: 14, price: 3000, label: "2 долоо хоног" },
-  ONE_MONTH: { plan: "ONE_MONTH", days: 30, price: 5500, label: "1 сар" },
-  THREE_MONTHS: { plan: "THREE_MONTHS", days: 90, price: 15000, label: "3 сар" },
-  SIX_MONTHS: { plan: "SIX_MONTHS", days: 180, price: 28000, label: "6 сар" },
+  // The 2-week plan is excluded from the early-renewal discount.
+  TWO_WEEKS: {
+    plan: "TWO_WEEKS",
+    days: 14,
+    price: 3000,
+    renewalPrice: null,
+    label: "2 долоо хоног",
+  },
+  ONE_MONTH: {
+    plan: "ONE_MONTH",
+    days: 30,
+    price: 5500,
+    renewalPrice: 5000,
+    label: "1 сар",
+  },
+  THREE_MONTHS: {
+    plan: "THREE_MONTHS",
+    days: 90,
+    price: 15000,
+    renewalPrice: 13500,
+    label: "3 сар",
+  },
+  SIX_MONTHS: {
+    plan: "SIX_MONTHS",
+    days: 180,
+    price: 28000,
+    renewalPrice: 25200,
+    label: "6 сар",
+  },
 };
+
+/** Explains the early-renewal discount. Shared so the surfaces cannot drift. */
+export const RENEWAL_DISCOUNT_NOTE =
+  "Эрхээ дуусахаас өмнө сунгавал 10% хөнгөлөлттэй";
+
+/** The one exclusion, shown a step smaller beneath the note above. */
+export const RENEWAL_DISCOUNT_EXCLUSION = "2 долоо хоногийн багцад хамаарахгүй";
 
 // Display order (cheapest → longest) for plan grids.
 export const PLAN_ORDER: SubscriptionPlan[] = [
@@ -97,6 +138,40 @@ export function isPremium(
   now: Date = new Date(),
 ): boolean {
   return Boolean(user?.premiumUntil && user.premiumUntil.getTime() > now.getTime());
+}
+
+export type ResolvedPrice = {
+  /** What to charge, in MNT — the renewal price when the discount applies. */
+  price: number;
+  /** The undiscounted price, for the struck-through figure beside it. */
+  regularPrice: number;
+  discounted: boolean;
+};
+
+/**
+ * The price that applies to a plan right now, given the buyer's own standing.
+ *
+ * Renewing before a pass lapses earns the discounted price; letting it expire
+ * first does not. Callers pass the user and never a price, so an amount from
+ * the client can never influence what is charged.
+ *
+ * Pass the same `now` used to compute an expiry alongside it, so the discount
+ * decision and the expiry cannot disagree across a tick.
+ */
+export function resolvePlanPrice(
+  plan: SubscriptionPlan,
+  user: { premiumUntil?: Date | null } | null | undefined,
+  now: Date = new Date(),
+): ResolvedPrice {
+  const config = PLANS[plan];
+  const renewal = config.renewalPrice;
+  const discounted = renewal !== null && isPremium(user, now);
+
+  return {
+    price: discounted ? renewal : config.price,
+    regularPrice: config.price,
+    discounted,
+  };
 }
 
 /**

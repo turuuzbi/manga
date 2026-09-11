@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
-import { PLANS, isValidPlan } from "@/lib/plans";
+import { isValidPlan, resolvePlanPrice } from "@/lib/plans";
 import type { SubscriptionPlan } from "@prisma/client";
 
 export type CheckoutState = {
@@ -42,13 +42,17 @@ export async function startCheckoutAction(
       return { ok: false, pending: false, message: "Багц буруй байна." };
     }
 
-    const plan = PLANS[planValue];
+    // The amount is derived here from the plan and this user's own standing —
+    // the action takes only a plan name, and no price crosses the wire. When
+    // QPay lands, invoice it for this figure; do not start accepting an amount
+    // from the client.
+    const { price } = resolvePlanPrice(planValue, user);
 
     const payment = await prisma.payment.create({
       data: {
         userId: user.id,
         plan: planValue,
-        amount: plan.price,
+        amount: price,
         status: "PENDING",
       },
       select: { id: true },
@@ -60,7 +64,7 @@ export async function startCheckoutAction(
       pending: true,
       paymentId: payment.id,
       plan: planValue,
-      amount: plan.price,
+      amount: price,
       message:
         "Төлбөрийн систем (QPay) удахгүй холбогдоно. Одоогоор багцыг админ гараар идэвхжүүлнэ.",
     };

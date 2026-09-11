@@ -17,6 +17,7 @@ import {
   extendExpiry,
   formatTugrug,
   isValidPlan,
+  resolvePlanPrice,
 } from "@/lib/plans";
 
 export type AdminActionState = {
@@ -231,13 +232,18 @@ export async function grantSubscriptionAction(
     const plan = PLANS[planValue];
     const now = new Date();
     const expiresAt = extendExpiry(target.premiumUntil, planValue, now);
+    // Priced off the *target reader's* standing, not the admin's, and off the
+    // same `now` as the expiry above so the two cannot disagree. A reader
+    // renewing early transferred the discounted amount shown on /subscribe, so
+    // that is what the Payment row must record.
+    const { price, discounted } = resolvePlanPrice(planValue, target, now);
 
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
           userId: target.id,
           plan: planValue,
-          amount: plan.price,
+          amount: price,
           status: "PAID",
           paidAt: now,
         },
@@ -262,7 +268,9 @@ export async function grantSubscriptionAction(
 
     return {
       ok: true,
-      message: `${target.email} — ${plan.label} (${formatTugrug(plan.price)}) багц ${expiresAt.toLocaleDateString()} хүртэл идэвхжлээ.`,
+      message: `${target.email} — ${plan.label} (${formatTugrug(price)}${
+        discounted ? ", эрт сунгасан 10% хөнгөлөлттэй" : ""
+      }) багц ${expiresAt.toLocaleDateString()} хүртэл идэвхжлээ.`,
     };
   } catch (error) {
     return {

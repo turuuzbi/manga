@@ -213,11 +213,24 @@ export function UserSearchPanel() {
                         className="ad-input mt-2.5 min-w-0 flex-1 basis-40"
                         style={{ fontSize: 13 }}
                       >
-                        {PLAN_ORDER.map((key) => (
-                          <option key={key} value={key}>
-                            {PLANS[key].label} — {formatTugrug(PLANS[key].price)}
-                          </option>
-                        ))}
+                        {/* `left !== null` means the pass is still running, so
+                            the grant will apply the early-renewal price. Shown
+                            here so the figure matches what the reader was asked
+                            to transfer; the server recomputes it regardless. */}
+                        {PLAN_ORDER.map((key) => {
+                          const renewal = PLANS[key].renewalPrice;
+                          const discounted = left !== null && renewal !== null;
+
+                          return (
+                            <option key={key} value={key}>
+                              {PLANS[key].label} —{" "}
+                              {formatTugrug(
+                                discounted ? renewal : PLANS[key].price,
+                              )}
+                              {discounted ? " (сунгалт -10%)" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
 
                       <button

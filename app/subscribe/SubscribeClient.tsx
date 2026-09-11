@@ -4,12 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Copy, Crown, Instagram, Sparkles } from "lucide-react";
 import type { SubscriptionPlan } from "@prisma/client";
-import { formatTugrug } from "@/lib/plans";
+import {
+  RENEWAL_DISCOUNT_EXCLUSION,
+  RENEWAL_DISCOUNT_NOTE,
+  formatTugrug,
+} from "@/lib/plans";
 
 type PlanView = {
   plan: SubscriptionPlan;
   label: string;
+  /** What this reader pays — already the renewal price when one applies. */
   price: number;
+  /** The undiscounted price, struck through beside the effective one. */
+  regularPrice: number;
+  discounted: boolean;
   days: number;
   perDay: number;
 };
@@ -113,17 +121,40 @@ export function SubscribeClient({
                   <Check size={14} />
                 </span>
               ) : null}
+              {/* pr-8 keeps the row clear of the absolutely-placed check badge
+                  above, which a discount pill would otherwise run under. */}
               <p
-                className="text-xs font-semibold uppercase tracking-[0.18em]"
+                className="flex flex-wrap items-center gap-2 pr-8 text-xs font-semibold uppercase tracking-[0.18em]"
                 style={{ color: "var(--home-gold)" }}
               >
                 {entry.label}
+                {entry.discounted ? (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-white"
+                    style={{ background: "var(--home-rose-deep)" }}
+                  >
+                    -10%
+                  </span>
+                ) : null}
               </p>
               <p
-                className="mt-2 text-2xl font-bold"
+                className="mt-2 flex flex-wrap items-baseline gap-x-2 text-2xl font-bold"
                 style={{ fontFamily: "'Cormorant Garamond', serif", color: "var(--home-plum)" }}
+                aria-label={
+                  entry.discounted
+                    ? `Сунгалтын үнэ ${formatTugrug(entry.price)}, энгийн үнэ ${formatTugrug(entry.regularPrice)}`
+                    : undefined
+                }
               >
                 {formatTugrug(entry.price)}
+                {entry.discounted ? (
+                  <s
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--home-plum-soft)" }}
+                  >
+                    {formatTugrug(entry.regularPrice)}
+                  </s>
+                ) : null}
               </p>
               <p className="mt-1 text-xs" style={{ color: "var(--home-plum-soft)" }}>
                 {entry.days} хоног · ≈ {formatTugrug(entry.perDay)}/өдөр
@@ -131,6 +162,18 @@ export function SubscribeClient({
             </button>
           );
         })}
+      </div>
+
+      {/* Shown whether or not the discount is currently live: it explains the
+          lower prices to a renewing reader, and tells a lapsed one what they
+          would save by not waiting. */}
+      <div className="mt-4 text-center">
+        <p className="text-sm font-semibold" style={{ color: "var(--home-plum)" }}>
+          {RENEWAL_DISCOUNT_NOTE}
+        </p>
+        <p className="mt-1 text-xs" style={{ color: "var(--home-plum-soft)" }}>
+          {RENEWAL_DISCOUNT_EXCLUSION}
+        </p>
       </div>
 
       {/*

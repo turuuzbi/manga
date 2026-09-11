@@ -5,6 +5,8 @@ import {
   FREE_CHAPTERS_PER_DAY,
   PLANS,
   PLAN_ORDER,
+  RENEWAL_DISCOUNT_EXCLUSION,
+  RENEWAL_DISCOUNT_NOTE,
   formatTugrug,
 } from "@/lib/plans";
 
@@ -89,6 +91,19 @@ export function Paywall({
               </Link>
             );
           })}
+        </div>
+
+        {/* Regular prices above, always: a reader with an active pass never
+            reaches this screen (resolveChapterAccess returns `premium` first),
+            so a discounted figure could not legitimately render here. The note
+            still tells a lapsed reader what renewing on time is worth. */}
+        <div className="mt-4">
+          <p className="text-sm font-medium text-zinc-300">
+            {RENEWAL_DISCOUNT_NOTE}
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            {RENEWAL_DISCOUNT_EXCLUSION}
+          </p>
         </div>
 
         <Link

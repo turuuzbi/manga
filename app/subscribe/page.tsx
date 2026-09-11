@@ -1,5 +1,11 @@
 import { getCurrentDbUser } from "@/lib/auth";
-import { PLANS, PLAN_ORDER, isPremium, isValidPlan } from "@/lib/plans";
+import {
+  PLANS,
+  PLAN_ORDER,
+  isPremium,
+  isValidPlan,
+  resolvePlanPrice,
+} from "@/lib/plans";
 import { AppAccountDock } from "@/app/_components/AppAccountDock";
 import { SubscribeClient } from "@/app/subscribe/SubscribeClient";
 
@@ -20,13 +26,25 @@ export default async function SubscribePage({
   const user = await getCurrentDbUser();
 
   const initialPlan = plan && isValidPlan(plan) ? plan : "ONE_MONTH";
-  const plans = PLAN_ORDER.map((key) => ({
-    plan: key,
-    label: PLANS[key].label,
-    price: PLANS[key].price,
-    days: PLANS[key].days,
-    perDay: Math.round(PLANS[key].price / PLANS[key].days),
-  }));
+
+  // One `now` for the whole grid, so a request that straddles the expiry
+  // instant cannot discount one card and not the next.
+  const now = new Date();
+  const plans = PLAN_ORDER.map((key) => {
+    const { price, regularPrice, discounted } = resolvePlanPrice(key, user, now);
+
+    return {
+      plan: key,
+      label: PLANS[key].label,
+      price,
+      regularPrice,
+      discounted,
+      days: PLANS[key].days,
+      // Divides the effective price: a renewing reader should see the per-day
+      // figure they will actually pay.
+      perDay: Math.round(price / PLANS[key].days),
+    };
+  });
 
   return (
     <div className="yume-surface yume-subscribe min-h-screen">
@@ -35,7 +53,7 @@ export default async function SubscribePage({
       <SubscribeClient
         plans={plans}
         initialPlan={initialPlan}
-        isPremium={isPremium(user)}
+        isPremium={isPremium(user, now)}
         premiumUntilLabel={
           user?.premiumUntil ? user.premiumUntil.toLocaleDateString() : null
         }
