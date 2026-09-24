@@ -154,42 +154,72 @@ export async function resolveChapterAccess({
 
   const ipHash = await getClientIpHash();
 
-  // Claim the IP's free tier for today. The first account wins; others get 0.
-  const claim = await prisma.ipDailyClaim.upsert({
-    where: { ipHash_dayKey: { ipHash, dayKey } },
-    create: { ipHash, dayKey, userId },
-    update: {},
-    select: { userId: true },
-  });
-  if (claim.userId !== userId) {
-    return { allowed: false, reason: "ip_claimed", isPremium: false, remainingFree: 0 };
-  }
+  // Claim, count and consume as one serialized step. Two opens of the same
+  // chapter at the same instant (a double tap, a prefetch racing the real
+  // load) used to both run this path: both tried to insert the same claim or
+  // usage row, and the loser's unique-constraint error became an error page.
+  // Two different chapters could also both pass the 3/day check. The advisory
+  // locks make a concurrent open wait for this one and then see its rows.
+  // The IP lock is always taken first, so two requests cannot deadlock.
+  return prisma.$transaction(
+    async (tx): Promise<ChapterAccess> => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`free-ip:${ipHash}:${dayKey}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`free-user:${userId}:${dayKey}`}))`;
 
-  const usedToday = await prisma.freeReadUsage.count({
-    where: { userId, dayKey },
-  });
-  if (usedToday >= FREE_CHAPTERS_PER_DAY) {
-    return {
-      allowed: false,
-      reason: "quota_exhausted",
-      isPremium: false,
-      remainingFree: 0,
-    };
-  }
+      const usedToday = await tx.freeReadUsage.count({
+        where: { userId, dayKey },
+      });
 
-  // Consume one free unlock (idempotent on the unique key).
-  await prisma.freeReadUsage.upsert({
-    where: { userId_dayKey_chapterId: { userId, dayKey, chapterId } },
-    create: { userId, ipHash, dayKey, chapterId },
-    update: {},
-  });
+      // The request we waited for may have just unlocked this very chapter.
+      const unlockedMeanwhile = await tx.freeReadUsage.findUnique({
+        where: { userId_dayKey_chapterId: { userId, dayKey, chapterId } },
+        select: { id: true },
+      });
+      if (unlockedMeanwhile) {
+        return {
+          allowed: true,
+          reason: "already_today",
+          isPremium: false,
+          remainingFree: Math.max(0, FREE_CHAPTERS_PER_DAY - usedToday),
+        };
+      }
 
-  return {
-    allowed: true,
-    reason: "consumed",
-    isPremium: false,
-    remainingFree: Math.max(0, FREE_CHAPTERS_PER_DAY - (usedToday + 1)),
-  };
+      // Claim the IP's free tier for today. The first account wins; others get 0.
+      const claim = await tx.ipDailyClaim.upsert({
+        where: { ipHash_dayKey: { ipHash, dayKey } },
+        create: { ipHash, dayKey, userId },
+        update: {},
+        select: { userId: true },
+      });
+      if (claim.userId !== userId) {
+        return { allowed: false, reason: "ip_claimed", isPremium: false, remainingFree: 0 };
+      }
+
+      if (usedToday >= FREE_CHAPTERS_PER_DAY) {
+        return {
+          allowed: false,
+          reason: "quota_exhausted",
+          isPremium: false,
+          remainingFree: 0,
+        };
+      }
+
+      // Consume one free unlock (idempotent on the unique key).
+      await tx.freeReadUsage.upsert({
+        where: { userId_dayKey_chapterId: { userId, dayKey, chapterId } },
+        create: { userId, ipHash, dayKey, chapterId },
+        update: {},
+      });
+
+      return {
+        allowed: true,
+        reason: "consumed",
+        isPremium: false,
+        remainingFree: Math.max(0, FREE_CHAPTERS_PER_DAY - (usedToday + 1)),
+      };
+    },
+    { maxWait: 5_000, timeout: 10_000 },
+  );
 }
 
 async function remainingFreeToday(

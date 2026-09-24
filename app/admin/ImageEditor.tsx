@@ -6,13 +6,13 @@
  * `ImageEditorField` is a drop-in replacement for the plain file `UploadField`.
  * The user picks a local image, edits it (crop via pan + zoom inside an
  * aspect-ratio frame, rotate, flip, brightness / contrast / saturation), and on
- * "apply" the edited result is rendered to a Blob and injected into a real
- * hidden `<input type="file" name={name}>` using `DataTransfer`. That means the
- * surrounding <form> and its server action keep working exactly as before —
- * they still receive a normal File under the same field name.
+ * "apply" the edited result is rendered to a Blob and parked in the form's
+ * UploadRegistry (see ./direct-upload). When the form is saved, the blob goes
+ * straight to R2 and the Server Action receives its URL under `name` — the
+ * image bytes never ride in the action body, which Vercel caps at 4.5 MB.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Check,
@@ -26,6 +26,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  UploadRegistryContext,
+  useUploadRegistryState,
+} from "@/app/admin/direct-upload";
 
 export type AspectPreset = {
   id: string;
@@ -102,6 +106,7 @@ function clampPan(
 
 export function ImageEditorField({
   name,
+  slot,
   label,
   helper,
   existingImage,
@@ -111,7 +116,10 @@ export function ImageEditorField({
   outputQuality = 0.92,
   maxOutputDimension = 1600,
 }: {
+  /** Form field that receives the uploaded URL. */
   name: string;
+  /** Upload slot for the server's key builder (see lib/upload-types). */
+  slot: string;
   label: string;
   helper: string;
   existingImage?: string | null;
@@ -121,7 +129,8 @@ export function ImageEditorField({
   outputQuality?: number;
   maxOutputDimension?: number;
 }) {
-  const submitInputRef = useRef<HTMLInputElement>(null);
+  const registry = useContext(UploadRegistryContext);
+  const { resetVersion } = useUploadRegistryState(registry);
   const sourcePickerRef = useRef<HTMLInputElement>(null);
 
   // Store the raw File — the modal owns its object-URL lifecycle. Creating the
@@ -129,9 +138,12 @@ export function ImageEditorField({
   // Mode, which double-invokes updaters and would leak / revoke the URL.
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [result, setResult] = useState<{ url: string; name: string } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    url: string;
+    name: string;
+    /** Registry reset count when this edit was parked. */
+    resetVersion: number;
+  } | null>(null);
   const [lastEdit, setLastEdit] = useState<EditSettings | null>(null);
 
   // Revoke the result-preview URL when replaced / on unmount.
@@ -158,8 +170,6 @@ export function ImageEditorField({
 
   const applyEdited = useCallback(
     (blob: Blob, settings: EditSettings) => {
-      const input = submitInputRef.current;
-      if (!input) return;
       const ext =
         outputType === "image/png"
           ? "png"
@@ -170,47 +180,38 @@ export function ImageEditorField({
         /\.[^.]+$/,
         "",
       );
-      const file = new File([blob], `${base}-edited.${ext}`, {
-        type: outputType,
-      });
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      input.files = dataTransfer.files;
-      // Notify any listeners bound to the real input.
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      const fileName = `${base}-edited.${ext}`;
 
-      setResult((prev) => {
-        if (prev) URL.revokeObjectURL(prev.url);
-        return { url: URL.createObjectURL(blob), name: file.name };
-      });
+      // Parked, not sent: the form uploads it when saved.
+      registry?.set(name, [
+        { field: name, slot, blob, contentType: outputType, fileName },
+      ]);
+
+      // The effect above revokes the previous preview URL when this replaces it.
+      setResult({ url: URL.createObjectURL(blob), name: fileName, resetVersion });
       setLastEdit(settings);
       setEditorOpen(false);
     },
-    [outputType, sourceFile],
+    [outputType, sourceFile, registry, name, slot, resetVersion],
   );
 
   const clearResult = useCallback(() => {
-    const input = submitInputRef.current;
-    if (input) {
-      input.value = "";
-      input.files = new DataTransfer().files;
-    }
-    setResult((prev) => {
-      if (prev) URL.revokeObjectURL(prev.url);
-      return null;
-    });
+    registry?.set(name, null);
+    setResult(null);
     setLastEdit(null);
-  }, []);
+  }, [registry, name]);
 
-  const hasNew = Boolean(result);
+  // A successful save resets the registry. The edit is uploaded by then, so
+  // the field goes back to showing the saved image.
+  const visibleResult =
+    result && result.resetVersion === resetVersion ? result : null;
+  const hasNew = Boolean(visibleResult);
 
   return (
     <label className="block">
       <span className="ad-label">{label}</span>
 
-      {/* Real submitted input — receives the edited File via DataTransfer. */}
-      <input ref={submitInputRef} type="file" name={name} className="hidden" />
-      {/* Source picker — never submitted, only feeds the editor. */}
+      {/* Source picker — only feeds the editor; the result is parked above. */}
       <input
         ref={sourcePickerRef}
         type="file"
@@ -223,13 +224,13 @@ export function ImageEditorField({
         <div className="pe-field-result">
           <div className="pe-field-thumb">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={result!.url} alt="Засварласан урьдчилсан харагдац" />
+            <img src={visibleResult!.url} alt="Засварласан урьдчилсан харагдац" />
             <span className="pe-field-tag">
               <Check size={12} /> Засварласан
             </span>
           </div>
           <div className="pe-field-actions">
-            <p className="pe-field-name">{result!.name}</p>
+            <p className="pe-field-name">{visibleResult!.name}</p>
             <div className="pe-field-btns">
               <button
                 type="button"

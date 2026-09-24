@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Leaf, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
+import { Crown, ImageIcon, Leaf, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
+import { useNewsState } from "@/app/_components/NewsNotifier";
 import {
   SignInButton,
   SignUpButton,
@@ -33,14 +34,21 @@ type NavLink = {
   href: string;
 };
 
+export const NEWS_HREF = "/news";
+
 const defaultLinks: NavLink[] = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
+  { label: "Мэдээ", href: NEWS_HREF },
 ];
 
 function isLinkActive(pathname: string, href: string) {
   if (href === "/manga") {
     return pathname === "/manga" || pathname.startsWith("/manga/");
+  }
+
+  if (href === NEWS_HREF) {
+    return pathname === NEWS_HREF || pathname.startsWith(`${NEWS_HREF}/`);
   }
 
   if (href.startsWith("/#")) {
@@ -76,6 +84,8 @@ export function MangaTopNav({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const { unreadCount } = useNewsState();
+  const unreadLabel = unreadCount > 9 ? "9+" : String(unreadCount);
 
   const subscribeToTheme = useCallback((callback: () => void) => {
     if (typeof window === "undefined") {
@@ -187,13 +197,21 @@ export function MangaTopNav({
               <Link
                 key={entry.label}
                 href={entry.href}
-                className="nav-link"
+                className="nav-link inline-flex items-center gap-1.5"
                 style={{
                   color: active ? "var(--manga-text)" : "var(--manga-muted)",
                   textDecoration: "none",
                 }}
               >
                 {entry.label}
+                {entry.href === NEWS_HREF && unreadCount > 0 ? (
+                  <span
+                    className="yume-unread"
+                    aria-label={`${unreadCount} шинэ мэдээ`}
+                  >
+                    {unreadLabel}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -280,7 +298,15 @@ export function MangaTopNav({
                     userButtonBox: "gap-0",
                   },
                 }}
-              />
+              >
+                <UserButton.MenuItems>
+                  <UserButton.Link
+                    label="Миний background"
+                    labelIcon={<ImageIcon size={14} />}
+                    href="/profile"
+                  />
+                </UserButton.MenuItems>
+              </UserButton>
             </div>
           </SignedIn>
 
@@ -297,7 +323,7 @@ export function MangaTopNav({
 
           <button
             type="button"
-            className="p-2 md:hidden"
+            className="relative p-2 md:hidden"
             style={{
               background: "none",
               border: "none",
@@ -305,9 +331,17 @@ export function MangaTopNav({
               color: "var(--manga-text)",
             }}
             onClick={() => setMobileMenuOpen((value) => !value)}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={
+              (mobileMenuOpen ? "Close menu" : "Open menu") +
+              (unreadCount > 0 ? ` — ${unreadCount} шинэ мэдээ` : "")
+            }
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            {unreadCount > 0 && !mobileMenuOpen ? (
+              <span className="yume-unread yume-unread-float" aria-hidden="true">
+                {unreadLabel}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>
@@ -326,6 +360,7 @@ export function MangaTopNav({
               key={entry.label}
               href={entry.href}
               onClick={() => setMobileMenuOpen(false)}
+              className="inline-flex items-center gap-2"
               style={{
                 fontSize: 14,
                 fontWeight: 700,
@@ -334,8 +369,33 @@ export function MangaTopNav({
               }}
             >
               {entry.label}
+              {entry.href === NEWS_HREF && unreadCount > 0 ? (
+                <span
+                  className="yume-unread"
+                  aria-label={`${unreadCount} шинэ мэдээ`}
+                >
+                  {unreadLabel}
+                </span>
+              ) : null}
             </Link>
           ))}
+
+          <SignedIn>
+            <Link
+              href="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className="inline-flex items-center gap-2"
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "var(--manga-muted)",
+                textDecoration: "none",
+              }}
+            >
+              <ImageIcon size={15} />
+              Миний background
+            </Link>
+          </SignedIn>
 
           <Link
             href="/subscribe"

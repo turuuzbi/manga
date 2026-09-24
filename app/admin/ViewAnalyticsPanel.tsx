@@ -46,8 +46,14 @@ export function ViewAnalyticsPanel({ series }: { series: SeriesRow[] }) {
 
     if (!chapters[id]) {
       startLoad(async () => {
-        const rows = await getChapterViewsAction(id);
-        setChapters((current) => ({ ...current, [id]: rows }));
+        // A failed fetch must stay here: thrown inside a transition it would
+        // reach app/admin/error.tsx and replace the whole dashboard.
+        try {
+          const rows = await getChapterViewsAction(id);
+          setChapters((current) => ({ ...current, [id]: rows }));
+        } catch {
+          setOpenId(null);
+        }
       });
     }
   }

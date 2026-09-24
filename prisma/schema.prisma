@@ -67,11 +67,21 @@ model Manga {
   // ReadingProgress so the detail page never runs COUNT DISTINCT to render;
   // maintained on first read and rebuildable with scripts/backfill-reader-counts.mjs.
   readerCount Int         @default(0)
-  // Homepage promo strip. A 3:1 banner the owner supplies per series; setting
-  // the image is what promotes the title, and promoOrder sorts the strip
-  // (nulls last). Separate from isFeatured, which drives the cover-art hero.
+  // Homepage promo banner. A 3:1 image the owner supplies per series, shown in
+  // one of four fixed homepage slots (1–4, see HomeLanding). A banner with no
+  // slot is kept but not shown; the unique index allows one banner per slot.
+  // Separate from isFeatured, which drives the cover-art hero.
   promoImageUrl String?
+  promoSlot     Int?        @unique
+  // Superseded by promoSlot (the slot migration copied its order across).
+  // Kept so no data is dropped; nothing reads it any more.
   promoOrder    Int?
+  // Completion reward. Setting this is what makes the series give a reward:
+  // readers who open every published chapter get the background once.
+  // rewardBackgroundUrl is the compressed display copy; the original upload
+  // is kept alongside it for the reader's "download original" button.
+  rewardBackgroundUrl         String?
+  rewardBackgroundOriginalUrl String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -82,6 +92,7 @@ model Manga {
   comments        Comment[]
   readingProgress ReadingProgress[]
   posterChoices   UserPosterChoice[]
+  rewards         UserReward[]
 
   @@index([isFeatured, featuredOrder])
   @@index([viewCount])
@@ -131,6 +142,8 @@ model Chapter {
 
   @@unique([mangaId, chapterNumber])
   @@index([mangaId])
+  // Serves the "Сүүлийн шинэчлэл" chapter feed, newest first.
+  @@index([publishedAt])
 }
 
 model Page {
@@ -159,6 +172,8 @@ model User {
   // Denormalized cache of the current subscription expiry for a fast gate
   // check. Sourced from Subscription rows whenever a payment succeeds.
   premiumUntil DateTime?
+  // The earned background this reader applied site-wide, if any.
+  siteBackgroundId String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -169,6 +184,11 @@ model User {
   posterChoices   UserPosterChoice[]
   payments        Payment[]
   subscriptions   Subscription[]
+  articles        Article[]
+  articlesSeen    ArticleSeen[]
+  notifications   UserNotification[]
+  rewards         UserReward[]      @relation("RewardOwner")
+  siteBackground  UserReward?       @relation("SiteBackground", fields: [siteBackgroundId], references: [id], onDelete: SetNull)
 }
 
 model Comment {
@@ -255,6 +275,88 @@ model Rating {
 
   @@unique([userId, mangaId])
   @@index([mangaId])
+}
+
+// ─── News (МЭДЭЭ) & rewards ─────────────────────────────────────────────────
+
+// An admin-written post in the МЭДЭЭ feed. Everyone sees it; publishing one is
+// what raises the unread badge and the one-time popup.
+model Article {
+  id          String   @id @default(nanoid())
+  title       String
+  // Markdown subset: paragraphs, **bold**, [links](https://…). See lib/markdown.
+  body        String
+  imageUrl    String?
+  authorId    String?
+  // Byline as shown, captured when written, so it survives the admin renaming
+  // or leaving.
+  authorName  String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  seenBy ArticleSeen[]
+
+  @@index([publishedAt])
+}
+
+// A signed-in reader has seen this article (dismissed its popup or opened it).
+// Signed-out readers keep the same state in localStorage instead.
+model ArticleSeen {
+  userId    String
+  articleId String
+  seenAt    DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, articleId])
+  @@index([articleId])
+}
+
+enum NotificationKind {
+  REWARD
+}
+
+// A notice for one reader, shown in their МЭДЭЭ feed next to the articles and
+// counted in the same unread badge.
+model UserNotification {
+  id        String           @id @default(nanoid())
+  userId    String
+  kind      NotificationKind
+  message   String
+  href      String?
+  // Set for REWARD notices. Unique, so a grant can never notify twice.
+  rewardId  String?          @unique
+  seenAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward UserReward? @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// A completion reward a reader earned. The image URLs and series name are
+// copied at grant time, so a later change to the series' reward image never
+// takes back what someone already earned. One per reader per series.
+model UserReward {
+  id          String   @id @default(nanoid())
+  userId      String
+  mangaId     String
+  mangaName   String
+  imageUrl    String
+  originalUrl String
+  grantedAt   DateTime @default(now())
+
+  user         User              @relation("RewardOwner", fields: [userId], references: [id], onDelete: Cascade)
+  manga        Manga             @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  notification UserNotification?
+  appliedBy    User[]            @relation("SiteBackground")
+
+  @@unique([userId, mangaId])
+  @@index([userId, grantedAt])
 }
 
 // ─── Billing & subscriptions ────────────────────────────────────────────────

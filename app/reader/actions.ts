@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db";
 import { syncCurrentClerkUser } from "@/lib/auth";
+import { grantCompletionRewardIfEarned } from "@/lib/rewards";
 
 /**
  * Records that a chapter was opened. Called from the reader when it mounts, so
@@ -18,6 +19,8 @@ import { syncCurrentClerkUser } from "@/lib/auth";
  * 3. Recomputes `readerCount` when this open is the reader's first chapter of
  *    the series, so the detail page's reader total never needs a COUNT DISTINCT
  *    to render.
+ * 4. When the series has a reward background, grants it once this open
+ *    completes every published chapter (lib/rewards).
  */
 export async function markChapterRead(chapterId: string) {
   if (!chapterId) {
@@ -36,7 +39,17 @@ export async function markChapterRead(chapterId: string) {
   // series' view count, or file reading progress under the wrong title.
   const chapter = await prisma.chapter.findUnique({
     where: { id: chapterId },
-    select: { mangaId: true },
+    select: {
+      mangaId: true,
+      manga: {
+        select: {
+          id: true,
+          mangaName: true,
+          rewardBackgroundUrl: true,
+          rewardBackgroundOriginalUrl: true,
+        },
+      },
+    },
   });
 
   if (!chapter) {
@@ -101,4 +114,14 @@ export async function markChapterRead(chapterId: string) {
       WHERE id = ${mangaId}
     `;
   });
+
+  // After the transaction, so the row for this chapter is committed and a
+  // reward problem can never undo the view count or reading progress above.
+  if (chapter.manga.rewardBackgroundUrl) {
+    try {
+      await grantCompletionRewardIfEarned(user.id, chapter.manga);
+    } catch (error) {
+      console.error("[reader] completion reward check failed", error);
+    }
+  }
 }

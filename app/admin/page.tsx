@@ -82,23 +82,17 @@ export default async function AdminPage() {
           _count: {
             select: {
               chapters: true,
+              rewards: true,
             },
           },
           chapters: {
             orderBy: {
               chapterNumber: "desc",
             },
+            // Pages are deliberately not loaded here: the console fetches one
+            // chapter's pages when it is opened (getChapterPagesAction).
+            // Embedding all of them made this page ~13 MB.
             include: {
-              pages: {
-                orderBy: {
-                  pageNumber: "asc",
-                },
-                select: {
-                  id: true,
-                  pageNumber: true,
-                  imageUrl: true,
-                },
-              },
               _count: {
                 select: {
                   pages: true,
@@ -143,7 +137,9 @@ export default async function AdminPage() {
         featuredOrder: entry.featuredOrder,
         paywalledChapters: entry.paywalledChapters,
         promoImageUrl: entry.promoImageUrl ?? "",
-        promoOrder: entry.promoOrder,
+        promoSlot: entry.promoSlot,
+        rewardBackgroundUrl: entry.rewardBackgroundUrl ?? "",
+        rewardCount: entry._count.rewards,
         posterOptions: entry.posterOptions,
         defaultPoster: entry.defaultPoster ?? "",
         genres: entry.genres.map((genreEntry) => genreEntry.genre.name),
@@ -158,11 +154,6 @@ export default async function AdminPage() {
           badgeScale: chapter.badgeScale ?? null,
           publishedAt: chapter.publishedAt.toISOString(),
           pageCount: chapter._count.pages,
-          pages: chapter.pages.map((page) => ({
-            id: page.id,
-            pageNumber: page.pageNumber,
-            imageUrl: page.imageUrl,
-          })),
         })),
       }))}
       />

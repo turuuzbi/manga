@@ -13,6 +13,11 @@ import {
   formatFontFamily,
   type MangaSeries,
 } from "@/app/_components/MangaPosterCard";
+import {
+  CHAPTER_CARD_STYLES,
+  ChapterFeedCards,
+} from "@/app/_components/ChapterFeedCards";
+import type { ChapterFeedCard } from "@/lib/chapter-feed";
 
 interface GenreFilter {
   name: string;
@@ -295,6 +300,7 @@ html[data-theme="autumn"] .yume-home {
 const headerLinks = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
+  { label: "Мэдээ", href: "/news" },
 ];
 
 interface FeaturedSlide {
@@ -322,11 +328,17 @@ interface PromoBanner {
 type HomeLandingProps = {
   featured?: FeaturedSlide[];
   continueReading?: ContinueReadingItem[];
-  latestUpdates?: MangaSeries[];
+  /** "Сүүлийн шинэчлэл": one card per newly published chapter, newest first. */
+  latestChapters?: ChapterFeedCard[];
+  /** The reader's free reads left today, for the chapter cards' confirm. */
+  freeRemaining?: number;
   /** Most-opened series, already ranked. Counts themselves are never sent. */
   topViewed?: MangaSeries[];
-  /** Owner-curated 3:1 promo banners, already ordered. */
-  promoBanners?: PromoBanner[];
+  /**
+   * The four ad slots, top to bottom (index 0 = slot 1). null = empty slot,
+   * which renders nothing and leaves no gap.
+   */
+  promoSlots?: Array<PromoBanner | null>;
   completed?: MangaSeries[];
   allManga?: MangaSeries[];
   genreFilters?: GenreFilter[];
@@ -338,9 +350,10 @@ type HomeLandingProps = {
 export function HomeLanding({
   featured = [],
   continueReading = [],
-  latestUpdates = [],
+  latestChapters = [],
+  freeRemaining = 0,
   topViewed = [],
-  promoBanners = [],
+  promoSlots = [],
   completed = [],
   allManga = [],
   genreFilters = [],
@@ -359,9 +372,8 @@ export function HomeLanding({
 
   const fontsToLoad = [
     ...featured.map((slide) => slide.titleFont ?? ""),
-    ...[...latestUpdates, ...completed, ...allManga].map(
-      (manga) => manga.titleFont ?? "",
-    ),
+    ...latestChapters.map((card) => card.titleFont ?? ""),
+    ...[...completed, ...allManga].map((manga) => manga.titleFont ?? ""),
   ].filter(Boolean) as string[];
   const customFontsHref = buildGoogleFontsHref(fontsToLoad);
 
@@ -371,6 +383,7 @@ export function HomeLanding({
         <link rel="stylesheet" href={customFontsHref} />
       ) : null}
       <style>{YUME_CARD_STYLES}</style>
+      <style>{CHAPTER_CARD_STYLES}</style>
       <style>{STYLES}</style>
       <div
         className="yume-home min-h-screen"
@@ -405,23 +418,27 @@ export function HomeLanding({
             />
           ) : null}
 
-          {latestUpdates.length > 0 ? (
-            <Shelf
-              id="updates"
-              className="motion-ink-up motion-ink-up-delay-2"
-              eyebrow="Шинэчлэл"
-              title="Сүүлийн шинэчлэл"
-              viewAllHref="/manga"
-              series={latestUpdates}
-            />
+          {/* Ad slot 1 sits directly above "Сүүлийн шинэчлэл", so it stays
+              in place when "Үргэлжлүүлэн унших" is hidden (signed out or no
+              history). Each slot renders nothing when empty. */}
+          <PromoSlot banner={promoSlots[0]} slot={1} />
+
+          {latestChapters.length > 0 ? (
+            <section id="updates" className="motion-ink-up motion-ink-up-delay-2 mb-14">
+              <SectionHeader
+                eyebrow="Шинэчлэл"
+                title="Сүүлийн шинэчлэл"
+                viewAllHref="/updates"
+              />
+              <ChapterFeedCards
+                cards={latestChapters}
+                freeRemaining={freeRemaining}
+                layout="rail"
+              />
+            </section>
           ) : null}
 
-          {promoBanners.length > 0 ? (
-            <PromoStrip
-              className="motion-ink-up motion-ink-up-delay-2"
-              banners={promoBanners}
-            />
-          ) : null}
+          <PromoSlot banner={promoSlots[1]} slot={2} />
 
           {topViewed.length > 0 ? (
             <TopViewedShelf
@@ -429,6 +446,8 @@ export function HomeLanding({
               series={topViewed}
             />
           ) : null}
+
+          <PromoSlot banner={promoSlots[2]} slot={3} />
 
           {completed.length > 0 ? (
             <Shelf
@@ -440,6 +459,8 @@ export function HomeLanding({
               series={completed}
             />
           ) : null}
+
+          <PromoSlot banner={promoSlots[3]} slot={4} />
 
           <section id="all" className="motion-ink-up motion-ink-up-delay-3 mt-4">
             <SectionHeader eyebrow="Бүх цуглуулга" title="Бүх манга" />
@@ -522,35 +543,36 @@ function Shelf({
 }
 
 /**
- * Owner-supplied promo banners. Fixed 3:1 artwork, so the strip holds its shape
- * before the images load and never reflows the page under the reader. A single
- * banner spans the row; several sit side by side on desktop and stack on
- * phones. No section heading — the artwork carries its own message.
+ * One owner-supplied ad panel in its fixed homepage slot. Fixed 3:1 artwork, so
+ * it holds its shape before the image loads and never reflows the page under
+ * the reader. No section heading — the artwork carries its own message. An
+ * empty slot returns nothing, so it adds no spacing either.
  */
-function PromoStrip({
-  banners,
-  className,
+function PromoSlot({
+  banner,
+  slot,
 }: {
-  banners: PromoBanner[];
-  className?: string;
+  banner: PromoBanner | null | undefined;
+  slot: number;
 }) {
+  if (!banner) {
+    return null;
+  }
+
   return (
     <section
-      id="promo"
-      className={`mb-14 ${className ?? ""}`}
+      id={`promo-${slot}`}
+      className="motion-ink-up motion-ink-up-delay-2 mb-14"
       aria-label="Онцгой санал"
     >
       <div className="yume-promo">
-        {banners.map((banner) => (
-          <Link
-            key={banner.id}
-            href={`/manga/${banner.id}`}
-            className="yume-promo-card"
-            aria-label={banner.title}
-          >
-            <img src={banner.imageUrl} alt={banner.title} loading="lazy" />
-          </Link>
-        ))}
+        <Link
+          href={`/manga/${banner.id}`}
+          className="yume-promo-card"
+          aria-label={banner.title}
+        >
+          <img src={banner.imageUrl} alt={banner.title} loading="lazy" />
+        </Link>
       </div>
     </section>
   );

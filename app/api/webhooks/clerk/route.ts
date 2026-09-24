@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { type WebhookEvent } from "@clerk/nextjs/server";
 import prisma from "@/lib/db";
+import { isUniqueViolation } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
@@ -75,9 +76,23 @@ export async function POST(req: Request) {
             data: { ...data, clerkId },
           });
         } else {
-          await prisma.user.create({
-            data: { clerkId, ...data },
-          });
+          try {
+            await prisma.user.create({
+              data: { clerkId, ...data },
+            });
+          } catch (error) {
+            // The reader's first page load created the row between our
+            // lookups and this insert (lib/auth syncs on first request too).
+            // Same person, so update that row instead.
+            if (!isUniqueViolation(error)) {
+              throw error;
+            }
+
+            await prisma.user.updateMany({
+              where: { OR: [{ clerkId }, { email }] },
+              data: { ...data, clerkId },
+            });
+          }
         }
       }
     }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, UserButton } from "@clerk/nextjs";
-import { BookOpenText, Shield } from "lucide-react";
+import { BookOpenText, ImageIcon, Shield } from "lucide-react";
 
 export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
@@ -13,7 +13,14 @@ export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
   // `/manga` (the library) renders MangaTopNav too, and startsWith("/manga/")
   // does not match it — without the exact check the dock doubles up there.
   const usesSharedTopNav =
-    isHome || pathname === "/manga" || pathname.startsWith("/manga/");
+    isHome ||
+    pathname === "/manga" ||
+    pathname.startsWith("/manga/") ||
+    // МЭДЭЭ, the chapter feed and the profile render MangaTopNav as well.
+    pathname === "/news" ||
+    pathname.startsWith("/news/") ||
+    pathname === "/updates" ||
+    pathname === "/profile";
 
   if (isReader || usesSharedTopNav) {
     return null;
@@ -97,7 +104,15 @@ export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
                   userButtonPopoverFooter: "border-[var(--manga-border)]/10",
                 },
               }}
-            />
+            >
+              <UserButton.MenuItems>
+                <UserButton.Link
+                  label="Миний background"
+                  labelIcon={<ImageIcon size={14} />}
+                  href="/profile"
+                />
+              </UserButton.MenuItems>
+            </UserButton>
           </div>
         </SignedIn>
       </div>

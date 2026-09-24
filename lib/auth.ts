@@ -38,13 +38,46 @@ export async function syncCurrentClerkUser() {
     });
   }
 
-  return prisma.user.create({
-    data: {
-      clerkId: userId,
-      email,
-      avatarUrl: clerkUser.imageUrl,
-    },
-  });
+  try {
+    return await prisma.user.create({
+      data: {
+        clerkId: userId,
+        email,
+        avatarUrl: clerkUser.imageUrl,
+      },
+    });
+  } catch (error) {
+    // A brand-new reader's first page load often makes two requests at once
+    // (or races the Clerk webhook). Both miss the lookup above; the loser's
+    // insert hits the unique email/clerkId and used to become an error page.
+    // The row now exists — use it.
+    if (!isUniqueViolation(error)) {
+      throw error;
+    }
+
+    const winner = await prisma.user.findFirst({
+      where: { OR: [{ clerkId: userId }, { email }] },
+    });
+
+    if (!winner) {
+      throw error;
+    }
+
+    return winner.clerkId === userId
+      ? winner
+      : prisma.user.update({
+          where: { id: winner.id },
+          data: { clerkId: userId, avatarUrl: clerkUser.imageUrl },
+        });
+  }
+}
+
+export function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "P2002"
+  );
 }
 
 /**

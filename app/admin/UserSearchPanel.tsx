@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useSafeActionState } from "@/app/admin/direct-upload";
 import {
   ChevronDown,
   ChevronRight,
@@ -50,7 +51,7 @@ export function UserSearchPanel() {
   } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isSearching, startSearch] = useTransition();
-  const [grantState, grantFormAction, grantPending] = useActionState(
+  const [grantState, grantFormAction, grantPending] = useSafeActionState(
     grantSubscriptionAction,
     { ok: false, message: "" },
   );
@@ -68,7 +69,12 @@ export function UserSearchPanel() {
 
     const timer = window.setTimeout(() => {
       startSearch(async () => {
-        setResult({ term, rows: await searchUsersAction(term) });
+        // Caught so a network failure cannot reach app/admin/error.tsx.
+        try {
+          setResult({ term, rows: await searchUsersAction(term) });
+        } catch {
+          setResult({ term, rows: [] });
+        }
       });
     }, SEARCH_DEBOUNCE_MS);
 

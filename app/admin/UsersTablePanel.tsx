@@ -51,8 +51,15 @@ export function UsersTablePanel() {
 
   function load() {
     startLoad(async () => {
-      setData(await getUsersOverviewAction());
-      setHasLoaded(true);
+      // Caught so a network failure leaves the old list instead of reaching
+      // app/admin/error.tsx and replacing the whole dashboard.
+      try {
+        setData(await getUsersOverviewAction());
+      } catch {
+        // Keep whatever was shown; "Сэргээх" retries.
+      } finally {
+        setHasLoaded(true);
+      }
     });
   }
 

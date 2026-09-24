@@ -521,3 +521,70 @@ html[data-theme="autumn"] .yume-surface {
     backdrop-filter: none;
   }
 }
+
+/* ─── Reader's earned background ─────────────────────────────────────────────
+   Applied from the profile ("Миний background"): lib/news-client sets
+   html[data-user-bg] and --user-bg-image, and the pre-paint script in the root
+   layout restores them on the first frame. A fixed layer rather than
+   background-attachment: fixed, which iOS Safari ignores. The veil is the
+   theme's own paper colour, strong enough that text drawn straight on the
+   page (shelf titles, eyebrows) stays readable over any artwork. */
+html[data-user-bg] {
+  --user-bg-veil: color-mix(in srgb, var(--background) 58%, transparent);
+}
+html[data-theme="dark"][data-user-bg] {
+  --user-bg-veil: color-mix(in srgb, var(--background) 72%, transparent);
+}
+html[data-user-bg] body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Large-viewport height, so collapsing the iOS toolbars never uncovers a
+     strip at the bottom. */
+  height: 100vh;
+  height: 100lvh;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--user-bg-veil), var(--user-bg-veil)),
+    var(--user-bg-image) center / cover no-repeat,
+    var(--background);
+}
+/* The page shells paint an opaque wash of their own; let the layer show. The
+   extra "body" outranks the per-theme shell rules (HomeLanding injects its own
+   later in the document at equal specificity). */
+html[data-user-bg] body .yume-surface,
+html[data-user-bg] body .yume-home {
+  background-color: transparent;
+  background-image: none;
+}
+
+/* ─── Unread МЭДЭЭ badge ─────────────────────────────────────────────────────
+   On the Мэдээ link and, on phones, floating on the menu button. */
+.yume-unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #fff;
+  background: linear-gradient(135deg, #d9587a, #b93d61);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 10px -3px rgba(150, 40, 70, 0.6);
+}
+.yume-unread-float {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  pointer-events: none;
+}

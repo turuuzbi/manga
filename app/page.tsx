@@ -1,7 +1,11 @@
 import prisma from "@/lib/db";
 import { HomeLanding } from "@/app/_components/HomeLanding";
 import { getCurrentDbUser } from "@/lib/auth";
+import { loadChapterFeed } from "@/lib/chapter-feed";
 import { premiumDaysRemaining } from "@/lib/plans";
+
+/** Chapter cards on the homepage rail; "Бүгдийг үзэх" pages through the rest. */
+const HOME_CHAPTER_FEED_SIZE = 10;
 
 export const dynamic = "force-dynamic";
 
@@ -123,9 +127,10 @@ export default async function HomePage() {
     }),
   ]);
 
-  const continueReading = currentUser
-    ? await loadContinueReading(currentUser.id)
-    : [];
+  const [continueReading, chapterFeed] = await Promise.all([
+    currentUser ? loadContinueReading(currentUser.id) : [],
+    loadChapterFeed({ take: HOME_CHAPTER_FEED_SIZE, viewer: currentUser }),
+  ]);
 
   const byLatestUpdate = [...mangas].sort(
     (left, right) => latestPublishedAt(right) - latestPublishedAt(left),
@@ -150,21 +155,22 @@ export default async function HomePage() {
     .slice(0, 10)
     .map(toSeries);
 
-  // Promo strip. Having artwork is what promotes a title, so there is no second
-  // toggle to keep in sync; promoOrder sorts, unordered entries fall to the end.
-  const promoBanners = mangas
-    .filter((manga) => Boolean(manga.promoImageUrl))
-    .sort(
-      (left, right) =>
-        (left.promoOrder ?? Number.MAX_SAFE_INTEGER) -
-          (right.promoOrder ?? Number.MAX_SAFE_INTEGER) ||
-        left.mangaName.localeCompare(right.mangaName),
-    )
-    .map((manga) => ({
-      id: manga.id,
-      title: manga.mangaName,
-      imageUrl: manga.promoImageUrl as string,
-    }));
+  // Ad panels: four fixed slots between the shelves (see HomeLanding), one
+  // banner each. A banner needs both artwork and a slot to show; an empty
+  // slot renders nothing at all.
+  const promoSlots = [1, 2, 3, 4].map((slot) => {
+    const manga = mangas.find(
+      (entry) => entry.promoSlot === slot && Boolean(entry.promoImageUrl),
+    );
+
+    return manga
+      ? {
+          id: manga.id,
+          title: manga.mangaName,
+          imageUrl: manga.promoImageUrl as string,
+        }
+      : null;
+  });
 
   // Owner-curated hero. Ordered by the admin-set featuredOrder; anything left
   // without an order falls to the end, alphabetically.
@@ -196,9 +202,10 @@ export default async function HomePage() {
       premiumDaysLeft={premiumDaysRemaining(currentUser)}
       featured={featured}
       continueReading={continueReading}
-      latestUpdates={byLatestUpdate.slice(0, 10).map(toSeries)}
+      latestChapters={chapterFeed.cards}
+      freeRemaining={chapterFeed.freeRemaining}
       topViewed={topViewed}
-      promoBanners={promoBanners}
+      promoSlots={promoSlots}
       completed={completed.slice(0, 12).map(toSeries)}
       allManga={mangas.map(toSeries)}
       genreFilters={genreFilters.map((genre) => ({

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import {
-  useActionState,
   useMemo,
+  useRef,
   useState,
   type InputHTMLAttributes,
   type ReactNode,
@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   CloudUpload,
   Database,
+  Gift,
   GripVertical,
   FileImage,
   FolderSync,
@@ -27,6 +28,7 @@ import {
   MoveDown,
   MoveUp,
   PencilLine,
+  PenLine,
   Trash2,
   ShieldCheck,
   Sparkles,
@@ -37,6 +39,7 @@ import {
   addPosterOptionAction,
   deleteChapterAction,
   deleteChapterPageAction,
+  getChapterPagesAction,
   removePosterOptionAction,
   importGoogleDriveFolderAction,
   ingestMangaAction,
@@ -47,6 +50,18 @@ import {
   updateMangaMetadataAction,
   type AdminActionState,
 } from "@/app/admin/actions";
+import {
+  DIRECT_UPLOAD_STYLES,
+  DirectImageField,
+  DirectPagesField,
+  UploadProgressNote,
+  UploadRegistryContext,
+  useNewUploadRegistry,
+  useSafeActionState,
+  useUploadRegistryState,
+  type UploadRegistry,
+} from "@/app/admin/direct-upload";
+import { NewsPanel } from "@/app/admin/NewsPanel";
 import { UserSearchPanel } from "@/app/admin/UserSearchPanel";
 import { UsersTablePanel } from "@/app/admin/UsersTablePanel";
 import { ViewAnalyticsPanel } from "@/app/admin/ViewAnalyticsPanel";
@@ -293,7 +308,12 @@ type AdminConsoleProps = {
     featuredOrder: number | null;
     paywalledChapters: number | null;
     promoImageUrl: string;
-    promoOrder: number | null;
+    /** Homepage ad slot 1–4, or null when the banner is not shown. */
+    promoSlot: number | null;
+    /** Completion reward image; empty when this series gives no reward. */
+    rewardBackgroundUrl: string;
+    /** Readers who have earned this series' reward. */
+    rewardCount: number;
     posterOptions: string[];
     defaultPoster: string;
     genres: string[];
@@ -309,11 +329,6 @@ type AdminConsoleProps = {
       badgeScale: number | null;
       publishedAt: string;
       pageCount: number;
-      pages: Array<{
-        id: string;
-        pageNumber: number;
-        imageUrl: string;
-      }>;
     }>;
   }>;
 };
@@ -324,13 +339,20 @@ type AdminView =
   | "upload"
   | "drive"
   | "analytics"
-  | "users";
+  | "users"
+  | "news";
+
+/** Where each homepage ad slot sits, for the slot picker. */
+const PROMO_SLOT_LABELS: Record<number, string> = {
+  1: "Үргэлжлүүлэн унших ба Сүүлийн шинэчлэлийн хооронд",
+  2: "Сүүлийн шинэчлэл ба Топ 10 үзэлттэй мангын хооронд",
+  3: "Топ 10 үзэлттэй манга ба Дууссаны хооронд",
+  4: "Дууссан ба Бүх мангын хооронд",
+};
 type DriveImportMode =
   | "new_manga_from_chapter"
   | "existing_manga_chapter"
   | "bulk_parent_folder";
-type ChapterOption =
-  AdminConsoleProps["mangaLibrary"][number]["chapters"][number];
 type PageDraftItem = {
   id: string;
   pageNumber: number;
@@ -351,86 +373,194 @@ export function AdminConsole({
   const [selectedChapterId, setSelectedChapterId] = useState(
     initialChapter?.id ?? "",
   );
-  const [manualState, manualFormAction, manualPending] = useActionState<
-    AdminActionState,
-    FormData
-  >(ingestMangaAction, initialAdminActionState);
-  const [driveState, driveFormAction, drivePending] = useActionState<
-    AdminActionState,
-    FormData
-  >(importGoogleDriveFolderAction, initialAdminActionState);
-  const [manageState, manageFormAction, managePending] = useActionState<
-    AdminActionState,
-    FormData
-  >(updateMangaMetadataAction, initialAdminActionState);
+
+  // Chapter pages, fetched one chapter at a time when it is opened. The admin
+  // page no longer ships every page of every chapter up front.
+  const [pagesByChapter, setPagesByChapter] = useState<
+    Record<string, PageDraftItem[] | "error">
+  >({});
+  const pagesInFlight = useRef(new Set<string>());
+
+  async function loadChapterPages(chapterId: string, force = false) {
+    if (!chapterId || pagesInFlight.current.has(chapterId)) return;
+    if (!force && Array.isArray(pagesByChapter[chapterId])) return;
+
+    pagesInFlight.current.add(chapterId);
+    try {
+      const pages = await getChapterPagesAction(chapterId);
+      setPagesByChapter((current) => ({
+        ...current,
+        [chapterId]: pages ?? "error",
+      }));
+    } catch {
+      setPagesByChapter((current) => ({ ...current, [chapterId]: "error" }));
+    } finally {
+      pagesInFlight.current.delete(chapterId);
+    }
+  }
+
+  // One registry per form that parks images until it is saved.
+  const manageRegistry = useNewUploadRegistry();
+  const posterUploadRegistry = useNewUploadRegistry();
+  const chapterMetaRegistry = useNewUploadRegistry();
+  const pageImageRegistry = useNewUploadRegistry();
+  const manualRegistry = useNewUploadRegistry();
+  const driveRegistry = useNewUploadRegistry();
+
+  const [manualState, manualFormAction, manualPending] = useSafeActionState(
+    ingestMangaAction,
+    initialAdminActionState,
+    {
+      registry: manualRegistry,
+      scope: () => ({ kind: "ingest" }),
+      validate: (_formData, pending) =>
+        pending.some((upload) => upload.slot === "page")
+          ? null
+          : "Бүлгийн хуудсуудаа сонгоно уу.",
+    },
+  );
+  const [driveState, driveFormAction, drivePending] = useSafeActionState(
+    importGoogleDriveFolderAction,
+    initialAdminActionState,
+    {
+      registry: driveRegistry,
+      scope: (formData) => ({
+        kind: "ingest",
+        mangaId:
+          formData.get("driveImportMode") === "existing_manga_chapter"
+            ? String(formData.get("existingMangaId") ?? "") || null
+            : null,
+      }),
+    },
+  );
+  const [manageState, manageFormAction, managePending] = useSafeActionState(
+    updateMangaMetadataAction,
+    initialAdminActionState,
+    {
+      registry: manageRegistry,
+      scope: (formData) => ({
+        kind: "manga",
+        mangaId: String(formData.get("mangaId") ?? ""),
+      }),
+      // Checked here too so slot problems surface before any image uploads.
+      validate: (formData, pending) => {
+        const slot = Number(formData.get("promoSlot"));
+        const mangaId = String(formData.get("mangaId") ?? "");
+
+        if (!slot) {
+          return null;
+        }
+
+        const current = mangaLibrary.find((entry) => entry.id === mangaId);
+        const willHaveBanner =
+          pending.some((upload) => upload.slot === "promo") ||
+          (Boolean(current?.promoImageUrl) &&
+            formData.get("removePromoImage") !== "on");
+
+        if (!willHaveBanner) {
+          return "Байрлал сонгохын өмнө баннер зураг оруулна уу.";
+        }
+
+        const holder = mangaLibrary.find(
+          (entry) =>
+            entry.promoSlot === slot &&
+            entry.id !== mangaId &&
+            Boolean(entry.promoImageUrl),
+        );
+
+        return holder && formData.get("swapPromoSlot") !== "on"
+          ? `${slot}-р байрлалд "${holder.mangaName}" баннер байна. Сольж тавих бол «Байрлалыг солих»-ыг чагтлаад дахин хадгална уу.`
+          : null;
+      },
+    },
+  );
   const [chapterOrderState, chapterOrderFormAction, chapterOrderPending] =
-    useActionState<AdminActionState, FormData>(
-      reorderChapterPagesAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(reorderChapterPagesAction, initialAdminActionState, {
+      onSuccess: (_result, formData) =>
+        loadChapterPages(String(formData.get("chapterId") ?? ""), true),
+    });
   const [chapterDeleteState, chapterDeleteFormAction, chapterDeletePending] =
-    useActionState<AdminActionState, FormData>(
-      deleteChapterAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(deleteChapterAction, initialAdminActionState);
   const [chapterMetaState, chapterMetaFormAction, chapterMetaPending] =
-    useActionState<AdminActionState, FormData>(
-      updateChapterMetadataAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(updateChapterMetadataAction, initialAdminActionState, {
+      registry: chapterMetaRegistry,
+      scope: (formData) => ({
+        kind: "chapter",
+        chapterId: String(formData.get("chapterId") ?? ""),
+      }),
+    });
   const [pageImageState, pageImageFormAction, pageImagePending] =
-    useActionState<AdminActionState, FormData>(
-      replaceChapterPageImageAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(replaceChapterPageImageAction, initialAdminActionState, {
+      registry: pageImageRegistry,
+      // Each page row parks its own file; a row's save uploads only its own.
+      groups: (formData) => [`page:${String(formData.get("pageId") ?? "")}`],
+      scope: (formData) => ({
+        kind: "chapter",
+        chapterId: String(formData.get("chapterId") ?? ""),
+      }),
+      validate: (formData, pending) =>
+        pending.length > 0 || formData.get("pageImageUrl")
+          ? null
+          : "Солих зургаа эхлээд сонгоно уу.",
+      onSuccess: (_result, formData) =>
+        loadChapterPages(String(formData.get("chapterId") ?? ""), true),
+    });
   const [pageDeleteState, pageDeleteFormAction, pageDeletePending] =
-    useActionState<AdminActionState, FormData>(
-      deleteChapterPageAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(deleteChapterPageAction, initialAdminActionState, {
+      onSuccess: (_result, formData) =>
+        loadChapterPages(String(formData.get("chapterId") ?? ""), true),
+    });
   const [defaultPosterState, defaultPosterFormAction, defaultPosterPending] =
-    useActionState<AdminActionState, FormData>(
-      setDefaultPosterAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(setDefaultPosterAction, initialAdminActionState);
   const [addPosterState, addPosterFormAction, addPosterPending] =
-    useActionState<AdminActionState, FormData>(
-      addPosterOptionAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(addPosterOptionAction, initialAdminActionState);
+  // The dedicated-poster upload shares the server action but has its own
+  // state, so a parked file can never ride along with the "from chapter art"
+  // form above it.
+  const [
+    uploadPosterState,
+    uploadPosterFormAction,
+    uploadPosterPending,
+  ] = useSafeActionState(addPosterOptionAction, initialAdminActionState, {
+    registry: posterUploadRegistry,
+    scope: (formData) => ({
+      kind: "manga",
+      mangaId: String(formData.get("mangaId") ?? ""),
+    }),
+    validate: (_formData, pending) =>
+      pending.length > 0 ? null : "Постер болгох зургаа сонгоно уу.",
+  });
   const [removePosterState, removePosterFormAction, removePosterPending] =
-    useActionState<AdminActionState, FormData>(
-      removePosterOptionAction,
-      initialAdminActionState,
-    );
+    useSafeActionState(removePosterOptionAction, initialAdminActionState);
+  const manageUploads = useUploadRegistryState(manageRegistry);
+  const posterUploads = useUploadRegistryState(posterUploadRegistry);
+  const chapterMetaUploads = useUploadRegistryState(chapterMetaRegistry);
+  const manualUploads = useUploadRegistryState(manualRegistry);
+  const driveUploads = useUploadRegistryState(driveRegistry);
   // "Add poster from existing artwork" picker: a chapter, then one of its
   // images (its thumbnail or any page).
   const [posterSourceChapterId, setPosterSourceChapterId] = useState("");
   const [posterSourceUrl, setPosterSourceUrl] = useState("");
-  const [newPosterName, setNewPosterName] = useState("");
-  const [coverName, setCoverName] = useState("");
-  const [homeCoverName, setHomeCoverName] = useState("");
-  const [promoImageName, setPromoImageName] = useState("");
-  const [detailCoverName, setDetailCoverName] = useState("");
-  const [chapterBadgeName, setChapterBadgeName] = useState("");
-  const [pageCount, setPageCount] = useState(0);
+  const [promoSlotChoice, setPromoSlotChoice] = useState<{
+    mangaId: string;
+    slot: number | null;
+  } | null>(null);
   const [driveImportMode, setDriveImportMode] = useState<DriveImportMode>(
     "new_manga_from_chapter",
   );
-  const initialChapterSignature = getChapterPageSignature(initialChapter);
   const [replacementFileState, setReplacementFileState] = useState<{
     signature: string;
     names: Record<string, string>;
   }>({
-    signature: initialChapterSignature,
+    signature: "",
     names: {},
   });
   const [pageDraftState, setPageDraftState] = useState<{
     signature: string;
     pages: PageDraftItem[];
   }>({
-    signature: initialChapterSignature,
-    pages: initialChapter ? getSortedPages(initialChapter) : [],
+    signature: "",
+    pages: [],
   });
 
   const selectedManga =
@@ -455,24 +585,36 @@ export function AdminConsole({
         ),
     [mangaLibrary],
   );
-  // Current promo-strip line-up, shown for the same reason as the hero one.
-  const promoSummary = useMemo(
-    () =>
-      mangaLibrary
-        .filter((entry) => Boolean(entry.promoImageUrl))
-        .sort(
-          (left, right) =>
-            (left.promoOrder ?? Number.MAX_SAFE_INTEGER) -
-              (right.promoOrder ?? Number.MAX_SAFE_INTEGER) ||
-            left.mangaName.localeCompare(right.mangaName),
-        ),
-    [mangaLibrary],
-  );
+  // Which series holds each homepage ad slot, for the slot picker.
+  const promoSlotHolders = useMemo(() => {
+    const holders = new Map<number, { id: string; mangaName: string }>();
+    for (const entry of mangaLibrary) {
+      if (entry.promoSlot && entry.promoImageUrl) {
+        holders.set(entry.promoSlot, { id: entry.id, mangaName: entry.mangaName });
+      }
+    }
+    return holders;
+  }, [mangaLibrary]);
+  // The slot picked in the form but not saved yet (drives the swap warning).
+  const pickedPromoSlot =
+    selectedManga && promoSlotChoice?.mangaId === selectedManga.id
+      ? promoSlotChoice.slot
+      : (selectedManga?.promoSlot ?? null);
+  const pickedSlotHolder =
+    pickedPromoSlot !== null && selectedManga
+      ? promoSlotHolders.get(pickedPromoSlot)
+      : undefined;
+  const promoSlotTaken =
+    Boolean(pickedSlotHolder) && pickedSlotHolder?.id !== selectedManga?.id;
+
   // Images the selected source chapter can contribute to the poster library.
   const posterSourceChapter =
     selectedManga?.chapters.find(
       (entry) => entry.id === posterSourceChapterId,
     ) ?? null;
+  const posterSourcePages = posterSourceChapter
+    ? pagesByChapter[posterSourceChapter.id]
+    : undefined;
   const posterSourceImages: Array<{ url: string; label: string }> =
     posterSourceChapter
       ? [
@@ -484,7 +626,7 @@ export function AdminConsole({
                 },
               ]
             : []),
-          ...posterSourceChapter.pages
+          ...(Array.isArray(posterSourcePages) ? posterSourcePages : [])
             .filter((page) => page.imageUrl !== posterSourceChapter.coverImage)
             .map((page) => ({
               url: page.imageUrl,
@@ -493,30 +635,26 @@ export function AdminConsole({
         ]
       : [];
 
-  const selectedChapterPageSignature = getChapterPageSignature(selectedChapter);
+  const selectedChapterPagesEntry = selectedChapter
+    ? pagesByChapter[selectedChapter.id]
+    : undefined;
+  const selectedChapterPages = Array.isArray(selectedChapterPagesEntry)
+    ? selectedChapterPagesEntry
+    : null;
+  const selectedChapterPageSignature = getChapterPageSignature(
+    selectedChapter?.id,
+    selectedChapterPages,
+  );
   const pageDraft =
     pageDraftState.signature === selectedChapterPageSignature
       ? pageDraftState.pages
-      : selectedChapter
-        ? getSortedPages(selectedChapter)
-        : [];
-  const replacementFileNames =
-    replacementFileState.signature === selectedChapterPageSignature
-      ? replacementFileState.names
-      : {};
+      : getSortedPages(selectedChapterPages ?? []);
 
-  const resetPageEditDraft = (chapter: ChapterOption | null) => {
-    const signature = getChapterPageSignature(chapter);
-
-    setPageDraftState({
-      signature,
-      pages: chapter ? getSortedPages(chapter) : [],
-    });
-    setReplacementFileState({
-      signature,
-      names: {},
-    });
-    setChapterBadgeName("");
+  const resetPageEditDraft = () => {
+    // An empty signature never matches, so the draft falls back to the
+    // freshly loaded pages.
+    setPageDraftState({ signature: "", pages: [] });
+    setReplacementFileState({ signature: "", names: {} });
   };
 
   const updatePageDraft = (
@@ -537,33 +675,48 @@ export function AdminConsole({
 
     setSelectedMangaId(mangaId);
     setSelectedChapterId(nextChapter?.id ?? "");
-    setHomeCoverName("");
-    setPromoImageName("");
-    setDetailCoverName("");
     setPosterSourceChapterId("");
     setPosterSourceUrl("");
-    setNewPosterName("");
-    resetPageEditDraft(nextChapter);
+    setPromoSlotChoice(null);
+    // Images parked for the previous series must not be saved onto this one.
+    manageRegistry.reset();
+    posterUploadRegistry.reset();
+    chapterMetaRegistry.reset();
+    pageImageRegistry.reset();
+    resetPageEditDraft();
+
+    if (activeView === "chapters" && nextChapter) {
+      void loadChapterPages(nextChapter.id);
+    }
   };
 
   const handleChapterSelectionChange = (chapterId: string) => {
-    const nextChapter =
-      selectedManga?.chapters.find((entry) => entry.id === chapterId) ?? null;
-
     setSelectedChapterId(chapterId);
-    resetPageEditDraft(nextChapter);
+    chapterMetaRegistry.reset();
+    pageImageRegistry.reset();
+    resetPageEditDraft();
+    void loadChapterPages(chapterId);
   };
 
-  const handleReplacementFileChange = (
-    pageId: string,
-    files: FileList | null,
-  ) => {
+  const openView = (view: AdminView) => {
+    setActiveView(view);
+
+    if (view === "chapters" && selectedChapter) {
+      void loadChapterPages(selectedChapter.id);
+    }
+  };
+
+  const replacementFileNames =
+    replacementFileState.signature === selectedChapterPageSignature
+      ? replacementFileState.names
+      : {};
+
+  const handleReplacementPicked = (pageId: string, fileName: string | null) => {
     setReplacementFileState((current) => {
       const nextNames =
         current.signature === selectedChapterPageSignature
           ? { ...current.names }
           : {};
-      const fileName = files?.[0]?.name;
 
       if (fileName) {
         nextNames[pageId] = fileName;
@@ -571,28 +724,20 @@ export function AdminConsole({
         delete nextNames[pageId];
       }
 
-      return {
-        signature: selectedChapterPageSignature,
-        names: nextNames,
-      };
+      return { signature: selectedChapterPageSignature, names: nextNames };
     });
   };
 
-  const activeState = driveState.message
-    ? driveState
-    : manualState.message
-      ? manualState
-      : pageDeleteState.message
-        ? pageDeleteState
-        : pageImageState.message
-          ? pageImageState
-          : chapterMetaState.message
-            ? chapterMetaState
-            : chapterDeleteState.message
-              ? chapterDeleteState
-              : chapterOrderState.message
-                ? chapterOrderState
-                : manageState;
+  // Page-top banner for the page-row actions. The main forms (manage, chapter,
+  // manual upload, Drive) show their result inline next to their own button,
+  // which on a phone is where the admin is looking.
+  const activeState = pageDeleteState.message
+    ? pageDeleteState
+    : pageImageState.message
+      ? pageImageState
+      : chapterDeleteState.message
+        ? chapterDeleteState
+        : chapterOrderState;
 
   const statusTone = useMemo(() => {
     if (!activeState.message) {
@@ -606,7 +751,7 @@ export function AdminConsole({
 
   return (
     <div className="yume-surface yume-admin min-h-screen">
-      <style>{ADMIN_STYLES}</style>
+      <style>{ADMIN_STYLES + DIRECT_UPLOAD_STYLES}</style>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 pb-12 pt-24 sm:px-6 lg:px-8">
         <header className="ad-card-glass motion-ink-up p-5 sm:p-7">
@@ -671,37 +816,43 @@ export function AdminConsole({
                   active={activeView === "manage"}
                   icon={PencilLine}
                   label="Манга засах"
-                  onClick={() => setActiveView("manage")}
+                  onClick={() => openView("manage")}
                 />
                 <ViewButton
                   active={activeView === "upload"}
                   icon={CloudUpload}
                   label="Гараар оруулах"
-                  onClick={() => setActiveView("upload")}
+                  onClick={() => openView("upload")}
                 />
                 <ViewButton
                   active={activeView === "chapters"}
                   icon={GripVertical}
                   label="Бүлгүүд"
-                  onClick={() => setActiveView("chapters")}
+                  onClick={() => openView("chapters")}
                 />
                 <ViewButton
                   active={activeView === "drive"}
                   icon={FolderSync}
                   label="Drive импорт"
-                  onClick={() => setActiveView("drive")}
+                  onClick={() => openView("drive")}
                 />
                 <ViewButton
                   active={activeView === "analytics"}
                   icon={BarChart3}
                   label="Үзэлт шалгах"
-                  onClick={() => setActiveView("analytics")}
+                  onClick={() => openView("analytics")}
                 />
                 <ViewButton
                   active={activeView === "users"}
                   icon={Users}
                   label="Хэрэглэгчдийн хүснэгт"
-                  onClick={() => setActiveView("users")}
+                  onClick={() => openView("users")}
+                />
+                <ViewButton
+                  active={activeView === "news"}
+                  icon={PenLine}
+                  label="Нийтлэл бичих"
+                  onClick={() => openView("news")}
                 />
               </div>
             </section>
@@ -718,6 +869,7 @@ export function AdminConsole({
                 </div>
 
                 {selectedManga ? (
+                  <UploadRegistryContext.Provider value={manageRegistry}>
                   <form
                     key={selectedManga.id}
                     action={manageFormAction}
@@ -753,50 +905,41 @@ export function AdminConsole({
                     />
 
                     <div className="grid gap-4 lg:grid-cols-2">
-                      <UploadField
+                      <DirectImageField
+                        name="homeCoverUrl"
+                        slot="home"
                         label="Нүүр хуудасны постер"
+                        existingImage={
+                          selectedManga.homeCoverImage || selectedManga.coverImage || null
+                        }
                         helper={
-                          homeCoverName ||
-                          (selectedManga.homeCoverImage ||
-                          selectedManga.coverImage
+                          selectedManga.homeCoverImage || selectedManga.coverImage
                             ? "Одоогийн нүүр постер хадгалагдсан."
-                            : "Нүүр хуудасны картанд харагдах босоо зураг.")
+                            : "Нүүр хуудасны картанд харагдах босоо зураг."
                         }
-                      >
-                        <input
-                          type="file"
-                          name="homeCoverImage"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(event) =>
-                            setHomeCoverName(event.target.files?.[0]?.name ?? "")
-                          }
-                        />
-                      </UploadField>
+                      />
 
-                      <UploadField
+                      <DirectImageField
+                        name="detailCoverUrl"
+                        slot="detail"
                         label="Дэлгэрэнгүй хуудасны постер"
-                        helper={
-                          detailCoverName ||
-                          (selectedManga.detailCoverImage ||
-                          selectedManga.coverImage
-                            ? "Одоогийн дэлгэрэнгүй постер хадгалагдсан."
-                            : "Манганы дэлгэрэнгүй хуудсанд томоор харагдана.")
+                        existingImage={
+                          selectedManga.detailCoverImage || selectedManga.coverImage || null
                         }
-                      >
-                        <input
-                          type="file"
-                          name="detailCoverImage"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(event) =>
-                            setDetailCoverName(
-                              event.target.files?.[0]?.name ?? "",
-                            )
-                          }
-                        />
-                      </UploadField>
+                        helper={
+                          selectedManga.detailCoverImage || selectedManga.coverImage
+                            ? "Одоогийн дэлгэрэнгүй постер хадгалагдсан."
+                            : "Манганы дэлгэрэнгүй хуудсанд томоор харагдана."
+                        }
+                      />
                     </div>
+                    {selectedManga.defaultPoster ? (
+                      <p className="ad-sub -mt-3">
+                        Одоо постерын сангаас сонгосон үндсэн постер харагдаж
+                        байна. Энд шинэ постер оруулж хадгалвал тэр нь
+                        солигдоно.
+                      </p>
+                    ) : null}
 
                     <div className="ad-soft p-4 sm:p-5">
                       <div className="mb-1 flex items-center gap-2">
@@ -859,33 +1002,24 @@ export function AdminConsole({
                         <h3 className="ad-h3">Зар сурталчилгааны баннер</h3>
                       </div>
                       <p className="ad-sub">
-                        Нүүр хуудасны 3:1 харьцаатай баннер. Зураг оруулсан
-                        манга л энэ хэсэгт харагдана — зургийг устгавал
-                        хасагдана. Онцлох слайдераас тусдаа.
+                        Нүүр хуудасны 3:1 харьцаатай баннер. Нүүр хуудсанд
+                        дөрвөн байрлал бий, байрлал бүрт нэг баннер. Байрлал
+                        сонгоогүй баннер хадгалагдах боловч харагдахгүй.
+                        Онцлох слайдераас тусдаа.
                       </p>
 
                       <div className="mt-4">
-                        <UploadField
+                        <DirectImageField
+                          name="promoImageUrl"
+                          slot="promo"
                           label="Баннер зураг (3:1)"
+                          previewAspect="3 / 1"
                           helper={
-                            promoImageName ||
-                            (selectedManga.promoImageUrl
-                              ? "Одоогийн баннер хадгалагдсан."
-                              : "Өргөн, 3:1 харьцаатай зураг сонгоно уу.")
+                            selectedManga.promoImageUrl
+                              ? "Одоогийн баннерыг солих бол шинэ зураг сонгоно уу."
+                              : "Өргөн, 3:1 харьцаатай зураг сонгоно уу."
                           }
-                        >
-                          <input
-                            type="file"
-                            name="promoImage"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(event) =>
-                              setPromoImageName(
-                                event.target.files?.[0]?.name ?? "",
-                              )
-                            }
-                          />
-                        </UploadField>
+                        />
                       </div>
 
                       {selectedManga.promoImageUrl ? (
@@ -914,36 +1048,128 @@ export function AdminConsole({
                         </>
                       ) : null}
 
-                      <div className="mt-4 max-w-55">
-                        <Field
-                          label="Эрэмбэ (1 = эхний баннер)"
-                          name="promoOrder"
-                          type="number"
-                          min={1}
-                          step={1}
-                          placeholder="1"
-                          defaultValue={selectedManga.promoOrder ?? ""}
+                      <div className="mt-4">
+                        <SelectField
+                          label="Нүүр хуудасны байрлал"
+                          name="promoSlot"
+                          value={pickedPromoSlot ?? ""}
+                          onChange={(event) =>
+                            setPromoSlotChoice({
+                              mangaId: selectedManga.id,
+                              slot: event.target.value
+                                ? Number(event.target.value)
+                                : null,
+                            })
+                          }
+                        >
+                          <option value="">Харуулахгүй</option>
+                          {[1, 2, 3, 4].map((slot) => {
+                            const holder = promoSlotHolders.get(slot);
+                            const occupant =
+                              holder && holder.id !== selectedManga.id
+                                ? ` (эзэлсэн: ${holder.mangaName})`
+                                : "";
+
+                            return (
+                              <option key={slot} value={slot}>
+                                {slot} — {PROMO_SLOT_LABELS[slot]}
+                                {occupant}
+                              </option>
+                            );
+                          })}
+                        </SelectField>
+                      </div>
+
+                      {promoSlotTaken && pickedSlotHolder ? (
+                        <div className="ad-banner ad-banner-err mt-3">
+                          <AlertCircle size={17} className="mt-0.5 shrink-0" />
+                          <div className="space-y-2">
+                            <p>
+                              {pickedPromoSlot}-р байрлалд &ldquo;
+                              {pickedSlotHolder.mangaName}&rdquo; баннер байна.
+                            </p>
+                            <label className="flex items-start gap-2">
+                              <input
+                                type="checkbox"
+                                name="swapPromoSlot"
+                                className="mt-1 h-4 w-4"
+                              />
+                              <span>
+                                Байрлалыг солих —{" "}
+                                {selectedManga.promoSlot
+                                  ? `"${pickedSlotHolder.mangaName}" ${selectedManga.promoSlot}-р байрлал руу шилжинэ.`
+                                  : `"${pickedSlotHolder.mangaName}" байрлалгүй болж, харагдахгүй болно.`}
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <p className="ad-sub mt-4">
+                        Одоогийн байрлал:{" "}
+                        <span style={{ color: "var(--home-plum)" }}>
+                          {[1, 2, 3, 4]
+                            .map(
+                              (slot) =>
+                                `${slot}. ${promoSlotHolders.get(slot)?.mangaName ?? "—"}`,
+                            )
+                            .join(" · ")}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="ad-soft p-4 sm:p-5">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Gift size={17} style={{ color: "var(--home-gold)" }} />
+                        <h3 className="ad-h3">Бэлэг background</h3>
+                      </div>
+                      <p className="ad-sub">
+                        Зураг тохируулсан манга л бэлэг өгнө. Энэ манганы
+                        нийтлэгдсэн бүх бүлгийг уншиж дуусгасан нэвтэрсэн
+                        уншигч энэ background-ыг нэг удаа авч, МЭДЭЭ-нд мэдэгдэл
+                        очно.
+                      </p>
+
+                      <div className="mt-4">
+                        <DirectImageField
+                          name="rewardBackgroundUrl"
+                          slot="reward"
+                          keepOriginal={{
+                            name: "rewardBackgroundOriginalUrl",
+                            slot: "reward-original",
+                          }}
+                          label="Бэлэг background"
+                          previewAspect="9 / 16"
+                          existingImage={selectedManga.rewardBackgroundUrl || null}
+                          helper={
+                            selectedManga.rewardBackgroundUrl
+                              ? "Солих бол шинэ зураг сонгоно уу. Өмнө нь авсан уншигчдад хуучин зураг нь үлдэнэ."
+                              : "Босоо зураг тохиромжтой. Эх файл нь татаж авахад зориулж хадгалагдана."
+                          }
                         />
                       </div>
 
-                      {promoSummary.length > 0 ? (
-                        <p className="ad-sub mt-4">
-                          Одоогийн дараалал:{" "}
-                          <span style={{ color: "var(--home-plum)" }}>
-                            {promoSummary
-                              .map(
-                                (entry, index) =>
-                                  `${entry.promoOrder ?? index + 1}. ${entry.mangaName}`,
-                              )
-                              .join(" · ")}
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="ad-sub mt-4">
-                          Одоогоор баннер алга — нүүр хуудсанд энэ хэсэг
-                          харагдахгүй.
-                        </p>
-                      )}
+                      {selectedManga.rewardBackgroundUrl ? (
+                        <>
+                          <p className="ad-sub mt-3">
+                            Одоогоор{" "}
+                            <span style={{ color: "var(--home-plum)", fontWeight: 600 }}>
+                              {selectedManga.rewardCount}
+                            </span>{" "}
+                            уншигч энэ бэлгийг авсан.
+                          </p>
+                          <label className="ad-check mt-3">
+                            <input
+                              type="checkbox"
+                              name="removeRewardBackground"
+                              className="mt-0.5 h-4 w-4"
+                            />
+                            <span>
+                              Бэлэг background-ыг хасах (авсан уншигчдад үлдэнэ)
+                            </span>
+                          </label>
+                        </>
+                      ) : null}
                     </div>
 
                     <div className="ad-soft p-4 sm:p-5">
@@ -988,17 +1214,22 @@ export function AdminConsole({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <button
                         type="submit"
-                        disabled={managePending}
+                        disabled={managePending || manageUploads.preparing > 0}
                         className="ad-btn ad-btn-primary w-full sm:w-auto"
                       >
                         <PencilLine size={17} />
                         Манга хадгалах
                       </button>
-                      {managePending ? (
+                      {manageUploads.progress !== null ||
+                      manageUploads.preparing > 0 ? (
+                        <UploadProgressNote registry={manageRegistry} />
+                      ) : managePending ? (
                         <p className="ad-sub">Манганы мэдээллийг хадгалж байна...</p>
                       ) : null}
                     </div>
+                    <FormStatus state={manageState} />
                   </form>
+                  </UploadRegistryContext.Provider>
                 ) : null}
 
                 {selectedManga ? (
@@ -1205,11 +1436,12 @@ export function AdminConsole({
                               );
 
                               setPosterSourceChapterId(event.target.value);
-                              setPosterSourceUrl(
-                                chapter?.coverImage ||
-                                  chapter?.pages[0]?.imageUrl ||
-                                  "",
-                              );
+                              // Its pages load on demand; until then the
+                              // thumbnail is the only choice.
+                              setPosterSourceUrl(chapter?.coverImage || "");
+                              if (chapter) {
+                                void loadChapterPages(chapter.id);
+                              }
                             }}
                           >
                             <option value="">— Бүлэг сонгох —</option>
@@ -1229,7 +1461,11 @@ export function AdminConsole({
                               setPosterSourceUrl(event.target.value)
                             }
                           >
-                            <option value="">— Зураг сонгох —</option>
+                            <option value="">
+                              {posterSourceChapter && posterSourcePages === undefined
+                                ? "Хуудсуудыг ачаалж байна..."
+                                : "— Зураг сонгох —"}
+                            </option>
                             {posterSourceImages.map((image) => (
                               <option key={image.url} value={image.url}>
                                 {image.label}
@@ -1263,8 +1499,21 @@ export function AdminConsole({
                         </div>
                       </form>
 
+                      {addPosterState.message ? (
+                        <p
+                          className="mt-3 text-sm font-medium"
+                          style={{
+                            color: addPosterState.ok ? "#3f7d57" : "#c44d66",
+                          }}
+                        >
+                          {addPosterState.message}
+                        </p>
+                      ) : null}
+
+                      <UploadRegistryContext.Provider value={posterUploadRegistry}>
                       <form
-                        action={addPosterFormAction}
+                        key={`poster-upload-${selectedManga.id}`}
+                        action={uploadPosterFormAction}
                         className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end"
                       >
                         <input
@@ -1272,25 +1521,12 @@ export function AdminConsole({
                           name="mangaId"
                           value={selectedManga.id}
                         />
-                        <UploadField
+                        <DirectImageField
+                          name="posterUrl"
+                          slot="poster"
                           label="Тусгай постер оруулах"
-                          helper={
-                            newPosterName ||
-                            "Бүлгийн зурагтай хамааралгүй, зөвхөн постерт зориулсан босоо зураг."
-                          }
-                        >
-                          <input
-                            type="file"
-                            name="posterFile"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(event) =>
-                              setNewPosterName(
-                                event.target.files?.[0]?.name ?? "",
-                              )
-                            }
-                          />
-                        </UploadField>
+                          helper="Бүлгийн зурагтай хамааралгүй, зөвхөн постерт зориулсан босоо зураг."
+                        />
                         <div className="flex flex-col gap-3">
                           <label className="ad-check">
                             <input
@@ -1303,7 +1539,11 @@ export function AdminConsole({
                           </label>
                           <button
                             type="submit"
-                            disabled={addPosterPending}
+                            disabled={
+                              uploadPosterPending ||
+                              posterUploads.preparing > 0 ||
+                              posterUploads.count === 0
+                            }
                             className="ad-btn ad-btn-primary"
                           >
                             <CloudUpload size={16} />
@@ -1311,15 +1551,17 @@ export function AdminConsole({
                           </button>
                         </div>
                       </form>
+                      <UploadProgressNote registry={posterUploadRegistry} />
+                      </UploadRegistryContext.Provider>
 
-                      {addPosterState.message ? (
+                      {uploadPosterState.message ? (
                         <p
                           className="mt-3 text-sm font-medium"
                           style={{
-                            color: addPosterState.ok ? "#3f7d57" : "#c44d66",
+                            color: uploadPosterState.ok ? "#3f7d57" : "#c44d66",
                           }}
                         >
-                          {addPosterState.message}
+                          {uploadPosterState.message}
                         </p>
                       ) : null}
                     </div>
@@ -1407,6 +1649,7 @@ export function AdminConsole({
                           </div>
                         </div>
 
+                        <UploadRegistryContext.Provider value={chapterMetaRegistry}>
                         <form
                           key={selectedChapter.id}
                           action={chapterMetaFormAction}
@@ -1436,33 +1679,26 @@ export function AdminConsole({
                           </div>
                           <div className="mt-4 grid gap-4 lg:grid-cols-2">
                             <ImageEditorField
-                              name="chapterCoverImage"
+                              name="chapterCoverUrl"
+                              slot="cover"
                               label="Бүлгийн thumbnail"
-                              helper="Зургаа тайрч, эргүүлж, өнгө тохируулаад хадгална."
+                              helper="Зургаа тайрч, эргүүлж, өнгө тохируулаад хадгална. Сүүлийн шинэчлэлийн картанд 3:4-өөр харагдана."
                               existingImage={selectedChapter.coverImage || null}
                             />
 
-                            <UploadField
+                            <DirectImageField
+                              name="chapterBadgeUrl"
+                              slot="badge"
                               label="Тусгай тэмдэг (PNG)"
+                              accept="image/png,image/webp,image/*"
+                              previewAspect="1 / 1"
+                              existingImage={selectedChapter.badgeImage || null}
                               helper={
-                                chapterBadgeName ||
-                                (selectedChapter.badgeImage
+                                selectedChapter.badgeImage
                                   ? "Дугаарын оронд харагдах тэмдэг хадгалагдсан."
-                                  : "Дугаарын оронд харагдах PNG зураг. Тунгалаг дэвсгэр дэмжинэ.")
+                                  : "Дугаарын оронд харагдах PNG зураг. Тунгалаг дэвсгэр дэмжинэ."
                               }
-                            >
-                              <input
-                                type="file"
-                                name="chapterBadgeImage"
-                                accept="image/png,image/webp,image/*"
-                                className="hidden"
-                                onChange={(event) =>
-                                  setChapterBadgeName(
-                                    event.target.files?.[0]?.name ?? "",
-                                  )
-                                }
-                              />
-                            </UploadField>
+                            />
                           </div>
 
                           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -1493,21 +1729,51 @@ export function AdminConsole({
                           <div className="mt-4 flex justify-end">
                             <button
                               type="submit"
-                              disabled={chapterMetaPending}
+                              disabled={
+                                chapterMetaPending || chapterMetaUploads.preparing > 0
+                              }
                               className="ad-btn ad-btn-primary"
                             >
                               <PencilLine size={17} />
                               Бүлэг хадгалах
                             </button>
                           </div>
-                          {chapterMetaPending ? (
-                            <p className="ad-sub mt-3">
-                              Бүлгийн мэдээллийг хадгалж байна...
-                            </p>
-                          ) : null}
+                          <div className="mt-3">
+                            {chapterMetaUploads.progress !== null ||
+                            chapterMetaUploads.preparing > 0 ? (
+                              <UploadProgressNote registry={chapterMetaRegistry} />
+                            ) : chapterMetaPending ? (
+                              <p className="ad-sub">
+                                Бүлгийн мэдээллийг хадгалж байна...
+                              </p>
+                            ) : null}
+                          </div>
+                          <FormStatus state={chapterMetaState} />
                         </form>
+                        </UploadRegistryContext.Provider>
 
                         <div className="space-y-3">
+                          {selectedChapterPagesEntry === "error" ? (
+                            <div className="ad-banner ad-banner-err">
+                              <AlertCircle size={17} className="mt-0.5 shrink-0" />
+                              <div>
+                                <p>Хуудсуудыг ачаалж чадсангүй.</p>
+                                <button
+                                  type="button"
+                                  className="ad-btn ad-btn-line mt-3"
+                                  onClick={() =>
+                                    loadChapterPages(selectedChapter.id, true)
+                                  }
+                                >
+                                  Дахин ачаалах
+                                </button>
+                              </div>
+                            </div>
+                          ) : !selectedChapterPages ? (
+                            <p className="ad-sub">
+                              {selectedChapter.pageCount} хуудсыг ачаалж байна...
+                            </p>
+                          ) : null}
                           {pageDraft.map((page, index) => (
                             <div key={page.id} className="ad-page">
                               <div className="flex items-center gap-3">
@@ -1582,36 +1848,19 @@ export function AdminConsole({
                                     name="pageId"
                                     value={page.id}
                                   />
-                                  <label
-                                    className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm transition"
-                                    style={{
-                                      border: "1px solid var(--home-line)",
-                                      background: "var(--home-paper)",
-                                      color: "var(--home-plum)",
-                                    }}
-                                  >
-                                    <FileImage
-                                      size={16}
-                                      className="shrink-0"
-                                      style={{ color: "var(--home-gold)" }}
-                                    />
-                                    <span className="truncate">
-                                      {replacementFileNames[page.id] ??
-                                        "Солих зураг сонгох"}
-                                    </span>
-                                    <input
-                                      type="file"
-                                      name="pageImage"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(event) =>
-                                        handleReplacementFileChange(
-                                          page.id,
-                                          event.target.files,
-                                        )
-                                      }
-                                    />
-                                  </label>
+                                  <input
+                                    type="hidden"
+                                    name="chapterId"
+                                    value={selectedChapter.id}
+                                  />
+                                  <PageReplacementPicker
+                                    registry={pageImageRegistry}
+                                    pageId={page.id}
+                                    fileName={replacementFileNames[page.id]}
+                                    onPicked={(fileName) =>
+                                      handleReplacementPicked(page.id, fileName)
+                                    }
+                                  />
                                   <button
                                     type="submit"
                                     disabled={pageImagePending}
@@ -1627,6 +1876,11 @@ export function AdminConsole({
                                     type="hidden"
                                     name="pageId"
                                     value={page.id}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="chapterId"
+                                    value={selectedChapter.id}
                                   />
                                   <button
                                     type="submit"
@@ -1659,7 +1913,7 @@ export function AdminConsole({
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                             <button
                               type="submit"
-                              disabled={chapterOrderPending}
+                              disabled={chapterOrderPending || !selectedChapterPages}
                               className="ad-btn ad-btn-primary w-full sm:w-auto"
                             >
                               <GripVertical size={17} />
@@ -1738,61 +1992,52 @@ export function AdminConsole({
                   </h2>
                 </div>
 
+                <UploadRegistryContext.Provider value={manualRegistry}>
                 <form action={manualFormAction} className="space-y-6">
                   <MetadataFields />
 
                   <div className="grid gap-4 lg:grid-cols-2">
-                    <UploadField
+                    <DirectImageField
+                      name="coverImageUrl"
+                      slot="manga-cover"
                       label="Постер зураг"
-                      helper={coverName || "Сонголттой. JPG, PNG, WEBP."}
-                    >
-                      <input
-                        type="file"
-                        name="coverImage"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) =>
-                          setCoverName(event.target.files?.[0]?.name ?? "")
-                        }
-                      />
-                    </UploadField>
+                      helper="Сонголттой. JPG, PNG, WEBP."
+                    />
 
-                    <UploadField
+                    <DirectPagesField
+                      name="pageUrls"
                       label="Бүлгийн хуудсууд"
-                      helper={
-                        pageCount > 0
-                          ? `${pageCount} файл upload-д бэлэн`
-                          : "Заавал. Унших дарааллаар бүх хуудсаа сонгоно."
-                      }
-                    >
-                      <input
-                        type="file"
-                        name="pages"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        required
-                        onChange={(event) =>
-                          setPageCount(event.target.files?.length ?? 0)
-                        }
-                      />
-                    </UploadField>
+                      helper="Заавал. Унших дарааллаар бүх хуудсаа сонгоно."
+                    />
+
+                    <ImageEditorField
+                      name="chapterCoverUrl"
+                      slot="chapter-cover"
+                      label="Бүлгийн thumbnail"
+                      helper="Сонголттой. Сүүлийн шинэчлэлийн картанд харагдана — оруулахгүй бол эхний хуудас харагдана."
+                    />
                   </div>
 
                   <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
-                    Файлууд эхлээд Cloudflare R2 руу орж, public URL нь Prisma-аар
-                    Neon-д хадгалагдана.
+                    Зургууд таны төхөөрөмжөөс шууд Cloudflare R2 руу орж, зөвхөн
+                    холбоос нь Neon-д хадгалагдана.
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <SubmitButton pending={manualPending} />
-                    {manualPending ? (
+                    <SubmitButton
+                      pending={manualPending || manualUploads.preparing > 0}
+                    />
+                    {manualUploads.progress !== null ? (
+                      <UploadProgressNote registry={manualRegistry} />
+                    ) : manualPending ? (
                       <p className="ad-sub">
                         Хуудсуудыг upload хийж, DB-д бичиж байна...
                       </p>
                     ) : null}
                   </div>
+                  <FormStatus state={manualState} />
                 </form>
+                </UploadRegistryContext.Provider>
               </section>
             ) : null}
 
@@ -1807,6 +2052,7 @@ export function AdminConsole({
                   </p>
                 </div>
 
+                <UploadRegistryContext.Provider value={driveRegistry}>
                 <form action={driveFormAction} className="space-y-6">
                   <input
                     type="hidden"
@@ -1817,9 +2063,11 @@ export function AdminConsole({
                   <SelectField
                     label="Импортын горим"
                     value={driveImportMode}
-                    onChange={(event) =>
-                      setDriveImportMode(event.target.value as DriveImportMode)
-                    }
+                    onChange={(event) => {
+                      setDriveImportMode(event.target.value as DriveImportMode);
+                      // Bulk mode has no chapter cover field; drop any parked one.
+                      driveRegistry.reset();
+                    }}
                   >
                     <option value="new_manga_from_chapter">
                       Нэг бүлгийн хавтсаас шинэ манга үүсгэх
@@ -1883,6 +2131,15 @@ export function AdminConsole({
                     required
                   />
 
+                  {driveImportMode !== "bulk_parent_folder" ? (
+                    <ImageEditorField
+                      name="chapterCoverUrl"
+                      slot="chapter-cover"
+                      label="Бүлгийн thumbnail"
+                      helper="Сонголттой. Сүүлийн шинэчлэлийн картанд харагдана — оруулахгүй бол эхний хуудас харагдана."
+                    />
+                  ) : null}
+
                   <label className="ad-check">
                     <input
                       type="checkbox"
@@ -1904,14 +2161,20 @@ export function AdminConsole({
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <DriveSubmitButton pending={drivePending} />
-                    {drivePending ? (
+                    <DriveSubmitButton
+                      pending={drivePending || driveUploads.preparing > 0}
+                    />
+                    {driveUploads.progress !== null ? (
+                      <UploadProgressNote registry={driveRegistry} />
+                    ) : drivePending ? (
                       <p className="ad-sub">
                         Drive-аас зураг татаж R2-д хадгалж байна...
                       </p>
                     ) : null}
                   </div>
+                  <FormStatus state={driveState} />
                 </form>
+                </UploadRegistryContext.Provider>
               </section>
             ) : null}
 
@@ -1927,6 +2190,8 @@ export function AdminConsole({
             ) : null}
 
             {activeView === "users" ? <UsersTablePanel /> : null}
+
+            {activeView === "news" ? <NewsPanel /> : null}
           </div>
 
           <aside className="space-y-6">
@@ -2209,41 +2474,6 @@ function TextAreaField(
   );
 }
 
-function UploadField({
-  label,
-  helper,
-  children,
-}: {
-  label: string;
-  helper: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="ad-label">{label}</span>
-      <div className="ad-upload group">
-        {children}
-        <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
-          <div className="ad-upload-ico">
-            <FileImage size={20} />
-          </div>
-          <div>
-            <p
-              className="text-sm font-semibold"
-              style={{ color: "var(--home-plum)" }}
-            >
-              Зураг сонгох
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--home-plum-soft)" }}>
-              {helper}
-            </p>
-          </div>
-        </div>
-      </div>
-    </label>
-  );
-}
-
 function StatusTile({
   icon: Icon,
   label,
@@ -2292,25 +2522,125 @@ function moveDraftItem<T>(items: T[], fromIndex: number, toIndex: number) {
 }
 
 function getChapterPageSignature(
-  chapter: {
-    id?: string;
-    pages: PageDraftItem[];
-  } | null,
+  chapterId: string | undefined,
+  pages: PageDraftItem[] | null,
 ) {
-  if (!chapter) {
-    return "no-chapter";
+  if (!chapterId || !pages) {
+    return `pending:${chapterId ?? "none"}`;
   }
 
-  const pageSignature = chapter.pages
+  const pageSignature = pages
     .map((page) => `${page.id}:${page.pageNumber}:${page.imageUrl}`)
     .join("|");
 
-  return `${chapter.id ?? "chapter"}:${pageSignature}`;
+  return `${chapterId}:${pageSignature}`;
 }
 
-function getSortedPages(chapter: { pages: PageDraftItem[] }) {
-  return [...chapter.pages].sort(
-    (left, right) => left.pageNumber - right.pageNumber,
+function getSortedPages(pages: PageDraftItem[]) {
+  return [...pages].sort((left, right) => left.pageNumber - right.pageNumber);
+}
+
+/**
+ * The result of a form's last save, shown next to its button. On a phone the
+ * page-top banner is far out of view by the time you reach "save".
+ */
+function FormStatus({ state }: { state: AdminActionState }) {
+  if (!state.message) {
+    return null;
+  }
+
+  const Icon = state.ok ? CheckCircle2 : AlertCircle;
+
+  return (
+    <div
+      role={state.ok ? "status" : "alert"}
+      className={`ad-banner mt-4 ${state.ok ? "ad-banner-ok" : "ad-banner-err"}`}
+    >
+      <Icon size={18} className="mt-0.5 shrink-0" />
+      <p>{state.message}</p>
+    </div>
+  );
+}
+
+/**
+ * Picks a replacement for one page and parks it (untouched, full quality)
+ * under that page's own registry group, so each row's "Солих" sends only its
+ * own file.
+ */
+function PageReplacementPicker({
+  registry,
+  pageId,
+  fileName,
+  onPicked,
+}: {
+  registry: UploadRegistry;
+  pageId: string;
+  fileName: string | undefined;
+  onPicked: (fileName: string | null) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="min-w-0">
+      <label
+        className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm transition"
+        style={{
+          border: "1px solid var(--home-line)",
+          background: "var(--home-paper)",
+          color: "var(--home-plum)",
+        }}
+      >
+        <FileImage
+          size={16}
+          className="shrink-0"
+          style={{ color: "var(--home-gold)" }}
+        />
+        <span className="truncate">{fileName ?? "Солих зураг сонгох"}</span>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+
+            if (!file) {
+              return;
+            }
+
+            const contentType =
+              file.type ||
+              (/\.png$/i.test(file.name)
+                ? "image/png"
+                : /\.webp$/i.test(file.name)
+                  ? "image/webp"
+                  : "image/jpeg");
+
+            if (!/^image\/(jpeg|png|webp|gif|avif)$/.test(contentType)) {
+              setError("Зөвхөн JPG, PNG, WEBP, GIF, AVIF зураг оруулна.");
+              return;
+            }
+
+            setError(null);
+            registry.set(`page:${pageId}`, [
+              {
+                field: "pageImageUrl",
+                slot: "page",
+                blob: file,
+                contentType,
+                fileName: file.name,
+              },
+            ]);
+            onPicked(file.name);
+          }}
+        />
+      </label>
+      {error ? (
+        <p className="mt-1 text-xs" style={{ color: "#9c4a59" }}>
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

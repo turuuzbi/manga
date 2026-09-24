@@ -11,6 +11,7 @@ import {
   listGoogleDriveImages,
 } from "@/lib/google-drive";
 import { deleteFromR2, getR2KeyFromUrl, uploadToR2 } from "@/lib/r2";
+import { readUploadedUrl, readUploadedUrls } from "@/lib/uploads";
 import {
   MAX_PAYWALLED_LATEST_CHAPTERS,
   PLANS,
@@ -36,8 +37,33 @@ export type AdminActionState = {
  * filter on a non-empty count, so a stale row can never surface even between
  * a write and this cleanup.
  */
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
 async function pruneOrphanGenres() {
   await prisma.genre.deleteMany({ where: { mangas: { none: {} } } });
+}
+
+/**
+ * Every reader-facing page that shows a series' artwork, chapters or banner.
+ * Revalidating all of them after a change is what keeps an old poster from
+ * lingering in the router cache — `/manga` (the library) and `/updates` were
+ * previously left out, so a replaced poster could still show there.
+ */
+function revalidateSeriesSurfaces(mangaId?: string | null) {
+  revalidatePath("/");
+  revalidatePath("/manga");
+  revalidatePath("/updates");
+  revalidatePath("/admin");
+
+  if (mangaId) {
+    revalidatePath(`/manga/${mangaId}`);
+  }
 }
 
 export type AdminUsersOverview = {
@@ -327,10 +353,6 @@ function slugifySegment(value: string) {
     .slice(0, 80);
 }
 
-function isUploadFile(value: FormDataEntryValue | null): value is File {
-  return value instanceof File && value.size > 0;
-}
-
 function parseGenres(value: string) {
   return [
     ...new Set(
@@ -367,13 +389,24 @@ function parseMangaMetadataInput(formData: FormData) {
     titleFont: String(formData.get("titleFont") ?? "").trim(),
     isFeatured: formData.get("isFeatured") === "on",
     featuredOrder: parseFeaturedOrder(formData.get("featuredOrder")),
-    // Same shape as featuredOrder: a positive integer, or null for "unordered".
-    promoOrder: parseFeaturedOrder(formData.get("promoOrder")),
+    promoSlot: parsePromoSlot(formData.get("promoSlot")),
+    swapPromoSlot: formData.get("swapPromoSlot") === "on",
     removePromoImage: formData.get("removePromoImage") === "on",
+    removeRewardBackground: formData.get("removeRewardBackground") === "on",
     paywalledChapters: parsePaywalledChapters(
       formData.get("paywalledChapters"),
     ),
   };
+}
+
+/** Homepage ad slots, top to bottom. See HomeLanding for where each sits. */
+const PROMO_SLOTS = [1, 2, 3, 4] as const;
+
+/** A homepage ad slot 1–4, or null for "keep the banner but don't show it". */
+function parsePromoSlot(value: FormDataEntryValue | null): number | null {
+  const parsed = Number(String(value ?? "").trim());
+
+  return (PROMO_SLOTS as readonly number[]).includes(parsed) ? parsed : null;
 }
 
 /**
@@ -482,11 +515,14 @@ function validateChapterAppendInput(
   return null;
 }
 
-async function createMangaRecord(input: IngestionInput) {
+async function createMangaRecord(input: IngestionInput, id?: string | null) {
   const genres = parseGenres(input.genreInput);
 
   return prisma.manga.create({
     data: {
+      // Reserved when the browser uploaded this series' files first, so the
+      // row matches the `manga/<id>/` folder they already sit in.
+      ...(id ? { id } : {}),
       mangaName: input.mangaName,
       description: input.description || null,
       author: input.author || null,
@@ -546,14 +582,6 @@ async function attachCoverToManga({
   return url;
 }
 
-async function uploadAssetFromFile(file: File): Promise<UploadAsset> {
-  return {
-    name: file.name,
-    contentType: file.type || "application/octet-stream",
-    buffer: Buffer.from(await file.arrayBuffer()),
-  };
-}
-
 async function uploadMangaCoverAsset({
   mangaId,
   mangaName,
@@ -580,21 +608,50 @@ async function createChapterWithPages({
   mangaName,
   chapterNumber,
   chapterTitle,
-  pageAssets,
+  pageAssets = [],
+  pageUrls,
+  chapterId,
+  coverImage,
 }: {
   mangaId: string;
   mangaName: string;
   chapterNumber: number;
   chapterTitle?: string | null;
-  pageAssets: UploadAsset[];
+  /** Page bytes to upload from here (the Google Drive import). */
+  pageAssets?: UploadAsset[];
+  /** Pages the browser already uploaded to R2, in reading order. */
+  pageUrls?: string[];
+  /** Reserved id matching the folder the browser uploaded into. */
+  chapterId?: string | null;
+  /** Chapter cover ("Бүлгийн thumbnail"), already uploaded. */
+  coverImage?: string | null;
 }) {
   const chapter = await prisma.chapter.create({
     data: {
+      ...(chapterId ? { id: chapterId } : {}),
       mangaId,
       chapterNumber,
       title: chapterTitle || null,
+      coverImage: coverImage || null,
     },
   });
+
+  if (pageUrls) {
+    await prisma.page.createMany({
+      data: pageUrls.map((imageUrl, index) => ({
+        chapterId: chapter.id,
+        pageNumber: index + 1,
+        imageUrl,
+      })),
+    });
+
+    return {
+      mangaId,
+      mangaName,
+      chapterId: chapter.id,
+      pageCount: pageUrls.length,
+    };
+  }
 
   const pagesToCreate = [];
 
@@ -634,12 +691,18 @@ async function createMangaIngestion({
   input,
   coverAsset,
   pageAssets,
+  mangaId,
+  chapterId,
+  chapterCoverImage,
 }: {
   input: IngestionInput;
   coverAsset?: UploadAsset | null;
   pageAssets: UploadAsset[];
+  mangaId?: string | null;
+  chapterId?: string | null;
+  chapterCoverImage?: string | null;
 }) {
-  const manga = await createMangaRecord(input);
+  const manga = await createMangaRecord(input, mangaId);
 
   await attachCoverToManga({
     mangaId: manga.id,
@@ -653,6 +716,8 @@ async function createMangaIngestion({
     chapterNumber: input.chapterNumberValue,
     chapterTitle: input.chapterTitle || null,
     pageAssets,
+    chapterId,
+    coverImage: chapterCoverImage,
   });
 }
 
@@ -662,12 +727,16 @@ async function appendChapterToManga({
   chapterTitle,
   pageAssets,
   setCoverFromFirstPage,
+  chapterId,
+  chapterCoverImage,
 }: {
   mangaId: string;
   chapterNumber: number;
   chapterTitle?: string | null;
   pageAssets: UploadAsset[];
   setCoverFromFirstPage?: boolean;
+  chapterId?: string | null;
+  chapterCoverImage?: string | null;
 }) {
   const manga = await prisma.manga.findUnique({
     where: { id: mangaId },
@@ -710,7 +779,44 @@ async function appendChapterToManga({
     chapterNumber,
     chapterTitle,
     pageAssets,
+    chapterId,
+    coverImage: chapterCoverImage,
   });
+}
+
+/**
+ * The ids the browser reserved when it uploaded a new chapter's files, plus
+ * those files' URLs — each checked to sit under the reserved folders.
+ */
+function readIngestUploads(
+  formData: FormData,
+  { existingMangaId }: { existingMangaId?: string | null } = {},
+) {
+  const reservedMangaId = String(formData.get("reservedMangaId") ?? "").trim();
+  const reservedChapterId = String(formData.get("reservedChapterId") ?? "").trim();
+  const mangaId = existingMangaId || reservedMangaId || null;
+  const chapterId = reservedChapterId || null;
+
+  if (!mangaId || !chapterId) {
+    return {
+      mangaId: existingMangaId ? null : reservedMangaId || null,
+      chapterId: null,
+      mangaCoverUrl: null,
+      chapterCoverUrl: null,
+      pageUrls: [] as string[],
+    };
+  }
+
+  const mangaRoot = `manga/${mangaId}/`;
+  const chapterRoot = `${mangaRoot}chapters/${chapterId}/`;
+
+  return {
+    mangaId: existingMangaId ? null : reservedMangaId || null,
+    chapterId,
+    mangaCoverUrl: readUploadedUrl(formData, "coverImageUrl", `${mangaRoot}cover/`),
+    chapterCoverUrl: readUploadedUrl(formData, "chapterCoverUrl", `${chapterRoot}cover/`),
+    pageUrls: readUploadedUrls(formData, "pageUrls", chapterRoot),
+  };
 }
 
 async function buildDrivePageAssets(folderId: string) {
@@ -786,46 +892,53 @@ export async function ingestMangaAction(
     }
 
     const input = parseIngestionInput(formData);
-    const coverImage = formData.get("coverImage");
-    const pageFiles = formData.getAll("pages").filter(isUploadFile);
-    const validationError = validateIngestionInput(input, pageFiles.length);
+    // The browser uploaded the pages straight to R2 (already in reading
+    // order) under ids it reserved; only their URLs arrive here.
+    const uploads = readIngestUploads(formData);
+    const validationError = validateIngestionInput(
+      input,
+      uploads.pageUrls.length,
+    );
 
     if (validationError) {
       return validationError;
     }
 
-    const sortedPages = [...pageFiles].sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }),
-    );
+    if (!uploads.mangaId || !uploads.chapterId) {
+      return {
+        ok: false,
+        message: "Хуудсууд хадгалагдаагүй байна. Дахин оролдоно уу.",
+      };
+    }
 
-    const pageAssets = await Promise.all(
-      sortedPages.map(async (pageFile) => ({
-        name: pageFile.name,
-        contentType: pageFile.type || "application/octet-stream",
-        buffer: Buffer.from(await pageFile.arrayBuffer()),
-      })),
-    );
+    const manga = await createMangaRecord(input, uploads.mangaId);
 
-    const coverAsset = isUploadFile(coverImage)
-      ? {
-          name: coverImage.name,
-          contentType: coverImage.type || "application/octet-stream",
-          buffer: Buffer.from(await coverImage.arrayBuffer()),
-        }
-      : null;
+    if (uploads.mangaCoverUrl) {
+      await prisma.manga.update({
+        where: { id: manga.id },
+        data: {
+          coverImage: uploads.mangaCoverUrl,
+          homeCoverImage: uploads.mangaCoverUrl,
+          detailCoverImage: uploads.mangaCoverUrl,
+        },
+      });
+    }
 
-    const result = await createMangaIngestion({
-      input,
-      coverAsset,
-      pageAssets,
+    const result = await createChapterWithPages({
+      mangaId: manga.id,
+      mangaName: manga.mangaName,
+      chapterNumber: input.chapterNumberValue,
+      chapterTitle: input.chapterTitle || null,
+      pageUrls: uploads.pageUrls,
+      chapterId: uploads.chapterId,
+      coverImage: uploads.chapterCoverUrl,
     });
+
+    revalidateSeriesSurfaces(manga.id);
 
     return {
       ok: true,
-      message: `Uploaded ${result.pageCount} pages to R2 and created "${input.mangaName}" in Neon.`,
+      message: `${result.pageCount} хуудастай "${input.mangaName}" манга үүсгэлээ.`,
       createdMangaId: result.mangaId,
     };
   } catch (error) {
@@ -943,8 +1056,7 @@ export async function importGoogleDriveFolderAction(
         };
       }
 
-      revalidatePath("/");
-      revalidatePath(`/manga/${manga.id}`);
+      revalidateSeriesSurfaces(manga.id);
 
       return {
         ok: true,
@@ -952,6 +1064,13 @@ export async function importGoogleDriveFolderAction(
         createdMangaId: manga.id,
       };
     }
+
+    // Single-chapter modes can carry a chapter cover the browser uploaded
+    // under reserved ids. The pages themselves still come from Drive here.
+    const uploads = readIngestUploads(formData, {
+      existingMangaId:
+        driveImportMode === "existing_manga_chapter" ? existingMangaId : null,
+    });
 
     const { driveImages, pageAssets } = await buildDrivePageAssets(folderId);
 
@@ -978,10 +1097,11 @@ export async function importGoogleDriveFolderAction(
         chapterTitle: input.chapterTitle || null,
         pageAssets,
         setCoverFromFirstPage: useFirstPageAsCover,
+        chapterId: uploads.chapterId,
+        chapterCoverImage: uploads.chapterCoverUrl,
       });
 
-      revalidatePath("/");
-      revalidatePath(`/manga/${existingMangaId}`);
+      revalidateSeriesSurfaces(existingMangaId);
 
       return {
         ok: true,
@@ -1001,10 +1121,12 @@ export async function importGoogleDriveFolderAction(
       input,
       coverAsset,
       pageAssets,
+      mangaId: uploads.mangaId,
+      chapterId: uploads.chapterId,
+      chapterCoverImage: uploads.chapterCoverUrl,
     });
 
-    revalidatePath("/");
-    revalidatePath(`/manga/${result.mangaId}`);
+    revalidateSeriesSurfaces(result.mangaId);
 
     return {
       ok: true,
@@ -1068,6 +1190,10 @@ export async function updateMangaMetadataAction(
         homeCoverImage: true,
         detailCoverImage: true,
         posterOptions: true,
+        promoImageUrl: true,
+        promoSlot: true,
+        rewardBackgroundUrl: true,
+        rewardBackgroundOriginalUrl: true,
       },
     });
 
@@ -1079,8 +1205,23 @@ export async function updateMangaMetadataAction(
     }
 
     const genres = parseGenres(input.genreInput);
-    const homeCoverFile = formData.get("homeCoverImage");
-    const detailCoverFile = formData.get("detailCoverImage");
+    // Images arrive as URLs: the browser compressed and uploaded them straight
+    // to R2 (see app/admin/direct-upload). Each must sit in this series' folder.
+    const coverRoot = `manga/${manga.id}/cover/`;
+    const homeCoverUrl = readUploadedUrl(formData, "homeCoverUrl", coverRoot);
+    const detailCoverUrl = readUploadedUrl(formData, "detailCoverUrl", coverRoot);
+    const uploadedPromoUrl = readUploadedUrl(formData, "promoImageUrl", coverRoot);
+    const rewardRoot = `manga/${manga.id}/reward/`;
+    const uploadedRewardUrl = readUploadedUrl(
+      formData,
+      "rewardBackgroundUrl",
+      rewardRoot,
+    );
+    const uploadedRewardOriginalUrl = readUploadedUrl(
+      formData,
+      "rewardBackgroundOriginalUrl",
+      rewardRoot,
+    );
     const posterData: {
       coverImage?: string;
       homeCoverImage?: string;
@@ -1088,25 +1229,13 @@ export async function updateMangaMetadataAction(
       defaultPoster?: null;
     } = {};
 
-    if (isUploadFile(homeCoverFile)) {
-      const homeCoverUrl = await uploadMangaCoverAsset({
-        mangaId: input.mangaId,
-        mangaName: input.mangaName,
-        coverAsset: await uploadAssetFromFile(homeCoverFile),
-        target: "home",
-      });
-
+    if (homeCoverUrl) {
       posterData.coverImage = homeCoverUrl;
       posterData.homeCoverImage = homeCoverUrl;
     }
 
-    if (isUploadFile(detailCoverFile)) {
-      posterData.detailCoverImage = await uploadMangaCoverAsset({
-        mangaId: input.mangaId,
-        mangaName: input.mangaName,
-        coverAsset: await uploadAssetFromFile(detailCoverFile),
-        target: "detail",
-      });
+    if (detailCoverUrl) {
+      posterData.detailCoverImage = detailCoverUrl;
     }
 
     // Uploading a poster here clears the poster-library default.
@@ -1124,53 +1253,116 @@ export async function updateMangaMetadataAction(
     // Promo banner. Uploading replaces, ticking the box clears; leaving both
     // alone keeps whatever is stored, so an unrelated metadata edit cannot drop
     // the banner by omission.
-    const promoFile = formData.get("promoImage");
     let promoImageUrl: string | null | undefined;
 
-    if (isUploadFile(promoFile)) {
-      promoImageUrl = await uploadMangaCoverAsset({
-        mangaId: input.mangaId,
-        mangaName: input.mangaName,
-        coverAsset: await uploadAssetFromFile(promoFile),
-        target: "promo",
-      });
+    if (uploadedPromoUrl) {
+      promoImageUrl = uploadedPromoUrl;
     } else if (input.removePromoImage) {
       promoImageUrl = null;
     }
 
-    await prisma.manga.update({
-      where: {
-        id: input.mangaId,
-      },
-      data: {
-        mangaName: input.mangaName,
-        description: input.description || null,
-        author: input.author || null,
-        artist: input.artist || null,
-        status: input.rawStatus as MangaStatusValue,
-        titleFont: input.titleFont || null,
-        isFeatured: input.isFeatured,
-        featuredOrder: input.isFeatured ? input.featuredOrder : null,
-        paywalledChapters: input.paywalledChapters,
-        promoOrder: input.promoOrder,
-        ...(promoImageUrl !== undefined ? { promoImageUrl } : {}),
-        ...posterData,
-        genres: {
-          deleteMany: {},
-          create:
-            genres.length > 0
-              ? genres.map((name) => ({
-                  genre: {
-                    connectOrCreate: {
-                      where: { name },
-                      create: { name },
-                    },
-                  },
-                }))
-              : undefined,
-        },
-      },
-    });
+    // Homepage slot. A banner without an image has nothing to show, so it
+    // gives up its slot. A slot held by another series is only taken when the
+    // admin ticked "swap" — then that series moves to this one's old slot.
+    const nextPromoImage =
+      promoImageUrl !== undefined ? promoImageUrl : manga.promoImageUrl;
+    const nextPromoSlot = nextPromoImage ? input.promoSlot : null;
+    const slotHolder =
+      nextPromoSlot !== null && nextPromoSlot !== manga.promoSlot
+        ? await prisma.manga.findFirst({
+            where: { promoSlot: nextPromoSlot, NOT: { id: manga.id } },
+            select: { id: true, mangaName: true },
+          })
+        : null;
+
+    if (slotHolder && !input.swapPromoSlot) {
+      return {
+        ok: false,
+        message: `${nextPromoSlot}-р байрлалд "${slotHolder.mangaName}" баннер байна. Сольж тавих бол «Байрлалыг солих»-ыг чагтлаад дахин хадгална уу.`,
+      };
+    }
+
+    // Completion reward. A new upload replaces it (the original is kept for
+    // readers' "download original"); the box clears it. Readers who already
+    // earned the old image keep it — their copy lives on UserReward.
+    let rewardData: {
+      rewardBackgroundUrl?: string | null;
+      rewardBackgroundOriginalUrl?: string | null;
+    } = {};
+
+    if (uploadedRewardUrl) {
+      rewardData = {
+        rewardBackgroundUrl: uploadedRewardUrl,
+        rewardBackgroundOriginalUrl: uploadedRewardOriginalUrl ?? uploadedRewardUrl,
+      };
+    } else if (input.removeRewardBackground) {
+      rewardData = { rewardBackgroundUrl: null, rewardBackgroundOriginalUrl: null };
+    }
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Free the slot first: the unique index would reject two holders even
+        // for the instant between the two updates.
+        if (slotHolder) {
+          await tx.manga.update({
+            where: { id: slotHolder.id },
+            data: { promoSlot: null },
+          });
+        }
+
+        await tx.manga.update({
+          where: {
+            id: input.mangaId,
+          },
+          data: {
+            mangaName: input.mangaName,
+            description: input.description || null,
+            author: input.author || null,
+            artist: input.artist || null,
+            status: input.rawStatus as MangaStatusValue,
+            titleFont: input.titleFont || null,
+            isFeatured: input.isFeatured,
+            featuredOrder: input.isFeatured ? input.featuredOrder : null,
+            paywalledChapters: input.paywalledChapters,
+            promoSlot: nextPromoSlot,
+            ...(promoImageUrl !== undefined ? { promoImageUrl } : {}),
+            ...rewardData,
+            ...posterData,
+            genres: {
+              deleteMany: {},
+              create:
+                genres.length > 0
+                  ? genres.map((name) => ({
+                      genre: {
+                        connectOrCreate: {
+                          where: { name },
+                          create: { name },
+                        },
+                      },
+                    }))
+                  : undefined,
+            },
+          },
+        });
+
+        if (slotHolder) {
+          await tx.manga.update({
+            where: { id: slotHolder.id },
+            data: { promoSlot: manga.promoSlot },
+          });
+        }
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return {
+          ok: false,
+          message:
+            "Энэ байрлалыг өөр хүн яг одоо эзэлчихлээ. Хуудсаа сэргээгээд дахин оролдоно уу.",
+        };
+      }
+
+      throw error;
+    }
 
     // Retagging just detached this manga's old genres; drop any left empty.
     await pruneOrphanGenres();
@@ -1189,9 +1381,44 @@ export async function updateMangaMetadataAction(
       manga.coverImage,
       manga.homeCoverImage,
       manga.detailCoverImage,
+      // A replaced or removed banner is referenced by nothing else.
+      ...(promoImageUrl !== undefined ? [manga.promoImageUrl] : []),
     ]
       .filter((url): url is string => Boolean(url))
-      .filter((url) => !currentPosterUrls.has(url) && !stillReferenced.has(url));
+      .filter(
+        (url) =>
+          !currentPosterUrls.has(url) &&
+          !stillReferenced.has(url) &&
+          url !== nextPromoImage,
+      );
+
+    // Reward images stay while any reader holds a copy of them.
+    if (rewardData.rewardBackgroundUrl !== undefined) {
+      const oldRewardUrls = [
+        manga.rewardBackgroundUrl,
+        manga.rewardBackgroundOriginalUrl,
+      ].filter(
+        (url): url is string =>
+          Boolean(url) &&
+          url !== rewardData.rewardBackgroundUrl &&
+          url !== rewardData.rewardBackgroundOriginalUrl,
+      );
+
+      if (oldRewardUrls.length > 0) {
+        const heldCopies = await prisma.userReward.count({
+          where: {
+            OR: [
+              { imageUrl: { in: oldRewardUrls } },
+              { originalUrl: { in: oldRewardUrls } },
+            ],
+          },
+        });
+
+        if (heldCopies === 0) {
+          replacedPosterUrls.push(...oldRewardUrls);
+        }
+      }
+    }
 
     if (replacedPosterUrls.length > 0) {
       try {
@@ -1201,9 +1428,10 @@ export async function updateMangaMetadataAction(
       }
     }
 
-    revalidatePath("/");
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${input.mangaId}`);
+    revalidateSeriesSurfaces(input.mangaId);
+    if (slotHolder) {
+      revalidatePath(`/manga/${slotHolder.id}`);
+    }
 
     return {
       ok: true,
@@ -1317,8 +1545,7 @@ export async function reorderChapterPagesAction(
       { timeout: 15_000 },
     );
 
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${chapter.mangaId}`);
+    revalidateSeriesSurfaces(chapter.mangaId);
     revalidatePath(`/reader/${chapter.id}`);
 
     return {
@@ -1351,8 +1578,6 @@ export async function updateChapterMetadataAction(
     const chapterId = String(formData.get("chapterId") ?? "").trim();
     const chapterTitle = String(formData.get("chapterTitle") ?? "").trim();
     const chapterNumber = Number(formData.get("chapterNumber"));
-    const chapterCoverFile = formData.get("chapterCoverImage");
-    const chapterBadgeFile = formData.get("chapterBadgeImage");
     const removeBadge = String(formData.get("removeBadge") ?? "") === "on";
     const parsedBadgeScale = Number(formData.get("badgeScale"));
     const badgeScale = Number.isFinite(parsedBadgeScale)
@@ -1385,6 +1610,7 @@ export async function updateChapterMetadataAction(
         manga: {
           select: {
             mangaName: true,
+            posterOptions: true,
           },
         },
       },
@@ -1417,32 +1643,23 @@ export async function updateChapterMetadataAction(
       };
     }
 
-    let chapterCoverImage: string | undefined;
-
-    if (isUploadFile(chapterCoverFile)) {
-      const coverAsset = await uploadAssetFromFile(chapterCoverFile);
-      const coverKey = `manga/${chapter.mangaId}/chapters/${chapter.id}/cover/${Date.now()}-${slugifySegment(coverAsset.name) || "chapter-cover"}`;
-      const { url } = await uploadToR2(
-        coverAsset.buffer,
-        coverKey,
-        coverAsset.contentType || "application/octet-stream",
-      );
-      chapterCoverImage = url;
-    }
+    // Uploaded by the browser straight to this chapter's folder in R2.
+    const chapterRoot = `manga/${chapter.mangaId}/chapters/${chapter.id}/`;
+    const chapterCoverImage =
+      readUploadedUrl(formData, "chapterCoverUrl", `${chapterRoot}cover/`) ??
+      undefined;
+    const uploadedBadgeUrl = readUploadedUrl(
+      formData,
+      "chapterBadgeUrl",
+      `${chapterRoot}badge/`,
+    );
 
     const badgeData: { badgeImage?: string | null; badgeScale?: number | null } =
       {};
     let staleBadgeUrl: string | null = null;
 
-    if (isUploadFile(chapterBadgeFile)) {
-      const badgeAsset = await uploadAssetFromFile(chapterBadgeFile);
-      const badgeKey = `manga/${chapter.mangaId}/chapters/${chapter.id}/badge/${Date.now()}-${slugifySegment(badgeAsset.name) || "badge"}`;
-      const { url } = await uploadToR2(
-        badgeAsset.buffer,
-        badgeKey,
-        badgeAsset.contentType || "application/octet-stream",
-      );
-      badgeData.badgeImage = url;
+    if (uploadedBadgeUrl) {
+      badgeData.badgeImage = uploadedBadgeUrl;
       badgeData.badgeScale = badgeScale;
 
       if (chapter.badgeImage) {
@@ -1472,8 +1689,18 @@ export async function updateChapterMetadataAction(
       },
     });
 
+    // Only a dedicated thumbnail upload is safe to delete. A cover can also be
+    // one of the chapter's own pages (the Drive import picks one) or sit in the
+    // series' poster library, and deleting those files would break the reader
+    // or the poster chooser.
+    const oldCoverIsDedicated =
+      chapter.coverImage &&
+      getR2KeyFromUrl(chapter.coverImage)?.startsWith(`${chapterRoot}cover/`) &&
+      !chapter.manga.posterOptions.includes(chapter.coverImage);
     const urlsToCleanUp = [
-      ...(chapterCoverImage && chapter.coverImage ? [chapter.coverImage] : []),
+      ...(chapterCoverImage && oldCoverIsDedicated && chapter.coverImage
+        ? [chapter.coverImage]
+        : []),
       ...(staleBadgeUrl ? [staleBadgeUrl] : []),
     ];
 
@@ -1485,8 +1712,7 @@ export async function updateChapterMetadataAction(
       }
     }
 
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${chapter.mangaId}`);
+    revalidateSeriesSurfaces(chapter.mangaId);
     revalidatePath(`/reader/${chapter.id}`);
 
     return {
@@ -1518,19 +1744,11 @@ export async function replaceChapterPageImageAction(
     }
 
     const pageId = String(formData.get("pageId") ?? "").trim();
-    const pageImage = formData.get("pageImage");
 
     if (!pageId) {
       return {
         ok: false,
         message: "Choose a page before replacing its image.",
-      };
-    }
-
-    if (!isUploadFile(pageImage)) {
-      return {
-        ok: false,
-        message: "Choose a replacement image before saving the page.",
       };
     }
 
@@ -1559,13 +1777,19 @@ export async function replaceChapterPageImageAction(
       };
     }
 
-    const replacementBuffer = Buffer.from(await pageImage.arrayBuffer());
-    const replacementKey = `manga/${page.chapter.mangaId}/chapters/${page.chapterId}/${String(page.pageNumber).padStart(3, "0")}-${Date.now()}-${slugifySegment(pageImage.name) || "replacement"}`;
-    const { url } = await uploadToR2(
-      replacementBuffer,
-      replacementKey,
-      pageImage.type || "application/octet-stream",
+    // Uploaded by the browser straight into this chapter's folder.
+    const url = readUploadedUrl(
+      formData,
+      "pageImageUrl",
+      `manga/${page.chapter.mangaId}/chapters/${page.chapterId}/`,
     );
+
+    if (!url) {
+      return {
+        ok: false,
+        message: "Солих зургаа сонгоод дахин оролдоно уу.",
+      };
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.page.update({
@@ -1595,8 +1819,8 @@ export async function replaceChapterPageImageAction(
       removedOldFile = false;
     }
 
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${page.chapter.mangaId}`);
+    // The first page doubles as the feed card fallback image.
+    revalidateSeriesSurfaces(page.chapter.mangaId);
     revalidatePath(`/reader/${page.chapter.id}`);
 
     return {
@@ -1726,8 +1950,8 @@ export async function deleteChapterPageAction(
       removedFile = false;
     }
 
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${page.chapter.mangaId}`);
+    // The first page doubles as the feed card fallback image.
+    revalidateSeriesSurfaces(page.chapter.mangaId);
     revalidatePath(`/reader/${page.chapter.id}`);
 
     return {
@@ -1809,9 +2033,7 @@ export async function deleteChapterAction(
       },
     });
 
-    revalidatePath("/admin");
-    revalidatePath("/");
-    revalidatePath(`/manga/${chapter.mangaId}`);
+    revalidateSeriesSurfaces(chapter.mangaId);
 
     return {
       ok: true,
@@ -1868,9 +2090,7 @@ export async function setDefaultPosterAction(
       data: { defaultPoster: posterUrl || null },
     });
 
-    revalidatePath("/");
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${mangaId}`);
+    revalidateSeriesSurfaces(mangaId);
 
     return {
       ok: true,
@@ -1916,8 +2136,9 @@ export async function addPosterOptionAction(
     }
 
     const mangaId = String(formData.get("mangaId") ?? "").trim();
-    const sourceUrl = String(formData.get("posterUrl") ?? "").trim();
-    const posterFile = formData.get("posterFile");
+    // Either an image the series already owns, or a dedicated poster the
+    // browser just uploaded to `manga/<id>/poster/` — both pass the same check.
+    const posterUrl = String(formData.get("posterUrl") ?? "").trim();
     const makeDefault = formData.get("makeDefault") === "on";
 
     if (!mangaId) {
@@ -1933,33 +2154,17 @@ export async function addPosterOptionAction(
       return { ok: false, message: "Манга олдсонгүй." };
     }
 
-    let posterUrl: string;
-
-    if (isUploadFile(posterFile)) {
-      const asset = await uploadAssetFromFile(posterFile);
-      const key = `manga/${mangaId}/poster/${Date.now()}-${
-        slugifySegment(asset.name || manga.mangaName) || "poster"
-      }`;
-      const uploaded = await uploadToR2(
-        asset.buffer,
-        key,
-        asset.contentType || "application/octet-stream",
-      );
-
-      posterUrl = uploaded.url;
-    } else if (sourceUrl) {
-      if (!isOwnMangaAsset(sourceUrl, mangaId)) {
-        return {
-          ok: false,
-          message: "Зөвхөн энэ манганы өөрийн зургийг постер болгож болно.",
-        };
-      }
-
-      posterUrl = sourceUrl;
-    } else {
+    if (!posterUrl) {
       return {
         ok: false,
         message: "Зураг сонгох эсвэл файл оруулна уу.",
+      };
+    }
+
+    if (!isOwnMangaAsset(posterUrl, mangaId)) {
+      return {
+        ok: false,
+        message: "Зөвхөн энэ манганы өөрийн зургийг постер болгож болно.",
       };
     }
 
@@ -1981,9 +2186,7 @@ export async function addPosterOptionAction(
       });
     }
 
-    revalidatePath("/");
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${mangaId}`);
+    revalidateSeriesSurfaces(mangaId);
 
     return {
       ok: true,
@@ -2060,9 +2263,7 @@ export async function removePosterOptionAction(
       }
     }
 
-    revalidatePath("/");
-    revalidatePath("/admin");
-    revalidatePath(`/manga/${mangaId}`);
+    revalidateSeriesSurfaces(mangaId);
 
     return { ok: true, message: "Постер сангаас хаслаа." };
   } catch (error) {
@@ -2072,4 +2273,34 @@ export async function removePosterOptionAction(
         error instanceof Error ? error.message : "Постер хасахад алдаа гарлаа.",
     };
   }
+}
+
+export type AdminChapterPage = {
+  id: string;
+  pageNumber: number;
+  imageUrl: string;
+};
+
+/**
+ * One chapter's pages, loaded when the admin opens that chapter (the page
+ * editor, or the poster library's "from chapter art" picker).
+ *
+ * The admin page used to embed every page of every chapter — ~68k URLs, about
+ * 13 MB — in its initial props, and each save's revalidation sent it all
+ * again. Nothing needs more than one chapter's pages at a time.
+ */
+export async function getChapterPagesAction(
+  chapterId: string,
+): Promise<AdminChapterPage[] | null> {
+  const adminUser = await requireAdminUser();
+
+  if (!adminUser || !chapterId) {
+    return null;
+  }
+
+  return prisma.page.findMany({
+    where: { chapterId },
+    orderBy: { pageNumber: "asc" },
+    select: { id: true, pageNumber: true, imageUrl: true },
+  });
 }
