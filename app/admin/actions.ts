@@ -37,6 +37,22 @@ export type AdminActionState = {
  * filter on a non-empty count, so a stale row can never surface even between
  * a write and this cleanup.
  */
+/** Longest "Юүмэгийн сэтгэгдэл" accepted; it is a speech bubble, not a post. */
+const MAX_YUME_COMMENT_LENGTH = 600;
+
+/**
+ * Yume's end-of-chapter note from a form. Blank means "no note" (null), so an
+ * emptied textarea removes the bubble. Line breaks are kept: the reader shows
+ * them as written.
+ */
+function parseYumeComment(formData: FormData): string | null {
+  const value = String(formData.get("yumeComment") ?? "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+
+  return value ? value.slice(0, MAX_YUME_COMMENT_LENGTH) : null;
+}
+
 function isUniqueViolation(error: unknown) {
   return (
     typeof error === "object" &&
@@ -396,6 +412,8 @@ function parseMangaMetadataInput(formData: FormData) {
     swapPromoSlot: formData.get("swapPromoSlot") === "on",
     removePromoImage: formData.get("removePromoImage") === "on",
     removeRewardBackground: formData.get("removeRewardBackground") === "on",
+    removeFeaturedDesktop: formData.get("removeFeaturedDesktop") === "on",
+    removeFeaturedMobile: formData.get("removeFeaturedMobile") === "on",
     paywalledChapters: parsePaywalledChapters(
       formData.get("paywalledChapters"),
     ),
@@ -615,6 +633,7 @@ async function createChapterWithPages({
   pageUrls,
   chapterId,
   coverImage,
+  yumeComment,
 }: {
   mangaId: string;
   mangaName: string;
@@ -628,6 +647,8 @@ async function createChapterWithPages({
   chapterId?: string | null;
   /** Chapter cover ("Бүлгийн thumbnail"), already uploaded. */
   coverImage?: string | null;
+  /** Yume's end-of-chapter note, or null for none. */
+  yumeComment?: string | null;
 }) {
   const chapter = await prisma.chapter.create({
     data: {
@@ -636,6 +657,7 @@ async function createChapterWithPages({
       chapterNumber,
       title: chapterTitle || null,
       coverImage: coverImage || null,
+      yumeComment: yumeComment || null,
     },
   });
 
@@ -697,6 +719,7 @@ async function createMangaIngestion({
   mangaId,
   chapterId,
   chapterCoverImage,
+  yumeComment,
 }: {
   input: IngestionInput;
   coverAsset?: UploadAsset | null;
@@ -704,6 +727,7 @@ async function createMangaIngestion({
   mangaId?: string | null;
   chapterId?: string | null;
   chapterCoverImage?: string | null;
+  yumeComment?: string | null;
 }) {
   const manga = await createMangaRecord(input, mangaId);
 
@@ -721,6 +745,7 @@ async function createMangaIngestion({
     pageAssets,
     chapterId,
     coverImage: chapterCoverImage,
+    yumeComment,
   });
 }
 
@@ -732,6 +757,7 @@ async function appendChapterToManga({
   setCoverFromFirstPage,
   chapterId,
   chapterCoverImage,
+  yumeComment,
 }: {
   mangaId: string;
   chapterNumber: number;
@@ -740,6 +766,7 @@ async function appendChapterToManga({
   setCoverFromFirstPage?: boolean;
   chapterId?: string | null;
   chapterCoverImage?: string | null;
+  yumeComment?: string | null;
 }) {
   const manga = await prisma.manga.findUnique({
     where: { id: mangaId },
@@ -784,6 +811,7 @@ async function appendChapterToManga({
     pageAssets,
     chapterId,
     coverImage: chapterCoverImage,
+    yumeComment,
   });
 }
 
@@ -870,6 +898,64 @@ function formatDriveFolderDebugMessage(summary: {
   return `Google Drive can read "${summary.folderName}", but none of the visible child items resolved to chapter folders. Visible items: ${sampleItems}.`;
 }
 
+/**
+ * The subset of `urls` that nothing else in the series still points at. A
+ * chapter's pages and thumbnail can also sit in the poster library (the
+ * "Постер нэмэх" picker adds them), be the default poster, or be a series
+ * cover; deleting those files along with the chapter or page left a broken
+ * poster for every reader who had picked it. Earned reward images are kept
+ * for the same reason.
+ */
+async function urlsSafeToDelete(mangaId: string, urls: string[]) {
+  const candidates = [...new Set(urls.filter(Boolean))];
+
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  const [manga, heldRewards] = await Promise.all([
+    prisma.manga.findUnique({
+      where: { id: mangaId },
+      select: {
+        posterOptions: true,
+        defaultPoster: true,
+        coverImage: true,
+        homeCoverImage: true,
+        detailCoverImage: true,
+        promoImageUrl: true,
+        featuredImageDesktop: true,
+        featuredImageMobile: true,
+        rewardBackgroundUrl: true,
+        rewardBackgroundOriginalUrl: true,
+      },
+    }),
+    prisma.userReward.findMany({
+      where: {
+        OR: [{ imageUrl: { in: candidates } }, { originalUrl: { in: candidates } }],
+      },
+      select: { imageUrl: true, originalUrl: true },
+    }),
+  ]);
+
+  const stillUsed = new Set<string>([
+    ...(manga?.posterOptions ?? []),
+    ...[
+      manga?.defaultPoster,
+      manga?.coverImage,
+      manga?.homeCoverImage,
+      manga?.detailCoverImage,
+      manga?.promoImageUrl,
+      manga?.featuredImageDesktop,
+      manga?.featuredImageMobile,
+      manga?.rewardBackgroundUrl,
+      manga?.rewardBackgroundOriginalUrl,
+    ].filter((url): url is string => Boolean(url)),
+    ...heldRewards.flatMap((reward) => [reward.imageUrl, reward.originalUrl]),
+  ]);
+
+  return candidates.filter((url) => !stillUsed.has(url));
+}
+
 async function deleteR2AssetsFromUrls(urls: string[]) {
   const keys = urls
     .map((url) => getR2KeyFromUrl(url))
@@ -935,6 +1021,7 @@ export async function ingestMangaAction(
       pageUrls: uploads.pageUrls,
       chapterId: uploads.chapterId,
       coverImage: uploads.chapterCoverUrl,
+      yumeComment: parseYumeComment(formData),
     });
 
     revalidateSeriesSurfaces(manga.id);
@@ -1102,6 +1189,7 @@ export async function importGoogleDriveFolderAction(
         setCoverFromFirstPage: useFirstPageAsCover,
         chapterId: uploads.chapterId,
         chapterCoverImage: uploads.chapterCoverUrl,
+        yumeComment: parseYumeComment(formData),
       });
 
       revalidateSeriesSurfaces(existingMangaId);
@@ -1127,6 +1215,7 @@ export async function importGoogleDriveFolderAction(
       mangaId: uploads.mangaId,
       chapterId: uploads.chapterId,
       chapterCoverImage: uploads.chapterCoverUrl,
+        yumeComment: parseYumeComment(formData),
     });
 
     revalidateSeriesSurfaces(result.mangaId);
@@ -1197,6 +1286,8 @@ export async function updateMangaMetadataAction(
         promoSlot: true,
         rewardBackgroundUrl: true,
         rewardBackgroundOriginalUrl: true,
+        featuredImageDesktop: true,
+        featuredImageMobile: true,
       },
     });
 
@@ -1302,6 +1393,37 @@ export async function updateMangaMetadataAction(
       rewardData = { rewardBackgroundUrl: null, rewardBackgroundOriginalUrl: null };
     }
 
+    // Hero slide art, one image per device. Its own fields and its own
+    // folder: nothing here reads or writes a poster field, so the detail
+    // page's poster can never change because the slider's crop did.
+    const featuredRoot = `manga/${manga.id}/featured/`;
+    const uploadedFeaturedDesktop = readUploadedUrl(
+      formData,
+      "featuredImageDesktop",
+      featuredRoot,
+    );
+    const uploadedFeaturedMobile = readUploadedUrl(
+      formData,
+      "featuredImageMobile",
+      featuredRoot,
+    );
+    const featuredData: {
+      featuredImageDesktop?: string | null;
+      featuredImageMobile?: string | null;
+    } = {};
+
+    if (uploadedFeaturedDesktop) {
+      featuredData.featuredImageDesktop = uploadedFeaturedDesktop;
+    } else if (input.removeFeaturedDesktop) {
+      featuredData.featuredImageDesktop = null;
+    }
+
+    if (uploadedFeaturedMobile) {
+      featuredData.featuredImageMobile = uploadedFeaturedMobile;
+    } else if (input.removeFeaturedMobile) {
+      featuredData.featuredImageMobile = null;
+    }
+
     try {
       await prisma.$transaction(async (tx) => {
         // Free the slot first: the unique index would reject two holders even
@@ -1330,6 +1452,7 @@ export async function updateMangaMetadataAction(
             promoSlot: nextPromoSlot,
             ...(promoImageUrl !== undefined ? { promoImageUrl } : {}),
             ...rewardData,
+            ...featuredData,
             ...posterData,
             genres: {
               deleteMany: {},
@@ -1394,6 +1517,22 @@ export async function updateMangaMetadataAction(
           !stillReferenced.has(url) &&
           url !== nextPromoImage,
       );
+
+    // Replaced or removed hero art: only these two fields ever point into
+    // the featured/ folder, so the old file is safe to delete.
+    for (const [field, oldUrl] of [
+      ["featuredImageDesktop", manga.featuredImageDesktop],
+      ["featuredImageMobile", manga.featuredImageMobile],
+    ] as const) {
+      if (
+        oldUrl &&
+        featuredData[field] !== undefined &&
+        featuredData[field] !== oldUrl &&
+        getR2KeyFromUrl(oldUrl)?.startsWith(featuredRoot)
+      ) {
+        replacedPosterUrls.push(oldUrl);
+      }
+    }
 
     // Reward images stay while any reader holds a copy of them.
     if (rewardData.rewardBackgroundUrl !== undefined) {
@@ -1687,6 +1826,7 @@ export async function updateChapterMetadataAction(
       data: {
         chapterNumber,
         title: chapterTitle || null,
+        yumeComment: parseYumeComment(formData),
         ...(chapterCoverImage ? { coverImage: chapterCoverImage } : {}),
         ...badgeData,
       },
@@ -1817,7 +1957,9 @@ export async function replaceChapterPageImageAction(
     let removedOldFile = true;
 
     try {
-      await deleteR2AssetsFromUrls([page.imageUrl]);
+      await deleteR2AssetsFromUrls(
+        await urlsSafeToDelete(page.chapter.mangaId, [page.imageUrl]),
+      );
     } catch {
       removedOldFile = false;
     }
@@ -1948,7 +2090,9 @@ export async function deleteChapterPageAction(
     let removedFile = true;
 
     try {
-      await deleteR2AssetsFromUrls([page.imageUrl]);
+      await deleteR2AssetsFromUrls(
+        await urlsSafeToDelete(page.chapter.mangaId, [page.imageUrl]),
+      );
     } catch {
       removedFile = false;
     }
@@ -2024,23 +2168,43 @@ export async function deleteChapterAction(
       };
     }
 
-    await deleteR2AssetsFromUrls([
+    const chapterFiles = [
       ...chapter.pages.map((page) => page.imageUrl),
       ...(chapter.coverImage ? [chapter.coverImage] : []),
       ...(chapter.badgeImage ? [chapter.badgeImage] : []),
-    ]);
+    ];
+    const deletableFiles = await urlsSafeToDelete(chapter.mangaId, chapterFiles);
 
+    // The row goes first. Deleting files first meant a failure partway left
+    // a chapter whose pages pointed at images that no longer existed.
     await prisma.chapter.delete({
       where: {
         id: chapter.id,
       },
     });
 
+    let removedFiles = true;
+
+    try {
+      await deleteR2AssetsFromUrls(deletableFiles);
+    } catch {
+      // The chapter is gone from the site; stray files can be swept later.
+      removedFiles = false;
+    }
+
     revalidateSeriesSurfaces(chapter.mangaId);
+
+    const keptForPosters = new Set(chapterFiles).size - deletableFiles.length;
 
     return {
       ok: true,
-      message: `Deleted chapter ${chapter.chapterNumber} from "${chapter.manga.mangaName}" and removed its page files from R2.`,
+      message: removedFiles
+        ? `"${chapter.manga.mangaName}"-н ${chapter.chapterNumber}-р бүлгийг устгалаа.${
+            keptForPosters > 0
+              ? ` Постерын санд ашиглагдаж буй ${keptForPosters} зургийг хадгаллаа.`
+              : ""
+          }`
+        : `"${chapter.manga.mangaName}"-н ${chapter.chapterNumber}-р бүлгийг устгалаа, гэхдээ зарим файлыг R2-аас устгаж чадсангүй.`,
       createdMangaId: chapter.mangaId,
     };
   } catch (error) {

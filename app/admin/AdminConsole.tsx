@@ -69,7 +69,7 @@ import {
   MAX_PAYWALLED_LATEST_CHAPTERS,
   PAYWALLED_LATEST_CHAPTERS,
 } from "@/lib/plans";
-import { ImageEditorField } from "@/app/admin/ImageEditor";
+import { ImageEditorField, type AspectPreset } from "@/app/admin/ImageEditor";
 
 const initialAdminActionState: AdminActionState = {
   ok: false,
@@ -310,6 +310,9 @@ type AdminConsoleProps = {
     promoImageUrl: string;
     /** Homepage ad slot 1–4, or null when the banner is not shown. */
     promoSlot: number | null;
+    /** Hero slide art (16:9 / 1:1); empty falls back to the other, then the poster. */
+    featuredImageDesktop: string;
+    featuredImageMobile: string;
     /** Completion reward image; empty when this series gives no reward. */
     rewardBackgroundUrl: string;
     /** Readers who have earned this series' reward. */
@@ -327,6 +330,8 @@ type AdminConsoleProps = {
       coverImage: string;
       badgeImage: string;
       badgeScale: number | null;
+      /** Yume's end-of-chapter note; empty = none. */
+      yumeComment: string;
       publishedAt: string;
       pageCount: number;
     }>;
@@ -341,6 +346,17 @@ type AdminView =
   | "analytics"
   | "users"
   | "news";
+
+/**
+ * Hero slide crops. One fixed ratio each, so the cropper cannot produce an
+ * image the slider would then crop again.
+ */
+const FEATURED_MOBILE_PRESETS: AspectPreset[] = [
+  { id: "square", label: "1:1", ratio: 1 },
+];
+const FEATURED_DESKTOP_PRESETS: AspectPreset[] = [
+  { id: "wide", label: "16:9", ratio: 16 / 9 },
+];
 
 /** Where each homepage ad slot sits, for the slot picker. */
 const PROMO_SLOT_LABELS: Record<number, string> = {
@@ -972,6 +988,57 @@ export function AdminConsole({
                           defaultValue={selectedManga.featuredOrder ?? ""}
                         />
                       </div>
+
+                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <ImageEditorField
+                            name="featuredImageMobile"
+                            slot="featured-mobile"
+                            label="Гар утас (1:1)"
+                            helper="Манганы доторх нэг хэсгийг 1:1-ээр тайрна. Утсан дээрх слайдерт харагдана."
+                            existingImage={selectedManga.featuredImageMobile || null}
+                            presets={FEATURED_MOBILE_PRESETS}
+                            previewAspect="1 / 1"
+                          />
+                          {selectedManga.featuredImageMobile ? (
+                            <label className="ad-check mt-3">
+                              <input
+                                type="checkbox"
+                                name="removeFeaturedMobile"
+                                className="mt-0.5 h-4 w-4"
+                              />
+                              <span>Гар утасны зургийг хасах</span>
+                            </label>
+                          ) : null}
+                        </div>
+                        <div>
+                          <ImageEditorField
+                            name="featuredImageDesktop"
+                            slot="featured-desktop"
+                            label="Компьютер (16:9)"
+                            helper="Манганы доторх нэг хэсгийг 16:9-өөр тайрна. Компьютер дээрх слайдерт харагдана."
+                            existingImage={selectedManga.featuredImageDesktop || null}
+                            presets={FEATURED_DESKTOP_PRESETS}
+                            previewAspect="16 / 9"
+                            maxOutputDimension={1920}
+                          />
+                          {selectedManga.featuredImageDesktop ? (
+                            <label className="ad-check mt-3">
+                              <input
+                                type="checkbox"
+                                name="removeFeaturedDesktop"
+                                className="mt-0.5 h-4 w-4"
+                              />
+                              <span>Компьютерын зургийг хасах</span>
+                            </label>
+                          ) : null}
+                        </div>
+                      </div>
+                      <p className="ad-sub mt-3">
+                        Нэг нь хоосон бол нөгөө зургийг, хоёулаа хоосон бол
+                        постерыг ашиглана. Эдгээр зураг дэлгэрэнгүй хуудасны
+                        постерт нөлөөлөхгүй.
+                      </p>
 
                       {featuredSummary.length > 0 ? (
                         <p className="ad-sub mt-4">
@@ -1726,6 +1793,12 @@ export function AdminConsole({
                             ) : null}
                           </div>
 
+                          <div className="mt-4">
+                            <YumeCommentField
+                              defaultValue={selectedChapter.yumeComment}
+                            />
+                          </div>
+
                           <div className="mt-4 flex justify-end">
                             <button
                               type="submit"
@@ -2018,6 +2091,8 @@ export function AdminConsole({
                     />
                   </div>
 
+                  <YumeCommentField />
+
                   <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
                     Зургууд таны төхөөрөмжөөс шууд Cloudflare R2 руу орж, зөвхөн
                     холбоос нь Neon-д хадгалагдана.
@@ -2132,12 +2207,15 @@ export function AdminConsole({
                   />
 
                   {driveImportMode !== "bulk_parent_folder" ? (
-                    <ImageEditorField
-                      name="chapterCoverUrl"
-                      slot="chapter-cover"
-                      label="Бүлгийн thumbnail"
-                      helper="Сонголттой. Сүүлийн шинэчлэлийн картанд харагдана — оруулахгүй бол эхний хуудас харагдана."
-                    />
+                    <>
+                      <ImageEditorField
+                        name="chapterCoverUrl"
+                        slot="chapter-cover"
+                        label="Бүлгийн thumbnail"
+                        helper="Сонголттой. Сүүлийн шинэчлэлийн картанд харагдана — оруулахгүй бол эхний хуудас харагдана."
+                      />
+                      <YumeCommentField />
+                    </>
                   ) : null}
 
                   <label className="ad-check">
@@ -2270,16 +2348,21 @@ export function AdminConsole({
   );
 }
 
+// Only fonts that actually contain the Mongolian alphabet (Ө Ү included; see
+// FONT_FAMILY_FALLBACKS in MangaPosterCard). Each replaces an old option of a
+// similar style that had no Cyrillic and so never showed on a title.
 const TITLE_FONT_OPTIONS = [
-  { value: "", label: "Үндсэн (Bangers)" },
-  { value: "Bangers", label: "Bangers" },
-  { value: "Permanent Marker", label: "Permanent Marker" },
-  { value: "Anton", label: "Anton" },
-  { value: "Bungee", label: "Bungee" },
-  { value: "Bowlby One", label: "Bowlby One" },
-  { value: "Creepster", label: "Creepster" },
-  { value: "Black Ops One", label: "Black Ops One" },
-  { value: "Special Elite", label: "Special Elite" },
+  { value: "", label: "Үндсэн (Cormorant Garamond)" },
+  { value: "Pangolin", label: "Pangolin (комик)" },
+  { value: "Caveat", label: "Caveat (гар бичмэл)" },
+  { value: "Oswald", label: "Oswald (нарийн тод)" },
+  { value: "Rubik Mono One", label: "Rubik Mono One (өргөн)" },
+  { value: "Oi", label: "Oi (маш тод)" },
+  { value: "Rubik Wet Paint", label: "Rubik Wet Paint (аймшгийн)" },
+  { value: "Rubik Glitch", label: "Rubik Glitch" },
+  { value: "PT Mono", label: "PT Mono (бичгийн машин)" },
+  { value: "Lobster", label: "Lobster" },
+  { value: "Yeseva One", label: "Yeseva One" },
   { value: "Rubik", label: "Rubik" },
 ];
 
@@ -2471,6 +2554,29 @@ function TextAreaField(
       <span className="ad-label">{label}</span>
       <textarea {...textareaProps} rows={rows} className="ad-textarea" />
     </label>
+  );
+}
+
+/**
+ * "Юүмэгийн сэтгэгдэл": Yume's note in a speech bubble after the chapter's
+ * last page. Empty = no bubble. Line breaks are kept as typed.
+ */
+function YumeCommentField({ defaultValue = "" }: { defaultValue?: string }) {
+  return (
+    <div>
+      <TextAreaField
+        label="Юүмэгийн сэтгэгдэл"
+        name="yumeComment"
+        rows={3}
+        maxLength={600}
+        defaultValue={defaultValue}
+        placeholder="Жишээ: Виолаг хэзээ нэгэн цагт Сарчесыг тооно гэдэгт би итгэдэг."
+      />
+      <p className="ad-sub mt-2">
+        Бүлгийн сүүлийн хуудасны дараа Юүмэгийн хөөсөнд харагдана. Хоосон
+        орхивол харагдахгүй. Мөр шилжилт хадгалагдана.
+      </p>
+    </div>
   );
 }
 

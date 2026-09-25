@@ -24,6 +24,8 @@ export const metadata: Metadata = {
 };
 
 const PROFILE_STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Marcellus&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
+
 .yume-profile { font-family: 'Plus Jakarta Sans', sans-serif; }
 .yume-profile * { box-sizing: border-box; }
 .yume-profile .yp-back {

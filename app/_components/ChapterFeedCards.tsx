@@ -32,6 +32,64 @@ export const CHAPTER_CARD_STYLES = `
   color: var(--home-plum-soft);
 }
 .yume-chip .yume-chip-lock { display: inline-block; margin: -2px 4px 0 0; vertical-align: middle; }
+
+/* /updates: denser than the library grid — 3 across on phones, up to 6 on
+   desktop — so each chapter is a thumbnail rather than a full poster. The
+   card text shrinks with it: genre and time stay on one line, the title on at
+   most two, and nothing can push past the card's edge. */
+.yume-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 10px;
+}
+@media (min-width: 640px) { .yume-feed-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 14px; } }
+@media (min-width: 900px) { .yume-feed-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1180px) { .yume-feed-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px 16px; } }
+.yume-feed-grid .yume-card { min-width: 0; }
+.yume-feed-grid .yume-poster,
+.yume-feed-grid .yume-poster::after { border-radius: 12px; }
+.yume-feed-grid .yume-card:hover .yume-poster { transform: translateY(-4px); }
+.yume-feed-grid .yume-status {
+  font-size: 7.5px; letter-spacing: 0.05em;
+  padding: 3px 6px 3px 7px;
+  border-radius: 0 12px 0 10px;
+  max-width: calc(100% - 10px);
+}
+.yume-feed-grid .yume-chip {
+  left: 5px; bottom: 5px;
+  font-size: 9px; letter-spacing: 0.04em;
+  padding: 2px 7px;
+}
+.yume-feed-grid .yume-card-genre {
+  margin-top: 7px;
+  font-size: 8px; letter-spacing: 0.12em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.yume-feed-grid .yume-card-title {
+  margin-top: 2px;
+  font-size: 13.5px; line-height: 1.14;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.yume-feed-grid .yume-card-time {
+  display: flex; max-width: 100%;
+  margin-top: 4px;
+  font-size: 9px; letter-spacing: 0.03em;
+}
+.yume-feed-grid .yume-card-time svg { flex-shrink: 0; width: 10px; height: 10px; }
+.yume-feed-grid .yume-card-time time {
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (min-width: 640px) {
+  .yume-feed-grid .yume-status { font-size: 8.5px; padding: 4px 8px 4px 9px; }
+  .yume-feed-grid .yume-chip { font-size: 9.5px; padding: 3px 8px; }
+  .yume-feed-grid .yume-card-genre { font-size: 8.5px; }
+  .yume-feed-grid .yume-card-title { font-size: 15px; }
+  .yume-feed-grid .yume-card-time { font-size: 9.5px; }
+}
+@media (min-width: 1180px) {
+  .yume-feed-grid .yume-card-title { font-size: 16px; }
+}
 `;
 
 function ChapterCard({
@@ -173,7 +231,7 @@ export function ChapterFeedCards({
 
   return (
     <>
-      <div className={layout === "rail" ? "yume-rail" : "yume-grid"}>
+      <div className={layout === "rail" ? "yume-rail" : "yume-feed-grid"}>
         {cards.map((card) => (
           <ChapterCard key={card.chapterId} card={card} onOpen={onOpen} />
         ))}

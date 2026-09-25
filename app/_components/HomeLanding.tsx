@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { BookOpen, ChevronLeft, ChevronRight, Moon, Sparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Moon } from "lucide-react";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 import { CelestialFrame } from "@/app/_components/CelestialFrame";
 import {
@@ -162,18 +162,25 @@ html[data-theme="autumn"] .yume-home {
   pointer-events: none;
 }
 
+/* Featured hero. Its slides are panels cut from inside the manga, one image
+   per device: 1:1 on phones and tablets, 16:9 on desktop — split at the same
+   900px the home layout already uses. The box holds exactly that ratio and
+   the image fills it with object-fit: cover, so the crop the admin previewed
+   is the crop readers get. */
 .yume-hero {
   position: relative;
+  aspect-ratio: 16 / 9;
+  /* On short, wide screens a full-width 16:9 box would fill the whole fold.
+     Cap the height by narrowing the box instead of squashing it, so the ratio
+     — and the crop — never changes. */
+  width: min(100%, calc(72vh * 16 / 9));
+  margin: 0 auto;
   border-radius: 26px;
   overflow: hidden;
-  /* Height tracks the shorter of viewport width and height. Sizing on width
-     alone pinned this to 540px on any screen wider than ~1040px, which on a
-     short laptop (1045x641) filled the entire fold and pushed every shelf
-     below the hero out of sight. */
-  min-height: clamp(320px, min(46vw, 58vh), 500px);
   border: 1px solid var(--home-line-strong);
   box-shadow: 0 30px 60px -28px var(--home-shadow-strong);
   background: var(--home-paper-2);
+  touch-action: pan-y;
 }
 .yume-hero-empty {
   position: absolute; inset: 0;
@@ -182,33 +189,28 @@ html[data-theme="autumn"] .yume-home {
     radial-gradient(circle at 76% 70%, color-mix(in srgb, var(--home-gold) 30%, transparent), transparent 58%),
     var(--home-paper-2);
 }
-.yume-hero-overlay { position: absolute; inset: 0; background: var(--home-overlay); }
-.yume-hero-body {
-  position: absolute; inset: 0; z-index: 3;
-  display: flex; flex-direction: column; justify-content: flex-end;
-  padding: clamp(22px, 4vw, 48px);
+/* Only a soft gradient along the bottom edge, behind the title. The panel's
+   own art and speech bubbles stay uncovered. */
+.yume-hero-overlay {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 42%;
+  background: linear-gradient(to top, rgba(20, 12, 16, 0.7), rgba(20, 12, 16, 0.3) 48%, transparent);
+  pointer-events: none;
 }
-.yume-hero-badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  align-self: flex-start;
-  font-family: 'Marcellus', serif;
-  font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase;
-  padding: 7px 16px; border-radius: 999px;
-  color: var(--home-gold);
-  background: rgba(28, 16, 22, 0.45);
-  border: 1px solid color-mix(in srgb, var(--home-gold) 55%, transparent);
-  backdrop-filter: blur(6px);
-  margin-bottom: 18px;
+.yume-hero-body {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  /* Bottom padding leaves room for the dots under the title. */
+  padding: 0 clamp(16px, 3.2vw, 40px) clamp(30px, 3.6vw, 44px);
 }
 .yume-hero-title {
   font-family: 'Cormorant Garamond', serif;
   font-weight: 700; font-style: italic;
-  font-size: clamp(2.6rem, 7vw, 5rem);
-  line-height: 0.96; color: #fff;
-  text-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
-  max-width: 16ch;
+  font-size: clamp(1.5rem, 3.4vw, 3rem);
+  line-height: 1.04; color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+  max-width: min(22ch, 100%);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.yume-spark { position: absolute; z-index: 4; color: rgba(255, 255, 255, 0.75); pointer-events: none; }
 
 .yume-hero-slide {
   position: absolute; inset: 0;
@@ -217,28 +219,12 @@ html[data-theme="autumn"] .yume-home {
   transition: opacity 0.95s ease, visibility 0.95s ease;
 }
 .yume-hero-slide.active { opacity: 1; visibility: visible; z-index: 2; }
+/* No slow zoom: the panels are exact crops, and scaling them up would cut
+   off the edges of the art and its speech bubbles. */
 .yume-hero-img {
   position: absolute; inset: 0;
-  width: 100%; height: 100%; object-fit: cover;
-  /* Covers are portrait (~1240x1480) but the desktop hero is a wide box, so
-     only about a third of the image is ever visible. Anchoring at the top framed
-     the empty space above the character; a third of the way down puts the crop
-     window on the faces instead. Phones show the full image height, so this
-     only changes wide viewports. */
-  object-position: center 32%;
-  transform: scale(1.06);
-  transition: transform 7.5s ease-out;
-}
-.yume-hero-slide.active .yume-hero-img { transform: scale(1); }
-.yume-hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.yume-hero-tag {
-  font-family: 'Marcellus', serif;
-  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
-  padding: 5px 12px; border-radius: 999px;
-  color: var(--home-on-dark-soft);
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  backdrop-filter: blur(4px);
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
 }
 .yume-arrow {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -257,9 +243,11 @@ html[data-theme="autumn"] .yume-home {
 .yume-hero:hover .yume-arrow { opacity: 1; }
 .yume-arrow:focus-visible { opacity: 1; outline: 2px solid #fff; outline-offset: 2px; }
 @media (max-width: 768px) { .yume-arrow { display: none; } }
+/* Centred under the title, so a two-line title can never run into them. */
 .yume-dots {
   position: absolute; z-index: 5;
-  bottom: clamp(18px, 3vw, 30px); right: clamp(22px, 4vw, 48px);
+  left: 50%; transform: translateX(-50%);
+  bottom: clamp(10px, 1.5vw, 18px);
   display: flex; align-items: center; gap: 8px;
 }
 .yume-dot {
@@ -276,12 +264,11 @@ html[data-theme="autumn"] .yume-home {
 .yume-dot:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .yume-hero-slide { transition: none; }
-  .yume-hero-img { transition: none; transform: scale(1); }
 }
 
-/* Phones/tablets: the hero leads the page, bleeding to every edge and pushing
-   up under the transparent header so it blends into the content below.
-   Desktop is unchanged. */
+/* Phones/tablets: the hero leads the page as an edge-to-edge 1:1 panel
+   directly under the header. The header no longer floats over it — a panel's
+   top edge (often a speech bubble) would sit under the logo and buttons. */
 @media (max-width: 900px) {
   .yume-home main { padding-top: 0; }
   .yume-home #featured { margin-bottom: 34px; }
@@ -289,7 +276,7 @@ html[data-theme="autumn"] .yume-home {
     width: 100vw;
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
-    min-height: 60vh;
+    aspect-ratio: 1 / 1;
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -306,9 +293,11 @@ const headerLinks = [
 interface FeaturedSlide {
   id: string;
   title: string;
-  coverUrl?: string;
+  /** 1:1 art for phones/tablets (already falls back to desktop, then poster). */
+  mobileImage?: string;
+  /** 16:9 art for desktop (already falls back to mobile, then poster). */
+  desktopImage?: string;
   titleFont?: string | null;
-  genres: string[];
 }
 
 const HERO_ROTATE_MS = 6500;
@@ -395,16 +384,18 @@ export function HomeLanding({
           navLinks={headerLinks}
           isAdmin={isAdmin}
           premiumDaysLeft={premiumDaysLeft}
-          overlay
+          // A solid bar, not floating over the hero: the slides are manga
+          // panels now, and on a phone the logo and buttons would sit on top
+          // of the panel's upper edge (often a speech bubble).
         />
 
         <main
           className="motion-ink-fade mx-auto max-w-7xl px-4 py-8 md:px-8"
           style={{ position: "relative", zIndex: 1 }}
         >
-          {/* The curated hero leads the page: full-bleed on phones, tucked up
-              under the transparent header. No section heading above it — the
-              slide's own "Онцлох" badge names it. */}
+          {/* The curated hero leads the page: an edge-to-edge 1:1 panel on
+              phones, 16:9 on desktop. No section heading and no badge — each
+              slide shows only its title. */}
           {featured.length > 0 ? (
             <section id="featured" className="motion-ink-up mb-16">
               <HeroCarousel slides={featured} />
@@ -719,23 +710,28 @@ function HeroCarousel({ slides }: { slides: FeaturedSlide[] }) {
             reducedMotion ? { transition: "none" } : undefined
           }
         >
-          {slide.coverUrl ? (
-            <img
-              src={slide.coverUrl}
-              alt={slide.title}
-              className="yume-hero-img"
-              loading={index === 0 ? "eager" : "lazy"}
-            />
+          {slide.mobileImage || slide.desktopImage ? (
+            // Art direction: the browser picks one source by viewport and
+            // downloads only that one. The media query matches the 900px
+            // split where the box itself turns from 1:1 to 16:9.
+            <picture>
+              {slide.desktopImage && slide.desktopImage !== slide.mobileImage ? (
+                <source media="(min-width: 901px)" srcSet={slide.desktopImage} />
+              ) : null}
+              <img
+                src={slide.mobileImage ?? slide.desktopImage}
+                alt={slide.title}
+                className="yume-hero-img"
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
+              />
+            </picture>
           ) : (
             <div className="yume-hero-empty" />
           )}
           <div className="yume-hero-overlay" />
 
           <div className="yume-hero-body">
-            <span className="yume-hero-badge">
-              <Sparkles size={13} />
-              Онцлох
-            </span>
             <h2
               className="yume-hero-title"
               style={
@@ -746,29 +742,9 @@ function HeroCarousel({ slides }: { slides: FeaturedSlide[] }) {
             >
               {slide.title}
             </h2>
-            {slide.genres.length > 0 ? (
-              <div className="yume-hero-tags">
-                {slide.genres.map((genre) => (
-                  <span key={genre} className="yume-hero-tag">
-                    {genre}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
         </Link>
       ))}
-
-      <Sparkles
-        className="yume-spark motion-ink-float"
-        size={20}
-        style={{ top: "16%", right: "12%" }}
-      />
-      <Moon
-        className="yume-spark"
-        size={16}
-        style={{ top: "20%", left: "10%", opacity: 0.55 }}
-      />
 
       {count > 1 ? (
         <>

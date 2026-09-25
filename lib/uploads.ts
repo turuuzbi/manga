@@ -55,6 +55,11 @@ export function buildUploadKey({
         return `${mangaRoot}/reward/${stamp}.${ext}`;
       case "reward-original":
         return `${mangaRoot}/reward/${stamp}-original.${ext}`;
+      // Hero slide art lives in its own folder, never shared with a poster,
+      // so replacing one can safely delete the old file.
+      case "featured-desktop":
+      case "featured-mobile":
+        return `${mangaRoot}/featured/${slot.replace("featured-", "")}-${stamp}.${ext}`;
     }
   }
 

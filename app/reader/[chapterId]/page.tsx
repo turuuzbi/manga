@@ -142,6 +142,7 @@ export default async function ReaderChapterPage({
         id: chapter.id,
         number: chapter.chapterNumber,
         title: chapter.title,
+        yumeComment: chapter.yumeComment,
       }}
       isPremium={access.isPremium}
       freeRemaining={access.remainingFree}

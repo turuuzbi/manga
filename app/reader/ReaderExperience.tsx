@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,6 +13,7 @@ import {
   Rows3,
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
+import { YumeComment } from "@/app/reader/YumeComment";
 import {
   FreeReadConfirm,
   isModifiedClick,
@@ -30,6 +31,8 @@ type ReaderExperienceProps = {
     id: string;
     number: number;
     title: string | null;
+    /** Yume's end-of-chapter note; null/empty renders nothing. */
+    yumeComment?: string | null;
   };
   isPremium?: boolean;
   /** Free chapter unlocks left for the user today (null when premium). */
@@ -51,6 +54,53 @@ type ReaderNeighbourChapter = {
 };
 
 const readerModeStorageKey = "manga-reader-mode";
+const readerModeChangeEvent = "manga-reader-mode-change";
+
+// The reader's saved scroll/tap choice. Read through useSyncExternalStore so
+// the server render and the browser's hydrating render agree (both "scroll")
+// and React switches to the saved mode right after. Reading localStorage in
+// useState's initializer made the browser's first render differ from the
+// server HTML for every tap-mode reader — React error #418 on each chapter,
+// with the page briefly unresponsive while React re-rendered it.
+let sessionReaderMode: ReaderMode | null = null;
+
+function subscribeReaderMode(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(readerModeChangeEvent, onChange);
+
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(readerModeChangeEvent, onChange);
+  };
+}
+
+function readSavedReaderMode(): ReaderMode {
+  if (sessionReaderMode) {
+    return sessionReaderMode;
+  }
+
+  try {
+    return window.localStorage.getItem(readerModeStorageKey) === "paged"
+      ? "paged"
+      : "scroll";
+  } catch {
+    return "scroll";
+  }
+}
+
+function saveReaderMode(mode: ReaderMode) {
+  // Kept in memory too, so switching still works when storage is blocked
+  // (private browsing); it just will not survive a reload there.
+  sessionReaderMode = mode;
+
+  try {
+    window.localStorage.setItem(readerModeStorageKey, mode);
+  } catch {
+    // Storage unavailable: the in-memory choice above still applies.
+  }
+
+  window.dispatchEvent(new Event(readerModeChangeEvent));
+}
 const mobileChromeHideDelayMs = 2600;
 
 function formatChapterLabel(number: number, title: string | null) {
@@ -126,17 +176,11 @@ export function ReaderExperience({
   previousChapter,
   nextChapter,
 }: ReaderExperienceProps) {
-  const [readerMode, setReaderMode] = useState<ReaderMode>(() => {
-    if (typeof window === "undefined") {
-      return "scroll";
-    }
-
-    const savedMode = window.localStorage.getItem(
-      readerModeStorageKey,
-    ) as ReaderMode | null;
-
-    return savedMode === "paged" ? "paged" : "scroll";
-  });
+  const readerMode = useSyncExternalStore<ReaderMode>(
+    subscribeReaderMode,
+    readSavedReaderMode,
+    () => "scroll",
+  );
   const [currentPage, setCurrentPage] = useState(0);
   const [showChrome, setShowChrome] = useState(true);
   const [confirming, setConfirming] = useState<ReaderNeighbourChapter | null>(
@@ -183,10 +227,6 @@ export function ReaderExperience({
     setShowChrome((value) => !value);
   }
 
-  useEffect(() => {
-    window.localStorage.setItem(readerModeStorageKey, readerMode);
-  }, [readerMode]);
-
   // Mark this chapter as read once the reader actually mounts in the browser.
   // The series is resolved server-side from the chapter, so it is not passed.
   useEffect(() => {
@@ -216,7 +256,7 @@ export function ReaderExperience({
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "ArrowRight") {
-        setCurrentPage((page) => Math.min(page + 1, pages.length - 1));
+        setCurrentPage((page) => Math.min(page + 1, pages.length));
       }
 
       if (event.key === "ArrowLeft") {
@@ -263,15 +303,66 @@ export function ReaderExperience({
   }, [pages.length, readerMode]);
 
   const chapterLabel = formatChapterLabel(chapter.number, chapter.title);
-  const pageLabel = `${currentPage + 1} / ${pages.length}`;
+  // Tap mode has one extra step after the last page: the end-of-chapter
+  // screen (index pages.length). Scroll mode never goes past the last page.
+  const atChapterEnd = readerMode === "paged" && currentPage >= pages.length;
+  const pageLabel = `${Math.min(currentPage + 1, pages.length)} / ${pages.length}`;
 
   function goNextPage() {
-    setCurrentPage((page) => Math.min(page + 1, pages.length - 1));
+    setCurrentPage((page) => Math.min(page + 1, pages.length));
   }
 
   function goPreviousPage() {
     setCurrentPage((page) => Math.max(page - 1, 0));
   }
+
+  // End of chapter, shared by both modes: Yume's note (if any), the "done"
+  // line, and the way on.
+  const chapterEnd = (
+    <>
+      <YumeComment comment={chapter.yumeComment} />
+      <p className="text-2xl font-semibold text-white sm:text-3xl">
+        Та {chapter.number}-р бүлгийг дуусгалаа.
+      </p>
+      <p className="mt-3 text-sm leading-6 text-zinc-400">
+        Бүлгийн сонголт
+      </p>
+      <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        {previousChapter ? (
+          <Link
+            href={`/reader/${previousChapter.id}`}
+            onClick={(event) => handleChapterLinkClick(event, previousChapter)}
+            className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#28282d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#34343a]"
+          >
+            Өмнөх бүлэг
+          </Link>
+        ) : (
+          <div></div>
+        )}
+
+        {nextChapter ? (
+          <Link
+            href={`/reader/${nextChapter.id}`}
+            onClick={(event) => handleChapterLinkClick(event, nextChapter)}
+            className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
+          >
+            Дараагийн бүлэг
+          </Link>
+        ) : (
+          <div></div>
+        )}
+      </div>
+
+      <div className="mt-5">
+        <Link
+          href={`/manga/${manga.id}`}
+          className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b69a64] transition hover:text-[#e1c98b]"
+        >
+          Цувралын хуудас руу буцах
+        </Link>
+      </div>
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100">
@@ -324,7 +415,7 @@ export function ReaderExperience({
           <div className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 md:w-auto md:shrink-0 md:justify-start">
             <button
               type="button"
-              onClick={() => setReaderMode("scroll")}
+              onClick={() => saveReaderMode("scroll")}
               className={`flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition md:flex-none ${
                 readerMode === "scroll"
                   ? "bg-white text-black"
@@ -336,7 +427,7 @@ export function ReaderExperience({
             </button>
             <button
               type="button"
-              onClick={() => setReaderMode("paged")}
+              onClick={() => saveReaderMode("paged")}
               className={`flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition md:flex-none ${
                 readerMode === "paged"
                   ? "bg-white text-black"
@@ -381,52 +472,29 @@ export function ReaderExperience({
           </div>
 
           <div className="mx-auto mt-0 w-full max-w-4xl bg-[#1a1a1d] px-6 py-10 text-center shadow-[0_-10px_30px_rgba(0,0,0,0.25)]">
-            <p className="text-2xl font-semibold text-white sm:text-3xl">
-              Та {chapter.number}-р бүлгийг дуусгалаа.
-            </p>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">
-              Бүлгийн сонголт
-            </p>
-            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              {previousChapter ? (
-                <Link
-                  href={`/reader/${previousChapter.id}`}
-                  onClick={(event) =>
-                    handleChapterLinkClick(event, previousChapter)
-                  }
-                  className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#28282d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#34343a]"
-                >
-                  Өмнөх бүлэг
-                </Link>
-              ) : (
-                <div></div>
-              )}
-
-              {nextChapter ? (
-                <Link
-                  href={`/reader/${nextChapter.id}`}
-                  onClick={(event) => handleChapterLinkClick(event, nextChapter)}
-                  className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
-                >
-                  Дараагийн бүлэг
-                </Link>
-              ) : (
-                <div></div>
-              )}
-            </div>
-
-            <div className="mt-5">
-              <Link
-                href={`/manga/${manga.id}`}
-                className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b69a64] transition hover:text-[#e1c98b]"
-              >
-                Цувралын хуудас руу буцах
-              </Link>
-            </div>
+            {chapterEnd}
           </div>
         </main>
       ) : (
         <main className="relative z-10 flex min-h-screen items-center justify-center px-0 pb-36 pt-16 sm:px-4 sm:pt-20">
+          {atChapterEnd ? (
+            // One tap past the last page. No tap zones here: they would sit
+            // over the chapter buttons. The pill (or ←) goes back to the last
+            // page; it sits in the flow so the reader header cannot cover it.
+            <div className="flex h-[calc(100vh-7.5rem)] w-full max-w-4xl flex-col overflow-y-auto bg-[#1a1a1d] shadow-[0_26px_90px_rgba(0,0,0,0.45)]">
+              <div className="my-auto px-6 pb-12 pt-8 text-center">
+                <button
+                  type="button"
+                  onClick={goPreviousPage}
+                  className="mb-8 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] py-2 pl-3 pr-4 text-xs font-semibold text-zinc-300 transition hover:bg-white/10 hover:text-white"
+                >
+                  <ChevronLeft size={16} />
+                  Сүүлийн хуудас
+                </button>
+                {chapterEnd}
+              </div>
+            </div>
+          ) : (
           <div className="relative flex h-[calc(100vh-7.5rem)] w-full max-w-6xl items-center justify-center overflow-hidden bg-black shadow-[0_26px_90px_rgba(0,0,0,0.45)]">
             <button
               type="button"
@@ -465,6 +533,7 @@ export function ReaderExperience({
               </div>
             </div>
           </div>
+          )}
         </main>
       )}
 

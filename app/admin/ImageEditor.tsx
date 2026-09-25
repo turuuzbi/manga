@@ -115,6 +115,7 @@ export function ImageEditorField({
   outputType = "image/jpeg",
   outputQuality = 0.92,
   maxOutputDimension = 1600,
+  previewAspect,
 }: {
   /** Form field that receives the uploaded URL. */
   name: string;
@@ -128,6 +129,13 @@ export function ImageEditorField({
   outputType?: "image/jpeg" | "image/png" | "image/webp";
   outputQuality?: number;
   maxOutputDimension?: number;
+  /**
+   * CSS aspect-ratio (e.g. "16 / 9"). When set, the saved image and the new
+   * crop are previewed full-width at exactly this ratio, object-fit: cover —
+   * the same way the page that uses them crops — so what the admin checks
+   * before saving is what readers get.
+   */
+  previewAspect?: string;
 }) {
   const registry = useContext(UploadRegistryContext);
   const { resetVersion } = useUploadRegistryState(registry);
@@ -221,8 +229,11 @@ export function ImageEditorField({
       />
 
       {hasNew ? (
-        <div className="pe-field-result">
-          <div className="pe-field-thumb">
+        <div className={`pe-field-result${previewAspect ? " pe-large" : ""}`}>
+          <div
+            className="pe-field-thumb"
+            style={previewAspect ? { aspectRatio: previewAspect } : undefined}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={visibleResult!.url} alt="Засварласан урьдчилсан харагдац" />
             <span className="pe-field-tag">
@@ -259,9 +270,13 @@ export function ImageEditorField({
       ) : (
         <button type="button" className="ad-upload pe-dropzone" onClick={openPicker}>
           {existingImage ? (
-            <div className="pe-field-existing">
+            <div className={`pe-field-existing${previewAspect ? " pe-large" : ""}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={existingImage} alt="Одоогийн зураг" />
+              <img
+                src={existingImage}
+                alt="Одоогийн зураг"
+                style={previewAspect ? { aspectRatio: previewAspect } : undefined}
+              />
               <div className="pe-field-existing-text">
                 <p className="pe-strong">Зураг сонгож засах</p>
                 <p className="pe-muted">{helper}</p>
@@ -872,6 +887,10 @@ function EditorStyles() {
   gap: 3px; padding: 2px 7px; border-radius: 999px; font-size: 9.5px; letter-spacing: 0.04em;
   background: linear-gradient(135deg, var(--home-rose), var(--home-rose-deep)); color: #fff; }
 .pe-field-actions { min-width: 0; flex: 1; }
+/* Full-width previews at the real aspect ratio (see previewAspect). */
+.pe-field-existing.pe-large, .pe-field-result.pe-large { flex-direction: column; align-items: stretch; }
+.pe-field-existing.pe-large img { width: 100%; height: auto; border-radius: 12px; }
+.pe-field-result.pe-large .pe-field-thumb { width: 100%; height: auto; }
 .pe-field-name { font-size: 12.5px; color: var(--home-plum); word-break: break-all; margin-bottom: 10px; }
 .pe-field-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .pe-mini { padding: 8px 12px; font-size: 10px; border-radius: 11px; }

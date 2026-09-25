@@ -22,6 +22,8 @@ export function updatesPageHref(page: number) {
 }
 
 const UPDATES_STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Marcellus&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
+
 .yume-updates { font-family: 'Plus Jakarta Sans', sans-serif; }
 .yume-updates * { box-sizing: border-box; }
 .yume-updates .yu-back {

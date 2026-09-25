@@ -33,15 +33,22 @@ const STATUS_BADGE_MODIFIER: Record<MangaStatusValue, string> = {
 };
 
 const DEFAULT_TITLE_FONT = "Cormorant Garamond";
+// Title fonts offered in the admin. Every one was checked against its font
+// file for the full Mongolian alphabet, Ө Ү ө ү included — the previous list
+// (Bangers, Permanent Marker, Anton, Bungee, Bowlby One, Creepster, Black Ops
+// One, Special Elite) had no Cyrillic at all, so a Mongolian title set in any
+// of them silently rendered in the fallback font instead.
 const FONT_FAMILY_FALLBACKS: Record<string, string> = {
-  Bangers: "cursive",
-  "Permanent Marker": "cursive",
-  "Special Elite": "cursive",
-  Anton: "sans-serif",
-  Bungee: "cursive",
-  "Bowlby One": "cursive",
-  Creepster: "cursive",
-  "Black Ops One": "cursive",
+  Pangolin: "cursive",
+  Caveat: "cursive",
+  Oswald: "sans-serif",
+  "Rubik Mono One": "sans-serif",
+  Oi: "serif",
+  "Rubik Wet Paint": "cursive",
+  "Rubik Glitch": "sans-serif",
+  "PT Mono": "monospace",
+  Lobster: "cursive",
+  "Yeseva One": "serif",
   Rubik: "sans-serif",
   "Cormorant Garamond": "serif",
 };

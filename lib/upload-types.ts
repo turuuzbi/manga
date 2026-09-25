@@ -9,7 +9,7 @@
  */
 
 export type UploadScope =
-  /** Series artwork: home/detail/promo posters, poster library, reward. */
+  /** Series artwork: posters, poster library, reward, hero slide images. */
   | { kind: "manga"; mangaId: string }
   /** An existing chapter's thumbnail, badge or a replacement page. */
   | { kind: "chapter"; chapterId: string }
@@ -23,7 +23,16 @@ export type UploadScope =
   | { kind: "news" };
 
 export const UPLOAD_SLOTS = {
-  manga: ["home", "detail", "promo", "poster", "reward", "reward-original"],
+  manga: [
+    "home",
+    "detail",
+    "promo",
+    "poster",
+    "reward",
+    "reward-original",
+    "featured-desktop",
+    "featured-mobile",
+  ],
   chapter: ["cover", "badge", "page"],
   ingest: ["manga-cover", "chapter-cover", "page"],
   news: ["image"],

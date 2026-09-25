@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { HomeLanding } from "@/app/_components/HomeLanding";
 import { getCurrentDbUser } from "@/lib/auth";
 import { loadChapterFeed } from "@/lib/chapter-feed";
+import { featuredSlideImages } from "@/lib/featured";
 import { premiumDaysRemaining } from "@/lib/plans";
 
 /** Chapter cards on the homepage rail; "Бүгдийг үзэх" pages through the rest. */
@@ -183,18 +184,24 @@ export default async function HomePage() {
         left.mangaName.localeCompare(right.mangaName),
     );
 
-  const featured = featuredManga.map((manga) => ({
-    id: manga.id,
-    title: manga.mangaName,
-    coverUrl:
+  // Hero slides use their own per-device art (panels from inside the manga),
+  // never the detail page's poster fields. Each falls back to the other
+  // device's image, then to the poster, so older featured entries still show.
+  const featured = featuredManga.map((manga) => {
+    const poster =
       manga.defaultPoster ??
       manga.detailCoverImage ??
       manga.homeCoverImage ??
       manga.coverImage ??
-      undefined,
-    titleFont: manga.titleFont ?? null,
-    genres: manga.genres.map((entry) => entry.genre.name).slice(0, 3),
-  }));
+      undefined;
+
+    return {
+      id: manga.id,
+      title: manga.mangaName,
+      ...featuredSlideImages(manga, poster),
+      titleFont: manga.titleFont ?? null,
+    };
+  });
 
   return (
     <HomeLanding
