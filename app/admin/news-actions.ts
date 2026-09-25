@@ -88,8 +88,14 @@ export async function listArticlesAction(): Promise<{
   };
 }
 
+/**
+ * The МЭДЭЭ pages are cached for everyone (revalidate = 300). Refresh them now
+ * so a new or edited article shows at once instead of within five minutes —
+ * including the older feed pages, whose contents shift by one.
+ */
 function revalidateNews(articleId?: string) {
   revalidatePath("/news");
+  revalidatePath("/news/page/[page]", "page");
   if (articleId) {
     revalidatePath(`/news/${articleId}`);
   }

@@ -20,6 +20,7 @@ export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
     pathname === "/news" ||
     pathname.startsWith("/news/") ||
     pathname === "/updates" ||
+    pathname.startsWith("/updates/") ||
     pathname === "/profile";
 
   if (isReader || usesSharedTopNav) {

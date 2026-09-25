@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { BookOpen, Clock3, Lock } from "lucide-react";
 import {
   FreeReadConfirm,
@@ -12,7 +13,7 @@ import {
   STATUS_LABELS,
   formatFontFamily,
 } from "@/app/_components/MangaPosterCard";
-import type { ChapterFeedCard } from "@/lib/chapter-feed";
+import type { ChapterFeedCard, ViewerFeedFlags } from "@/lib/chapter-feed";
 
 const STATUS_MODIFIER: Record<ChapterFeedCard["status"], string> = {
   ONGOING: "",
@@ -43,6 +44,9 @@ function ChapterCard({
   return (
     <Link
       href={`/reader/${card.chapterId}`}
+      // Not prefetched: every card on screen would otherwise run the reader
+      // page on the server before anyone taps it.
+      prefetch={false}
       onClick={(event) => onOpen(event, card)}
       className="yume-card"
       aria-label={`${card.mangaTitle} — Ch. ${card.chapterNumber}`}
@@ -94,16 +98,69 @@ function ChapterCard({
  * detail page's chapter list uses; the reader enforces the actual rules.
  */
 export function ChapterFeedCards({
-  cards,
-  freeRemaining,
+  cards: baseCards,
+  freeRemaining: baseFreeRemaining,
   layout,
+  viewerFlags = "server",
 }: {
   cards: ChapterFeedCard[];
   freeRemaining: number;
   layout: "rail" | "grid";
+  /**
+   * "server": the page already worked out the reader's locks and free-read
+   * costs. "client": the page is cached and the same for everyone, so the
+   * cards ask for this reader's half themselves (signed-in readers only).
+   */
+  viewerFlags?: "server" | "client";
 }) {
   const router = useRouter();
+  const { isSignedIn } = useAuth();
   const [confirming, setConfirming] = useState<ChapterFeedCard | null>(null);
+  const [flags, setFlags] = useState<{
+    key: string;
+    value: ViewerFeedFlags;
+  } | null>(null);
+  const idsKey = baseCards.map((card) => card.chapterId).join(",");
+
+  useEffect(() => {
+    if (viewerFlags !== "client" || !isSignedIn || !idsKey) {
+      return;
+    }
+
+    let cancelled = false;
+    fetch("/api/reading/feed-flags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chapterIds: idsKey.split(",") }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value: ViewerFeedFlags | null) => {
+        if (!cancelled && value) {
+          setFlags({ key: idsKey, value });
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerFlags, isSignedIn, idsKey]);
+
+  // Until (or unless) the reader's flags arrive, cards behave as for a free
+  // reader who has not used a read today: locks shown, no confirm. The reader
+  // page still enforces every rule on open.
+  const clientFlags = flags?.key === idsKey ? flags.value : null;
+  const spend = new Set(clientFlags?.spendIds ?? []);
+  const cards =
+    viewerFlags === "client"
+      ? baseCards.map((card) => ({
+          ...card,
+          isPaywalled: clientFlags?.premium ? false : card.isPaywalled,
+          spendsFreeRead: spend.has(card.chapterId),
+        }))
+      : baseCards;
+  const freeRemaining =
+    viewerFlags === "client" ? (clientFlags?.freeRemaining ?? 0) : baseFreeRemaining;
 
   function onOpen(event: React.MouseEvent<HTMLAnchorElement>, card: ChapterFeedCard) {
     if (!card.spendsFreeRead || isModifiedClick(event)) {

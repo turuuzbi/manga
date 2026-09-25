@@ -7,20 +7,40 @@ import { useNewsState } from "@/app/_components/NewsNotifier";
 import { markNewsSeen } from "@/lib/news-client";
 import type { NewsItem } from "@/lib/news";
 
-export type NewsFeedEntry = NewsItem & { dateLabel: string };
-
 /**
- * The МЭДЭЭ feed. The "new" marker comes from the shared client state once it
- * has loaded — that is the only place signed-out readers' seen state exists —
- * and from the server's answer until then.
+ * The МЭДЭЭ feed. The page itself is cached and identical for everyone, so
+ * everything personal is added here in the browser from the per-page status
+ * call: "new" markers, and on the first page the reader's own notices (their
+ * rewards) merged in by date.
  */
-export function NewsFeedList({ items }: { items: NewsFeedEntry[] }) {
+export function NewsFeedList({
+  items,
+  includeNotices,
+}: {
+  items: NewsItem[];
+  /** First page only: merge in the reader's personal notices. */
+  includeNotices: boolean;
+}) {
   const news = useNewsState();
   const unread = new Set(news.unreadKeys);
+  const entries =
+    includeNotices && news.notices.length > 0
+      ? [...news.notices, ...items].sort((left, right) =>
+          right.date.localeCompare(left.date),
+        )
+      : items;
+
+  if (entries.length === 0) {
+    return (
+      <div className="yn-empty">
+        Одоогоор мэдээ алга. Шинэ мэдээ гарахад энд харагдана.
+      </div>
+    );
+  }
 
   return (
     <div className="yn-list">
-      {items.map((item, index) => {
+      {entries.map((item, index) => {
         const isUnread = news.loaded ? unread.has(item.key) : item.seen === false;
         const isNotice = item.kind === "notice";
 

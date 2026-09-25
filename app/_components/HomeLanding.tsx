@@ -568,6 +568,7 @@ function PromoSlot({
       <div className="yume-promo">
         <Link
           href={`/manga/${banner.id}`}
+          prefetch={false}
           className="yume-promo-card"
           aria-label={banner.title}
         >
@@ -625,6 +626,7 @@ function ContinueReadingShelf({
           <Link
             key={item.id}
             href={`/manga/${item.id}`}
+            prefetch={false}
             className="yume-card"
             aria-label={item.title}
           >
@@ -708,6 +710,7 @@ function HeroCarousel({ slides }: { slides: FeaturedSlide[] }) {
         <Link
           key={slide.id}
           href={`/manga/${slide.id}`}
+          prefetch={false}
           className={`yume-hero-slide${index === active ? " active" : ""}`}
           aria-hidden={index !== active}
           tabIndex={index === active ? 0 : -1}

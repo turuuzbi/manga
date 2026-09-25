@@ -19,6 +19,11 @@ const MAX_LOCAL_SEEN = 300;
 export type ClientNewsState = {
   loaded: boolean;
   signedIn: boolean;
+  /** For the menu on cached pages, which cannot know who is looking. */
+  isAdmin: boolean;
+  premiumDaysLeft: number | null;
+  /** The reader's latest personal notices, for the МЭДЭЭ feed. */
+  notices: NewsItem[];
   unreadKeys: string[];
   unreadCount: number;
   popup: NewsItem | null;
@@ -29,6 +34,9 @@ export type ClientNewsState = {
 const INITIAL_STATE: ClientNewsState = {
   loaded: false,
   signedIn: false,
+  isAdmin: false,
+  premiumDaysLeft: null,
+  notices: [],
   unreadKeys: [],
   unreadCount: 0,
   popup: null,
@@ -96,6 +104,11 @@ function fromStatus(status: NewsStatus): ClientNewsState {
     return {
       loaded: true,
       signedIn: true,
+      isAdmin: status.isAdmin,
+      premiumDaysLeft: status.premiumDaysLeft,
+      notices: status.notices.map((item) =>
+        seen.has(item.key) ? { ...item, seen: true } : item,
+      ),
       unreadKeys,
       unreadCount: unreadKeys.length,
       popup,
@@ -108,6 +121,9 @@ function fromStatus(status: NewsStatus): ClientNewsState {
   return {
     loaded: true,
     signedIn: false,
+    isAdmin: false,
+    premiumDaysLeft: null,
+    notices: [],
     unreadKeys: unread.map((item) => item.key),
     unreadCount: unread.length,
     popup: unread[0] ?? null,

@@ -53,12 +53,15 @@ async function pruneOrphanGenres() {
  * Every reader-facing page that shows a series' artwork, chapters or banner.
  * Revalidating all of them after a change is what keeps an old poster from
  * lingering in the router cache — `/manga` (the library) and `/updates` were
- * previously left out, so a replaced poster could still show there.
+ * previously left out, so a replaced poster could still show there. /updates
+ * and its older pages are cached for everyone (revalidate = 300), so this is
+ * also what makes a new chapter appear there at once.
  */
 function revalidateSeriesSurfaces(mangaId?: string | null) {
   revalidatePath("/");
   revalidatePath("/manga");
   revalidatePath("/updates");
+  revalidatePath("/updates/page/[page]", "page");
   revalidatePath("/admin");
 
   if (mangaId) {

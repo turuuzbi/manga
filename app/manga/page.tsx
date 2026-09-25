@@ -2,8 +2,6 @@ import Link from "next/link";
 import { ArrowLeft, Moon, Search } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
-import { getCurrentDbUser } from "@/lib/auth";
-import { premiumDaysRemaining } from "@/lib/plans";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 import { CelestialFrame } from "@/app/_components/CelestialFrame";
 import {
@@ -142,8 +140,10 @@ export default async function MangaLibraryPage({
     ...(activeStatus ? { status: activeStatus } : {}),
   };
 
-  const [currentUser, mangas, genreFilters] = await Promise.all([
-    getCurrentDbUser(),
+  // No auth here: the catalogue is the same for everyone, and the menu learns
+  // who is looking from the browser's status call. That keeps this page off
+  // the auth middleware entirely (see proxy.ts).
+  const [mangas, genreFilters] = await Promise.all([
     prisma.manga.findMany({
       where,
       orderBy: { mangaName: "asc" },
@@ -201,9 +201,8 @@ export default async function MangaLibraryPage({
           navLinks={[
             { label: "Нүүр", href: "/" },
             { label: "Сан", href: "/manga" },
+            { label: "Мэдээ", href: "/news" },
           ]}
-          isAdmin={currentUser?.role === "ADMIN"}
-          premiumDaysLeft={premiumDaysRemaining(currentUser)}
         />
 
         <main className="motion-ink-fade relative z-10 mx-auto w-full max-w-7xl px-4 pb-20 pt-8 md:px-8">

@@ -62,13 +62,18 @@ export function MangaTopNav({
   navLinks = defaultLinks,
   searchPlaceholder = "Цуврал, зохиолч хайх...",
   showSearch = true,
-  isAdmin = false,
+  isAdmin: isAdminProp,
   overlay = false,
-  premiumDaysLeft = null,
+  premiumDaysLeft: premiumDaysLeftProp,
 }: {
   navLinks?: NavLink[];
   searchPlaceholder?: string;
   showSearch?: boolean;
+  /**
+   * Server-rendered pages pass this. Cached pages (/news, /updates, the
+   * library) leave it out, and the menu takes it from the per-page status
+   * call instead — they are the same for everyone, so they cannot know.
+   */
   isAdmin?: boolean;
   /**
    * When true the header floats transparently over a full-bleed hero on
@@ -77,14 +82,19 @@ export function MangaTopNav({
   overlay?: boolean;
   /**
    * Days left on the reader's subscription, or null when they have none. Drives
-   * the "Эрх авах" entry's subtitle.
+   * the "Эрх авах" entry's subtitle. Left out (undefined) on cached pages, like
+   * isAdmin.
    */
   premiumDaysLeft?: number | null;
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const { unreadCount } = useNewsState();
+  const news = useNewsState();
+  const { unreadCount } = news;
+  const isAdmin = isAdminProp ?? news.isAdmin;
+  const premiumDaysLeft =
+    premiumDaysLeftProp === undefined ? news.premiumDaysLeft : premiumDaysLeftProp;
   const unreadLabel = unreadCount > 9 ? "9+" : String(unreadCount);
 
   const subscribeToTheme = useCallback((callback: () => void) => {

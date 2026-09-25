@@ -239,6 +239,9 @@ export function ChapterList({
             <Link
               key={row.key}
               href={`/reader/${chapter.id}`}
+              // Not prefetched: a long chapter list would run the reader on
+              // the server for every row in view.
+              prefetch={false}
               onClick={(event) => handleChapterClick(event, chapter)}
               className={`group motion-ink-up yd-chapter${chapter.isRead ? " is-read" : ""}`}
               style={delay}

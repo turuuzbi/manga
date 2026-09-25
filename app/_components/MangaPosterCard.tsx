@@ -271,6 +271,9 @@ export function MangaPosterCard({
   return (
     <Link
       href={`/manga/${manga.id}`}
+      // Not prefetched: a page of cards would otherwise run each detail page
+      // on the server before anyone taps one.
+      prefetch={false}
       className={`yume-card${typeof delayIndex === "number" ? " motion-ink-up" : ""}`}
       style={
         typeof delayIndex === "number"

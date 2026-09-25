@@ -1,5 +1,7 @@
 import prisma from "@/lib/db";
 import { excerptOf } from "@/lib/markdown";
+import { premiumDaysRemaining } from "@/lib/plans";
+import { formatRelativeMn } from "@/lib/relative-time";
 
 /**
  * МЭДЭЭ: admin articles (everyone) and personal notices (one reader), listed
@@ -27,12 +29,25 @@ export type NewsItem = {
   imageUrl: string | null;
   /** ISO date. */
   date: string;
+  /** e.g. "3 цагийн өмнө", set wherever the item is sent to the browser. */
+  dateLabel?: string;
   /** Null when the server cannot know (signed-out; the browser decides). */
   seen: boolean | null;
 };
 
+/**
+ * Everything per-reader that a page needs, fetched once per page load by
+ * lib/news-client. Pages that look the same for everyone (/news, /updates,
+ * the library) are served from the cache without running any server code, so
+ * their menu learns who is looking — admin, premium — from this instead.
+ */
 export type NewsStatus = {
   signedIn: boolean;
+  isAdmin: boolean;
+  /** Days left on the reader's subscription; null when they have none. */
+  premiumDaysLeft: number | null;
+  /** The reader's latest personal notices, seen or not, for the МЭДЭЭ feed. */
+  notices: NewsItem[];
   /** Unread items for signed-in readers; for guests, see `recent`. */
   unreadCount: number;
   /** Keys of those unread items, so the badge can drop exactly the ones seen. */
@@ -184,7 +199,12 @@ export async function markSeenForUser(userId: string, keys: unknown) {
 }
 
 export async function getNewsStatus(
-  user: { id: string; siteBackgroundId: string | null } | null,
+  user: {
+    id: string;
+    role: "READER" | "ADMIN";
+    premiumUntil: Date | null;
+    siteBackgroundId: string | null;
+  } | null,
   guestSeenKeys: unknown,
 ): Promise<NewsStatus> {
   const now = new Date();
@@ -200,6 +220,9 @@ export async function getNewsStatus(
 
     return {
       signedIn: false,
+      isAdmin: false,
+      premiumDaysLeft: null,
+      notices: [],
       unreadCount: 0,
       unreadKeys: [],
       popup: null,
@@ -224,10 +247,12 @@ export async function getNewsStatus(
       take: 50,
       select: ARTICLE_SELECT,
     }),
+    // Newest notices, seen or not: the unread ones feed the badge and popup,
+    // and all of them are listed in the (cached, shared) МЭДЭЭ feed.
     prisma.userNotification.findMany({
-      where: { userId: user.id, seenAt: null },
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: NEWS_PAGE_SIZE,
       select: NOTICE_SELECT,
     }),
     user.siteBackgroundId
@@ -238,13 +263,20 @@ export async function getNewsStatus(
       : null,
   ]);
 
+  const noticeItems = notices.map((notice) => ({
+    ...noticeToItem(notice),
+    dateLabel: formatRelativeMn(notice.createdAt, now),
+  }));
   const unread = [
     ...articles.map((article) => articleToItem(article, false)),
-    ...notices.map(noticeToItem),
+    ...noticeItems.filter((item) => !item.seen),
   ].sort(byNewest);
 
   return {
     signedIn: true,
+    isAdmin: user.role === "ADMIN",
+    premiumDaysLeft: premiumDaysRemaining(user, now),
+    notices: noticeItems,
     unreadCount: unread.length,
     unreadKeys: unread.map((item) => item.key),
     popup: unread[0] ?? null,
@@ -256,59 +288,26 @@ export async function getNewsStatus(
 export const NEWS_PAGE_SIZE = 20;
 
 /**
- * One page of the МЭДЭЭ feed: articles plus, for a signed-in reader, their
- * notices, merged newest first. Both sources are over-fetched to the end of
- * the requested page so the merge is exact.
+ * One page of МЭДЭЭ articles, newest first — identical for every reader, so
+ * the page is cached and served without running any server code. What is
+ * personal (unread markers, the reader's own notices) is layered on in the
+ * browser from the status call (see app/news/NewsFeedList).
  */
-export async function getNewsFeed({
-  userId,
-  page,
-}: {
-  userId: string | null;
-  page: number;
-}) {
+export async function getArticlePage(page: number) {
   const now = new Date();
-  const windowStart = unreadWindowStart(now);
-  const depth = page * NEWS_PAGE_SIZE + 1;
-
-  const [articles, notices] = await Promise.all([
-    prisma.article.findMany({
-      where: { publishedAt: { lte: now } },
-      orderBy: { publishedAt: "desc" },
-      take: depth,
-      select: {
-        ...ARTICLE_SELECT,
-        ...(userId
-          ? { seenBy: { where: { userId }, select: { userId: true } } }
-          : {}),
-      },
-    }),
-    userId
-      ? prisma.userNotification.findMany({
-          where: { userId },
-          orderBy: { createdAt: "desc" },
-          take: depth,
-          select: NOTICE_SELECT,
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const merged = [
-    ...articles.map((article) => {
-      const seenBy = (article as { seenBy?: unknown[] }).seenBy;
-      // Old articles are never "new", whatever the seen table says.
-      const seen = userId
-        ? Boolean(seenBy?.length) || article.publishedAt < windowStart
-        : null;
-      return articleToItem(article, seen);
-    }),
-    ...notices.map(noticeToItem),
-  ].sort(byNewest);
-
-  const start = (page - 1) * NEWS_PAGE_SIZE;
+  const articles = await prisma.article.findMany({
+    where: { publishedAt: { lte: now } },
+    orderBy: { publishedAt: "desc" },
+    skip: (page - 1) * NEWS_PAGE_SIZE,
+    take: NEWS_PAGE_SIZE + 1,
+    select: ARTICLE_SELECT,
+  });
 
   return {
-    items: merged.slice(start, start + NEWS_PAGE_SIZE),
-    hasMore: merged.length > start + NEWS_PAGE_SIZE,
+    items: articles.slice(0, NEWS_PAGE_SIZE).map((article) => ({
+      ...articleToItem(article, null),
+      dateLabel: formatRelativeMn(article.publishedAt, now),
+    })),
+    hasMore: articles.length > NEWS_PAGE_SIZE,
   };
 }

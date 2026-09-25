@@ -131,7 +131,7 @@ export function DetailHero({
 
         <div className="yd-hero-actions">
           {firstChapterId ? (
-            <Link href={`/reader/${firstChapterId}`} className="yd-btn">
+            <Link href={`/reader/${firstChapterId}`} prefetch={false} className="yd-btn">
               <BookOpen size={15} />
               Уншиж эхлэх
               <ChevronRight size={15} />

@@ -103,50 +103,11 @@ export async function loadChapterFeed({
   }
 
   const chapterIds = chapters.map((chapter) => chapter.id);
-
-  // How many newer chapters each one has within its own series — the rolling
-  // paywall locks the newest N, so this is what decides "locked".
-  const newerCounts = await prisma.$queryRaw<Array<{ id: string; newer: number }>>(
-    Prisma.sql`
-      SELECT c.id,
-        (SELECT COUNT(*)::int FROM "public"."Chapter" c2
-          WHERE c2."mangaId" = c."mangaId" AND c2."chapterNumber" > c."chapterNumber") AS newer
-      FROM "public"."Chapter" c
-      WHERE c.id = ANY(${chapterIds}::text[])
-    `,
-  );
-  const newerById = new Map(newerCounts.map((row) => [row.id, row.newer]));
-
-  const paywalledChapterIds = new Set(
-    chapters
-      .filter((chapter) => {
-        const window = resolvePaywalledChapters(chapter.manga.paywalledChapters);
-        return window > 0 && (newerById.get(chapter.id) ?? 0) < window;
-      })
-      .map((chapter) => chapter.id),
-  );
-
-  const viewerIsPremium = isPremium(viewer);
-  let spendIds = new Set<string>();
-  let freeRemaining = 0;
-
-  if (viewer && !viewerIsPremium) {
-    const reads = await prisma.readingProgress.findMany({
-      where: { userId: viewer.id, chapterId: { in: chapterIds } },
-      select: { chapterId: true },
-    });
-    const [spend, freeState] = await Promise.all([
-      getFreeSpendChapterIds({
-        user: viewer,
-        chapterIds,
-        readChapterIds: new Set(reads.map((row) => row.chapterId)),
-        paywalledChapterIds,
-      }),
-      getFreeReadState(viewer),
-    ]);
-    spendIds = spend;
-    freeRemaining = freeState.remaining;
-  }
+  const paywalledChapterIds = await findPaywalledChapterIds(chapterIds);
+  const flags = await getViewerFeedFlags(viewer, chapterIds, paywalledChapterIds);
+  const spendIds = new Set(flags.spendIds);
+  const viewerIsPremium = flags.premium;
+  const freeRemaining = flags.freeRemaining;
 
   const cards = chapters.map((chapter): ChapterFeedCard => {
     const firstPage = chapter.pages[0]?.imageUrl ?? null;
@@ -174,4 +135,86 @@ export async function loadChapterFeed({
   });
 
   return { cards, total, freeRemaining };
+}
+
+/**
+ * Which of these chapters sit inside their series' subscriber-only window.
+ * The rolling paywall locks each series' newest N chapters, so this counts the
+ * newer chapters each one has within its own series.
+ */
+async function findPaywalledChapterIds(chapterIds: string[]): Promise<Set<string>> {
+  if (chapterIds.length === 0) {
+    return new Set();
+  }
+
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string; paywalledChapters: number | null; newer: number }>
+  >(
+    Prisma.sql`
+      SELECT c.id, m."paywalledChapters",
+        (SELECT COUNT(*)::int FROM "public"."Chapter" c2
+          WHERE c2."mangaId" = c."mangaId" AND c2."chapterNumber" > c."chapterNumber") AS newer
+      FROM "public"."Chapter" c
+      JOIN "public"."Manga" m ON m.id = c."mangaId"
+      WHERE c.id = ANY(${chapterIds}::text[])
+    `,
+  );
+
+  return new Set(
+    rows
+      .filter((row) => {
+        const window = resolvePaywalledChapters(row.paywalledChapters);
+        return window > 0 && row.newer < window;
+      })
+      .map((row) => row.id),
+  );
+}
+
+export type ViewerFeedFlags = {
+  premium: boolean;
+  /** Free reads left today (0 when signed out or premium). */
+  freeRemaining: number;
+  /** Chapters whose opening would spend one of today's free reads. */
+  spendIds: string[];
+};
+
+/**
+ * The per-reader half of a chapter card: is the reader premium (no locks), and
+ * which chapters would cost a daily free read (ask first). The homepage
+ * computes it while rendering; the cached /updates page asks for it from the
+ * browser (app/api/reading/feed-flags) so the page itself can stay shared.
+ */
+export async function getViewerFeedFlags(
+  viewer: { id: string; premiumUntil: Date | null } | null,
+  chapterIds: string[],
+  paywalledChapterIds?: Set<string>,
+): Promise<ViewerFeedFlags> {
+  if (!viewer || chapterIds.length === 0) {
+    return { premium: isPremium(viewer), freeRemaining: 0, spendIds: [] };
+  }
+
+  if (isPremium(viewer)) {
+    return { premium: true, freeRemaining: 0, spendIds: [] };
+  }
+
+  const paywalled = paywalledChapterIds ?? (await findPaywalledChapterIds(chapterIds));
+  const reads = await prisma.readingProgress.findMany({
+    where: { userId: viewer.id, chapterId: { in: chapterIds } },
+    select: { chapterId: true },
+  });
+  const [spend, freeState] = await Promise.all([
+    getFreeSpendChapterIds({
+      user: viewer,
+      chapterIds,
+      readChapterIds: new Set(reads.map((row) => row.chapterId)),
+      paywalledChapterIds: paywalled,
+    }),
+    getFreeReadState(viewer),
+  ]);
+
+  return {
+    premium: false,
+    freeRemaining: freeState.remaining,
+    spendIds: [...spend],
+  };
 }
