@@ -288,6 +288,7 @@ const headerLinks = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
   { label: "Мэдээ", href: "/news" },
+  { label: "Хуваарь", href: "/schedule" },
 ];
 
 interface FeaturedSlide {

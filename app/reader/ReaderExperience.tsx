@@ -33,6 +33,8 @@ type ReaderExperienceProps = {
     title: string | null;
     /** Yume's end-of-chapter note; null/empty renders nothing. */
     yumeComment?: string | null;
+    /** The account that wrote the note (its avatar and name). */
+    yumeCommentAuthor?: { name: string; avatarUrl: string | null } | null;
   };
   isPremium?: boolean;
   /** Free chapter unlocks left for the user today (null when premium). */
@@ -320,7 +322,10 @@ export function ReaderExperience({
   // line, and the way on.
   const chapterEnd = (
     <>
-      <YumeComment comment={chapter.yumeComment} />
+      <YumeComment
+        comment={chapter.yumeComment}
+        author={chapter.yumeCommentAuthor ?? null}
+      />
       <p className="text-2xl font-semibold text-white sm:text-3xl">
         Та {chapter.number}-р бүлгийг дуусгалаа.
       </p>

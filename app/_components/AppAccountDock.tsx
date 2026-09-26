@@ -16,11 +16,14 @@ export function AppAccountDock({ isAdmin = false }: { isAdmin?: boolean }) {
     isHome ||
     pathname === "/manga" ||
     pathname.startsWith("/manga/") ||
-    // МЭДЭЭ, the chapter feed and the profile render MangaTopNav as well.
+    // МЭДЭЭ, the chapter feed, the schedule and the profile render
+    // MangaTopNav as well.
     pathname === "/news" ||
     pathname.startsWith("/news/") ||
     pathname === "/updates" ||
     pathname.startsWith("/updates/") ||
+    pathname === "/schedule" ||
+    pathname.startsWith("/schedule/") ||
     pathname === "/profile";
 
   if (isReader || usesSharedTopNav) {

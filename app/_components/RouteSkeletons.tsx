@@ -93,14 +93,14 @@ function YumeNavSkeleton() {
           className="ink-skeleton h-12 w-12 rounded-xl"
           style={yumePosterStyle}
         />
-        <div className="hidden items-center gap-8 md:flex">
-          {Array.from({ length: 3 }).map((_, index) => (
+        <div className="hidden items-center gap-8 lg:flex">
+          {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="ink-skeleton ink-skeleton-line h-2.5 w-14" />
           ))}
         </div>
         <div className="flex items-center gap-2">
           <div className="ink-skeleton h-10 w-10 rounded-full" />
-          <div className="ink-skeleton hidden h-9 w-40 rounded-full md:block" />
+          <div className="ink-skeleton hidden h-9 w-40 rounded-full lg:block" />
           <div className="ink-skeleton h-9 w-9 rounded-full" />
         </div>
       </div>

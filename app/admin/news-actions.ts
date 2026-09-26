@@ -21,6 +21,8 @@ export type AdminArticle = {
   imageUrl: string | null;
   authorName: string;
   publishedAt: string;
+  /** Unique views (per account / per device). Admin-only. */
+  viewCount: number;
 };
 
 const MAX_TITLE_LENGTH = 200;
@@ -74,6 +76,7 @@ export async function listArticlesAction(): Promise<{
         imageUrl: true,
         authorName: true,
         publishedAt: true,
+        viewCount: true,
       },
     }),
     defaultAuthorName(adminUser.username),

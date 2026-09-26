@@ -84,10 +84,31 @@ export function NewsFeedList({
  * so even a status request already in flight cannot pop this article's own
  * popup over it.
  */
-export function MarkArticleSeen({ itemKey }: { itemKey: string }) {
+export function MarkArticleSeen({
+  itemKey,
+  articleId,
+}: {
+  itemKey: string;
+  articleId: string;
+}) {
   useEffect(() => {
     markNewsSeen([itemKey]);
-  }, [itemKey]);
+
+    // Count the view (admin-only number). The server keeps it to one per
+    // account or device, so a refresh adds nothing; this set just avoids a
+    // second request from the same page load.
+    if (!countedViews.has(articleId)) {
+      countedViews.add(articleId);
+      void fetch("/api/news/view", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId }),
+        keepalive: true,
+      }).catch(() => undefined);
+    }
+  }, [itemKey, articleId]);
 
   return null;
 }
+
+const countedViews = new Set<string>();

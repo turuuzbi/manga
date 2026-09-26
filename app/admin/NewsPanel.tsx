@@ -47,6 +47,18 @@ const PANEL_STYLES = `
 .yume-admin .np-row.is-editing { border-color: var(--home-rose); box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-rose) 16%, transparent); }
 .yume-admin .np-row-title { font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 18px; line-height: 1.2; color: var(--home-plum); }
 .yume-admin .np-row-date { margin-top: 3px; font-size: 12px; color: var(--home-plum-soft); }
+.yume-admin .np-row-views {
+  margin-top: 4px; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; color: var(--home-rose-deep);
+}
+.yume-admin .np-views {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  border-radius: 14px; padding: 10px 14px;
+  background: var(--home-paper-2); border: 1px solid var(--home-line);
+  font-size: 14px; font-weight: 600; color: var(--home-plum);
+}
+.yume-admin .np-views svg { color: var(--home-gold); }
+.yume-admin .np-views-hint { font-size: 12px; font-weight: 400; color: var(--home-plum-soft); }
 .yume-admin .np-example {
   border-radius: 999px; border: 1px dashed var(--home-line-strong); background: var(--home-paper);
   padding: 6px 12px; font-size: 12.5px; color: var(--home-plum); cursor: pointer;
@@ -57,6 +69,11 @@ const PANEL_STYLES = `
   background: var(--home-paper); border: 1px dashed var(--home-line-strong); color: var(--home-plum);
 }
 `;
+
+/** "1,234 үзэлт" — unique views (one per account or device). */
+function formatViews(count: number) {
+  return `${count.toLocaleString("en-US")} үзэлт`;
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString();
@@ -183,6 +200,16 @@ export function NewsPanel() {
           className="space-y-5"
         >
           <input type="hidden" name="articleId" value={editingId ?? ""} />
+
+          {editing ? (
+            <p className="np-views">
+              <Eye size={14} />
+              {formatViews(editing.viewCount)}
+              <span className="np-views-hint">
+                давтагдашгүй · зөвхөн админд харагдана
+              </span>
+            </p>
+          ) : null}
 
           <label className="block">
             <span className="ad-label">Гарчиг</span>
@@ -350,6 +377,10 @@ export function NewsPanel() {
               <p className="np-row-title">{article.title}</p>
               <p className="np-row-date">
                 {formatDate(article.publishedAt)} · {article.authorName}
+              </p>
+              <p className="np-row-views">
+                <Eye size={12} />
+                {formatViews(article.viewCount)}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">

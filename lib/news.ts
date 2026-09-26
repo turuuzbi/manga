@@ -14,11 +14,13 @@ import { formatRelativeMn } from "@/lib/relative-time";
  */
 
 /**
- * Only articles from this window count as unread. Without it, a brand-new or
- * signed-out reader would open the site to a badge for every post ever
- * written. Older articles stay in the feed; they just are not "new".
+ * A post is announced — the one-time popup and the unread badge — only for
+ * this long after it is published. It is filtered here in the query, so an
+ * older post is never even sent to the browser as "new"; it stays in the
+ * /news feed and in admin. A reader who already saw or dismissed a post never
+ * gets it again either way (ArticleSeen / the browser's seen list).
  */
-export const NEWS_UNREAD_WINDOW_DAYS = 30;
+export const NEWS_ANNOUNCE_WINDOW_HOURS = 72;
 
 export type NewsItem = {
   key: string;
@@ -67,7 +69,7 @@ export const ARTICLE_KEY = (id: string) => `a:${id}`;
 export const NOTICE_KEY = (id: string) => `n:${id}`;
 
 function unreadWindowStart(now: Date) {
-  return new Date(now.getTime() - NEWS_UNREAD_WINDOW_DAYS * 86_400_000);
+  return new Date(now.getTime() - NEWS_ANNOUNCE_WINDOW_HOURS * 3_600_000);
 }
 
 type ArticleRow = {
@@ -310,4 +312,46 @@ export async function getArticlePage(page: number) {
     })),
     hasMore: articles.length > NEWS_PAGE_SIZE,
   };
+}
+
+/** Cookie holding an anonymous reader's device id, for unique view counts. */
+export const DEVICE_COOKIE = "yume_vid";
+const DEVICE_ID_PATTERN = /^[0-9a-f-]{36}$/;
+
+export function isDeviceId(value: string | undefined | null): value is string {
+  return Boolean(value && DEVICE_ID_PATTERN.test(value));
+}
+
+/**
+ * Counts one view of an article, once per viewer: "u:<userId>" for a
+ * signed-in reader, "d:<deviceId>" for an anonymous device. The unique
+ * (articleId, viewerKey) row is what makes it idempotent — a refresh or a
+ * second visit inserts nothing, so the counter only moves for a new viewer.
+ * Returns false for an article that does not exist.
+ */
+export async function recordArticleView(articleId: string, viewerKey: string) {
+  const article = await prisma.article.findUnique({
+    where: { id: articleId },
+    select: { id: true },
+  });
+
+  if (!article) {
+    return false;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const inserted = await tx.articleView.createMany({
+      data: [{ articleId: article.id, viewerKey }],
+      skipDuplicates: true,
+    });
+
+    if (inserted.count > 0) {
+      await tx.article.update({
+        where: { id: article.id },
+        data: { viewCount: { increment: 1 } },
+      });
+    }
+  });
+
+  return true;
 }

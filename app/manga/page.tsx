@@ -202,6 +202,7 @@ export default async function MangaLibraryPage({
             { label: "Нүүр", href: "/" },
             { label: "Сан", href: "/manga" },
             { label: "Мэдээ", href: "/news" },
+            { label: "Хуваарь", href: "/schedule" },
           ]}
         />
 

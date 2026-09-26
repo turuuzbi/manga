@@ -104,7 +104,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </article>
         </main>
 
-        <MarkArticleSeen itemKey={ARTICLE_KEY(article.id)} />
+        <MarkArticleSeen itemKey={ARTICLE_KEY(article.id)} articleId={article.id} />
       </div>
     </>
   );

@@ -100,6 +100,7 @@ model Manga {
   readingProgress ReadingProgress[]
   posterChoices   UserPosterChoice[]
   rewards         UserReward[]
+  scheduleEntries ScheduleEntry[]
 
   @@index([isFeatured, featuredOrder])
   @@index([viewCount])
@@ -135,6 +136,9 @@ model Chapter {
   // Yume's note shown after the chapter's last page ("Юүмэгийн сэтгэгдэл").
   // Null or empty means the chapter has no note and nothing is rendered.
   yumeComment   String?
+  // The admin account that wrote yumeComment; its avatar and name are shown
+  // beside the bubble. Set whenever the note's text changes.
+  yumeCommentAuthorId String?
   // Opens of this chapter. Bumped in the same transaction as Manga.viewCount,
   // so the two move together from here on. They do not start equal: chapter
   // counts were seeded from the ReadingProgress floor after the series counter
@@ -146,9 +150,10 @@ model Chapter {
   publishedAt   DateTime @default(now())
   createdAt     DateTime @default(now())
 
-  manga           Manga             @relation(fields: [mangaId], references: [id], onDelete: Cascade)
-  pages           Page[]
-  readingProgress ReadingProgress[]
+  manga             Manga             @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  yumeCommentAuthor User?             @relation("YumeCommentAuthor", fields: [yumeCommentAuthorId], references: [id], onDelete: SetNull)
+  pages             Page[]
+  readingProgress   ReadingProgress[]
 
   @@unique([mangaId, chapterNumber])
   @@index([mangaId])
@@ -198,6 +203,7 @@ model User {
   articlesSeen    ArticleSeen[]
   notifications   UserNotification[]
   rewards         UserReward[]      @relation("RewardOwner")
+  yumeComments    Chapter[]         @relation("YumeCommentAuthor")
   siteBackground  UserReward?       @relation("SiteBackground", fields: [siteBackgroundId], references: [id], onDelete: SetNull)
 }
 
@@ -302,13 +308,49 @@ model Article {
   // or leaving.
   authorName  String
   publishedAt DateTime @default(now())
+  // Unique views: one per signed-in reader or per anonymous device (see
+  // ArticleView). Admin-only; bumped only when a new ArticleView row lands.
+  viewCount   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   author User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
   seenBy ArticleSeen[]
+  views  ArticleView[]
 
   @@index([publishedAt])
+}
+
+// One row per viewer per article, so refreshes and repeat visits never count
+// twice. viewerKey is "u:<userId>" for signed-in readers and "d:<deviceId>"
+// (a long-lived cookie) for everyone else.
+model ArticleView {
+  articleId String
+  viewerKey String
+  createdAt DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, viewerKey])
+}
+
+// One line of the monthly release schedule ("Хуваарь"). Either linked to a
+// series (its cover, title and page) or free-standing with customTitle.
+model ScheduleEntry {
+  id           String   @id @default(nanoid())
+  // Calendar day only — no time, no timezone.
+  date         DateTime @db.Date
+  mangaId      String?
+  customTitle  String?
+  chapterLabel String
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  manga Manga? @relation(fields: [mangaId], references: [id], onDelete: SetNull)
+
+  @@index([date])
+  @@index([mangaId])
 }
 
 // A signed-in reader has seen this article (dismissed its popup or opened it).

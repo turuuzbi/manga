@@ -12,6 +12,7 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
+import { SCHEDULE_HREF } from "@/lib/schedule";
 import {
   DEFAULT_THEME,
   THEME_CHANGE_EVENT,
@@ -40,6 +41,7 @@ const defaultLinks: NavLink[] = [
   { label: "Онцлох", href: "/#featured" },
   { label: "Сан", href: "/manga" },
   { label: "Мэдээ", href: NEWS_HREF },
+  { label: "Хуваарь", href: SCHEDULE_HREF },
 ];
 
 function isLinkActive(pathname: string, href: string) {
@@ -47,8 +49,8 @@ function isLinkActive(pathname: string, href: string) {
     return pathname === "/manga" || pathname.startsWith("/manga/");
   }
 
-  if (href === NEWS_HREF) {
-    return pathname === NEWS_HREF || pathname.startsWith(`${NEWS_HREF}/`);
+  if (href === NEWS_HREF || href === SCHEDULE_HREF) {
+    return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   if (href.startsWith("/#")) {
@@ -191,8 +193,10 @@ export function MangaTopNav({
           />
         </Link>
 
+        {/* The full bar needs about 910px (five links, search, sign-in), so
+            below lg they live in the menu instead. */}
         <div
-          className="hidden items-center gap-8 md:flex"
+          className="hidden items-center gap-8 lg:flex"
           style={{
             fontSize: 11,
             fontWeight: 700,
@@ -249,7 +253,7 @@ export function MangaTopNav({
             <form
               action="/manga"
               role="search"
-              className="relative hidden items-center md:flex"
+              className="relative hidden items-center lg:flex"
             >
               <Search
                 size={13}
@@ -321,7 +325,7 @@ export function MangaTopNav({
           </SignedIn>
 
           <SignedOut>
-            <div className="hidden items-center gap-2 md:flex">
+            <div className="hidden items-center gap-2 lg:flex">
               <SignInButton>
                 <button className="yu-btn yu-btn-paper">Sign In</button>
               </SignInButton>
@@ -333,7 +337,7 @@ export function MangaTopNav({
 
           <button
             type="button"
-            className="relative p-2 md:hidden"
+            className="relative p-2 lg:hidden"
             style={{
               background: "none",
               border: "none",
@@ -358,7 +362,7 @@ export function MangaTopNav({
 
       {mobileMenuOpen ? (
         <div
-          className="flex flex-col gap-4 px-5 py-4 md:hidden"
+          className="flex flex-col gap-4 px-5 py-4 lg:hidden"
           style={{
             borderTop: "2px solid var(--manga-border)",
             background: "var(--manga-nav-bg)",

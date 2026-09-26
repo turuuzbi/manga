@@ -14,6 +14,7 @@ import {
   AlertCircle,
   ArrowLeft,
   BarChart3,
+  CalendarDays,
   Check,
   CheckCircle2,
   CloudUpload,
@@ -62,6 +63,7 @@ import {
   type UploadRegistry,
 } from "@/app/admin/direct-upload";
 import { NewsPanel } from "@/app/admin/NewsPanel";
+import { SchedulePanel } from "@/app/admin/SchedulePanel";
 import { UserSearchPanel } from "@/app/admin/UserSearchPanel";
 import { UsersTablePanel } from "@/app/admin/UsersTablePanel";
 import { ViewAnalyticsPanel } from "@/app/admin/ViewAnalyticsPanel";
@@ -345,7 +347,8 @@ type AdminView =
   | "drive"
   | "analytics"
   | "users"
-  | "news";
+  | "news"
+  | "schedule";
 
 /**
  * Hero slide crops. One fixed ratio each, so the cropper cannot produce an
@@ -383,6 +386,9 @@ export function AdminConsole({
 }: AdminConsoleProps) {
   const initialChapter = mangaLibrary[0]?.chapters[0] ?? null;
   const [activeView, setActiveView] = useState<AdminView>("manage");
+  // The schedule editor stays mounted once opened, so unsaved rows survive a
+  // look at another tab.
+  const [scheduleOpened, setScheduleOpened] = useState(false);
   const [selectedMangaId, setSelectedMangaId] = useState(
     mangaLibrary[0]?.id ?? "",
   );
@@ -717,6 +723,10 @@ export function AdminConsole({
   const openView = (view: AdminView) => {
     setActiveView(view);
 
+    if (view === "schedule") {
+      setScheduleOpened(true);
+    }
+
     if (view === "chapters" && selectedChapter) {
       void loadChapterPages(selectedChapter.id);
     }
@@ -869,6 +879,12 @@ export function AdminConsole({
                   icon={PenLine}
                   label="Нийтлэл бичих"
                   onClick={() => openView("news")}
+                />
+                <ViewButton
+                  active={activeView === "schedule"}
+                  icon={CalendarDays}
+                  label="Хуваарь"
+                  onClick={() => openView("schedule")}
                 />
               </div>
             </section>
@@ -2270,6 +2286,17 @@ export function AdminConsole({
             {activeView === "users" ? <UsersTablePanel /> : null}
 
             {activeView === "news" ? <NewsPanel /> : null}
+
+            {scheduleOpened ? (
+              <div hidden={activeView !== "schedule"}>
+                <SchedulePanel
+                  series={mangaLibrary.map((entry) => ({
+                    id: entry.id,
+                    mangaName: entry.mangaName,
+                  }))}
+                />
+              </div>
+            ) : null}
           </div>
 
           <aside className="space-y-6">

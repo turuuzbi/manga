@@ -53,6 +53,17 @@ function parseYumeComment(formData: FormData): string | null {
   return value ? value.slice(0, MAX_YUME_COMMENT_LENGTH) : null;
 }
 
+type YumeNote = { text: string; authorId: string } | null;
+
+/**
+ * Yume's note from a form, tagged with the admin saving it — the bubble in
+ * the reader shows that account's avatar and name.
+ */
+function yumeNoteFrom(formData: FormData, authorId: string): YumeNote {
+  const text = parseYumeComment(formData);
+  return text ? { text, authorId } : null;
+}
+
 function isUniqueViolation(error: unknown) {
   return (
     typeof error === "object" &&
@@ -648,7 +659,7 @@ async function createChapterWithPages({
   /** Chapter cover ("Бүлгийн thumbnail"), already uploaded. */
   coverImage?: string | null;
   /** Yume's end-of-chapter note, or null for none. */
-  yumeComment?: string | null;
+  yumeComment?: YumeNote;
 }) {
   const chapter = await prisma.chapter.create({
     data: {
@@ -657,7 +668,8 @@ async function createChapterWithPages({
       chapterNumber,
       title: chapterTitle || null,
       coverImage: coverImage || null,
-      yumeComment: yumeComment || null,
+      yumeComment: yumeComment?.text ?? null,
+      yumeCommentAuthorId: yumeComment?.authorId ?? null,
     },
   });
 
@@ -727,7 +739,7 @@ async function createMangaIngestion({
   mangaId?: string | null;
   chapterId?: string | null;
   chapterCoverImage?: string | null;
-  yumeComment?: string | null;
+  yumeComment?: YumeNote;
 }) {
   const manga = await createMangaRecord(input, mangaId);
 
@@ -766,7 +778,7 @@ async function appendChapterToManga({
   setCoverFromFirstPage?: boolean;
   chapterId?: string | null;
   chapterCoverImage?: string | null;
-  yumeComment?: string | null;
+  yumeComment?: YumeNote;
 }) {
   const manga = await prisma.manga.findUnique({
     where: { id: mangaId },
@@ -1021,7 +1033,7 @@ export async function ingestMangaAction(
       pageUrls: uploads.pageUrls,
       chapterId: uploads.chapterId,
       coverImage: uploads.chapterCoverUrl,
-      yumeComment: parseYumeComment(formData),
+      yumeComment: yumeNoteFrom(formData, adminUser.id),
     });
 
     revalidateSeriesSurfaces(manga.id);
@@ -1189,7 +1201,7 @@ export async function importGoogleDriveFolderAction(
         setCoverFromFirstPage: useFirstPageAsCover,
         chapterId: uploads.chapterId,
         chapterCoverImage: uploads.chapterCoverUrl,
-        yumeComment: parseYumeComment(formData),
+        yumeComment: yumeNoteFrom(formData, adminUser.id),
       });
 
       revalidateSeriesSurfaces(existingMangaId);
@@ -1215,7 +1227,7 @@ export async function importGoogleDriveFolderAction(
       mangaId: uploads.mangaId,
       chapterId: uploads.chapterId,
       chapterCoverImage: uploads.chapterCoverUrl,
-        yumeComment: parseYumeComment(formData),
+        yumeComment: yumeNoteFrom(formData, adminUser.id),
     });
 
     revalidateSeriesSurfaces(result.mangaId);
@@ -1749,6 +1761,7 @@ export async function updateChapterMetadataAction(
         title: true,
         coverImage: true,
         badgeImage: true,
+        yumeComment: true,
         manga: {
           select: {
             mangaName: true,
@@ -1819,6 +1832,11 @@ export async function updateChapterMetadataAction(
       badgeData.badgeScale = badgeScale;
     }
 
+    // Yume's note: its author is whoever last changed the text, so an admin
+    // fixing a chapter's title or thumbnail does not take over the note.
+    const nextYumeComment = parseYumeComment(formData);
+    const yumeCommentChanged = nextYumeComment !== (chapter.yumeComment ?? null);
+
     await prisma.chapter.update({
       where: {
         id: chapter.id,
@@ -1826,7 +1844,10 @@ export async function updateChapterMetadataAction(
       data: {
         chapterNumber,
         title: chapterTitle || null,
-        yumeComment: parseYumeComment(formData),
+        yumeComment: nextYumeComment,
+        ...(yumeCommentChanged
+          ? { yumeCommentAuthorId: nextYumeComment ? adminUser.id : null }
+          : {}),
         ...(chapterCoverImage ? { coverImage: chapterCoverImage } : {}),
         ...badgeData,
       },

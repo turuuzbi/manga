@@ -7,6 +7,7 @@ import {
 } from "@/lib/reading-access";
 import { resolvePaywalledChapters } from "@/lib/plans";
 import { ReaderExperience } from "@/app/reader/ReaderExperience";
+import { getUserDisplayName } from "@/lib/community";
 import { Paywall } from "@/app/reader/Paywall";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,10 @@ export default async function ReaderChapterPage({
           mangaName: true,
           paywalledChapters: true,
         },
+      },
+      // The account that wrote the end-of-chapter note, shown beside it.
+      yumeCommentAuthor: {
+        select: { username: true, email: true, avatarUrl: true },
       },
       pages: {
         orderBy: {
@@ -143,6 +148,12 @@ export default async function ReaderChapterPage({
         number: chapter.chapterNumber,
         title: chapter.title,
         yumeComment: chapter.yumeComment,
+        yumeCommentAuthor: chapter.yumeCommentAuthor
+          ? {
+              name: getUserDisplayName(chapter.yumeCommentAuthor),
+              avatarUrl: chapter.yumeCommentAuthor.avatarUrl,
+            }
+          : null,
       }}
       isPremium={access.isPremium}
       freeRemaining={access.remainingFree}
