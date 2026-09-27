@@ -27,5 +27,6 @@ export const config = {
     "/sign-up/:path*",
     "/api/news/:path*", // unread state, seen marks, menu state
     "/api/reading/:path*", // per-reader flags for the cached chapter feed
+    "/api/comments/:path*", // chapter comments: which ones the viewer may delete
   ],
 };

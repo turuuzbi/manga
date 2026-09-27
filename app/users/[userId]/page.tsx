@@ -30,10 +30,12 @@ export default async function UserProfilePage({
       _count: {
         select: {
           bookmarks: true,
-          comments: true,
+          // Soft-deleted chapter comments are gone as far as readers know.
+          comments: { where: { deletedAt: null } },
         },
       },
       comments: {
+        where: { deletedAt: null },
         orderBy: {
           createdAt: "desc",
         },
@@ -152,7 +154,10 @@ export default async function UserProfilePage({
                             </span>
                           </div>
                           <p className="mt-3 text-sm leading-7 text-[#3f342b]">
-                            {comment.body}
+                            {/* Public page, no reveal button: spoilers stay hidden. */}
+                            {comment.isSpoiler
+                              ? "⚠️ Спойлер агуулж болзошгүй"
+                              : comment.body}
                           </p>
                         </div>
                       ))}

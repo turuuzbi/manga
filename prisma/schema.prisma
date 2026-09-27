@@ -154,6 +154,7 @@ model Chapter {
   yumeCommentAuthor User?             @relation("YumeCommentAuthor", fields: [yumeCommentAuthorId], references: [id], onDelete: SetNull)
   pages             Page[]
   readingProgress   ReadingProgress[]
+  comments          Comment[]
 
   @@unique([mangaId, chapterNumber])
   @@index([mangaId])
@@ -211,23 +212,36 @@ model User {
   siteBackground  UserReward?       @relation("SiteBackground", fields: [siteBackgroundId], references: [id], onDelete: SetNull)
 }
 
+// Two kinds share this table. Series comments (chapterId null) sit on the
+// manga page, can have one level of replies and are deleted outright. Chapter
+// comments (chapterId set) sit at the end of a chapter, have no replies, can
+// be marked as spoilers and are soft-deleted (deletedAt) so moderation keeps a
+// record. Every chapter-comment query filters deletedAt: null.
 model Comment {
-  id        String   @id @default(nanoid())
+  id        String    @id @default(nanoid())
   mangaId   String
+  chapterId String?
   userId    String
   parentId  String?
   body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isSpoiler Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  manga   Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent  Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  manga   Manga     @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  chapter Chapter?  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies Comment[] @relation("CommentReplies")
 
   @@index([mangaId])
   @@index([userId])
   @@index([parentId])
+  // A chapter's comments, newest first.
+  @@index([chapterId, createdAt(sort: Desc)])
+  // Site-wide newest comments (the homepage carousel).
+  @@index([createdAt(sort: Desc)])
 }
 
 // ─── User activity ────────────────────────────────────────────────────────────

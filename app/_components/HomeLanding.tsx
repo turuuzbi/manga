@@ -18,6 +18,8 @@ import {
   ChapterFeedCards,
 } from "@/app/_components/ChapterFeedCards";
 import type { ChapterFeedCard } from "@/lib/chapter-feed";
+import { RecentCommentsCarousel } from "@/app/_components/comments/RecentCommentsCarousel";
+import type { RecentCommentCard } from "@/lib/comment-rules";
 
 interface GenreFilter {
   name: string;
@@ -318,6 +320,8 @@ interface PromoBanner {
 type HomeLandingProps = {
   featured?: FeaturedSlide[];
   continueReading?: ContinueReadingItem[];
+  /** "Сүүлд бичигдсэн сэтгэгдлүүд"; empty hides the section. */
+  recentComments?: RecentCommentCard[];
   /** "Сүүлийн шинэчлэл": one card per newly published chapter, newest first. */
   latestChapters?: ChapterFeedCard[];
   /** The reader's free reads left today, for the chapter cards' confirm. */
@@ -340,6 +344,7 @@ type HomeLandingProps = {
 export function HomeLanding({
   featured = [],
   continueReading = [],
+  recentComments = [],
   latestChapters = [],
   freeRemaining = 0,
   topViewed = [],
@@ -408,6 +413,10 @@ export function HomeLanding({
               className="motion-ink-up motion-ink-up-delay-1"
               items={continueReading}
             />
+          ) : null}
+
+          {recentComments.length > 0 ? (
+            <RecentCommentsCarousel items={recentComments} />
           ) : null}
 
           {/* Ad slot 1 sits directly above "Сүүлийн шинэчлэл", so it stays

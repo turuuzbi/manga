@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
 import { YumeComment } from "@/app/reader/YumeComment";
+import { ChapterCommentsCard } from "@/app/_components/comments/ChapterCommentsCard";
+import type { CommentPreview } from "@/lib/comment-rules";
 import {
   FreeReadConfirm,
   isModifiedClick,
@@ -36,6 +38,8 @@ type ReaderExperienceProps = {
     /** The account that wrote the note (its avatar and name). */
     yumeCommentAuthor?: { name: string; avatarUrl: string | null } | null;
   };
+  /** The chapter's comment count and newest two, for the end screen. */
+  comments: CommentPreview;
   isPremium?: boolean;
   /** Free chapter unlocks left for the user today (null when premium). */
   freeRemaining?: number | null;
@@ -176,6 +180,7 @@ function ReaderChapterSwitch({
 export function ReaderExperience({
   manga,
   chapter,
+  comments,
   isPremium = false,
   freeRemaining = null,
   pages,
@@ -261,6 +266,14 @@ export function ReaderExperience({
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      // Arrow keys in a text field move the caret, not the page.
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+
       if (event.key === "ArrowRight") {
         setCurrentPage((page) => Math.min(page + 1, pages.length));
       }
@@ -329,6 +342,11 @@ export function ReaderExperience({
       <YumeComment
         comment={chapter.yumeComment}
         author={chapter.yumeCommentAuthor ?? null}
+      />
+      <ChapterCommentsCard
+        chapterId={chapter.id}
+        heading={`${manga.name} – ${chapter.number}-р бүлэг`}
+        initial={comments}
       />
       <p className="text-2xl font-semibold text-white sm:text-3xl">
         Та {chapter.number}-р бүлгийг дуусгалаа.

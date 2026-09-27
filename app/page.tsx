@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { HomeLanding } from "@/app/_components/HomeLanding";
 import { getCurrentDbUser } from "@/lib/auth";
 import { loadChapterFeed } from "@/lib/chapter-feed";
+import { loadRecentComments } from "@/lib/chapter-comments";
 import { featuredSlideImages } from "@/lib/featured";
 import { premiumDaysRemaining } from "@/lib/plans";
 
@@ -128,9 +129,11 @@ export default async function HomePage() {
     }),
   ]);
 
-  const [continueReading, chapterFeed] = await Promise.all([
+  const [continueReading, chapterFeed, recentComments] = await Promise.all([
     currentUser ? loadContinueReading(currentUser.id) : [],
     loadChapterFeed({ take: HOME_CHAPTER_FEED_SIZE, viewer: currentUser }),
+    // Cached for a minute (lib/chapter-comments), not queried per visit.
+    loadRecentComments(),
   ]);
 
   const byLatestUpdate = [...mangas].sort(
@@ -209,6 +212,7 @@ export default async function HomePage() {
       premiumDaysLeft={premiumDaysRemaining(currentUser)}
       featured={featured}
       continueReading={continueReading}
+      recentComments={recentComments}
       latestChapters={chapterFeed.cards}
       freeRemaining={chapterFeed.freeRemaining}
       topViewed={topViewed}

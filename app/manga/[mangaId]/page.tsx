@@ -578,9 +578,12 @@ export default async function MangaPreviewPage({
           },
         },
       },
+      // Series comments only; chapter comments live on the chapter's end
+      // screen (chapterId set).
       comments: {
         where: {
           parentId: null,
+          chapterId: null,
         },
         orderBy: {
           createdAt: "desc",

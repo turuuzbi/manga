@@ -9,6 +9,7 @@ import { resolvePaywalledChapters } from "@/lib/plans";
 import { ReaderExperience } from "@/app/reader/ReaderExperience";
 import { getUserDisplayName } from "@/lib/community";
 import { Paywall } from "@/app/reader/Paywall";
+import { loadCommentPreview } from "@/lib/chapter-comments";
 
 export const dynamic = "force-dynamic";
 
@@ -87,18 +88,22 @@ export default async function ReaderChapterPage({
     );
   }
 
-  const chapters = await prisma.chapter.findMany({
-    where: {
-      mangaId: chapter.mangaId,
-    },
-    orderBy: {
-      chapterNumber: "asc",
-    },
-    select: {
-      id: true,
-      chapterNumber: true,
-    },
-  });
+  const [chapters, commentPreview] = await Promise.all([
+    prisma.chapter.findMany({
+      where: {
+        mangaId: chapter.mangaId,
+      },
+      orderBy: {
+        chapterNumber: "asc",
+      },
+      select: {
+        id: true,
+        chapterNumber: true,
+      },
+    }),
+    // The end screen's comment count and newest two.
+    loadCommentPreview(chapter.id, dbUser),
+  ]);
 
   const currentChapterIndex = chapters.findIndex(
     (entry) => entry.id === chapter.id,
@@ -155,6 +160,7 @@ export default async function ReaderChapterPage({
             }
           : null,
       }}
+      comments={commentPreview}
       isPremium={access.isPremium}
       freeRemaining={access.remainingFree}
       pages={chapter.pages}
