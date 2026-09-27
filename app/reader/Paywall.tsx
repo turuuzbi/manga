@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Crown, Home, Lock } from "lucide-react";
 import type { AccessReason } from "@/lib/reading-access";
 import {
+  FREE_ACCOUNTS_PER_IP_PER_DAY,
   FREE_CHAPTERS_PER_DAY,
   PLANS,
   PLAN_ORDER,
@@ -23,9 +24,9 @@ function buildReasonCopy(
       title: "Өнөөдрийн үнэгүй бүлгүүд дууслаа",
       body: `Та өнөөдөр ${FREE_CHAPTERS_PER_DAY} үнэгүй бүлгээ уншиж дууссан байна. Хязгааргүй унших бол багц авна уу — эсвэл маргааш дахин үнэгүй уншаарай.`,
     },
-    ip_claimed: {
+    ip_limit: {
       title: "Энэ сүлжээний үнэгүй бүлгүүд дууссан",
-      body: "Энэ сүлжээнээс өнөөдрийн үнэгүй бүлгүүд аль хэдийн уншигдсан байна. Хязгааргүй унших бол багц авна уу.",
+      body: `Өнөөдөр энэ интернэт сүлжээнээс ${FREE_ACCOUNTS_PER_IP_PER_DAY} бүртгэл үнэгүй бүлэг уншсан тул хязгаарт хүрлээ. Маргааш дахин үнэгүй уншиж болно, эсвэл багц аваад хязгааргүй уншаарай.`,
     },
   };
 }

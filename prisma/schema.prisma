@@ -189,6 +189,10 @@ model User {
   premiumUntil DateTime?
   // The earned background this reader applied site-wide, if any.
   siteBackgroundId String?
+  // Set when the Clerk account is deleted. The row stays so the reader's
+  // payments, subscriptions and history remain for reporting; signing up
+  // again with the same email clears it and reclaims the row (lib/auth).
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -470,8 +474,10 @@ model FreeReadUsage {
   @@index([dayKey])
 }
 
-// The single account that claimed an IP's free tier for a given day. Any other
-// account on the same IP that day gets 0 free reads.
+// No longer written (2026-09-28). It gave an IP's free tier to the first
+// account each day and 0 to everyone else behind that IP; the ceiling is now
+// FREE_ACCOUNTS_PER_IP_PER_DAY accounts, counted from FreeReadUsage. Kept for
+// its history; safe to drop.
 model IpDailyClaim {
   id        String   @id @default(nanoid())
   ipHash    String

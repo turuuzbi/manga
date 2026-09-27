@@ -129,6 +129,9 @@ function ReaderChapterSwitch({
         {previousChapter ? (
           <Link
             href={`/reader/${previousChapter.id}`}
+            // Never prefetched, here or at the chapter end: opening a chapter
+            // can spend a daily free unlock, so only a real tap may run it.
+            prefetch={false}
             onClick={(event) => onChapterLinkClick(event, previousChapter)}
             className="flex items-center justify-center border-r border-[#8b6b2d]/40 text-zinc-100 transition hover:bg-white/5"
             aria-label={`Go to chapter ${previousChapter.number}`}
@@ -153,6 +156,7 @@ function ReaderChapterSwitch({
         {nextChapter ? (
           <Link
             href={`/reader/${nextChapter.id}`}
+            prefetch={false}
             onClick={(event) => onChapterLinkClick(event, nextChapter)}
             className="flex items-center justify-center border-l border-[#8b6b2d]/40 text-zinc-100 transition hover:bg-white/5"
             aria-label={`Go to chapter ${nextChapter.number}`}
@@ -336,6 +340,7 @@ export function ReaderExperience({
         {previousChapter ? (
           <Link
             href={`/reader/${previousChapter.id}`}
+            prefetch={false}
             onClick={(event) => handleChapterLinkClick(event, previousChapter)}
             className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-white/10 bg-[#28282d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#34343a]"
           >
@@ -348,6 +353,7 @@ export function ReaderExperience({
         {nextChapter ? (
           <Link
             href={`/reader/${nextChapter.id}`}
+            prefetch={false}
             onClick={(event) => handleChapterLinkClick(event, nextChapter)}
             className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-[#8b6b2d]/40 bg-[#3d3322] px-5 py-3 text-sm font-semibold text-[#f4e3b2] transition hover:bg-[#4a3d29]"
           >

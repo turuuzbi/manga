@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { ensureDbUser } from "@/lib/auth";
 import { isValidPlan, resolvePlanPrice } from "@/lib/plans";
 import type { SubscriptionPlan } from "@prisma/client";
 
@@ -32,7 +32,7 @@ export async function startCheckoutAction(
   planValue: string,
 ): Promise<CheckoutState> {
   try {
-    const user = await syncCurrentClerkUser();
+    const user = await ensureDbUser();
 
     if (!user) {
       return { ok: false, pending: false, message: "Нэвтэрч орно уу." };

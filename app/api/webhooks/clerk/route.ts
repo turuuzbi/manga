@@ -2,7 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { type WebhookEvent } from "@clerk/nextjs/server";
 import prisma from "@/lib/db";
-import { isUniqueViolation } from "@/lib/auth";
+import { AccountConflictError, syncClerkUser } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
@@ -47,64 +47,31 @@ export async function POST(req: Request) {
         return new Response("Primary email missing", { status: 400 });
       }
 
-      const clerkId = event.data.id;
-
-      const data = {
+      // Shared with the reader's first page load, which often runs at the
+      // same moment; see lib/auth for how the two avoid colliding.
+      await syncClerkUser({
+        clerkId: event.data.id,
         email,
-        username: event.data.username ?? undefined,
+        username: event.data.username,
         avatarUrl: event.data.image_url,
-      };
-
-      const existingByClerkId = await prisma.user.findUnique({
-        where: { clerkId },
       });
-
-      if (existingByClerkId) {
-        await prisma.user.update({
-          where: { clerkId },
-          data,
-        });
-      } else {
-        const existingByEmail = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (existingByEmail) {
-          // An older row already owns this email — claim it for the new Clerk account
-          await prisma.user.update({
-            where: { email },
-            data: { ...data, clerkId },
-          });
-        } else {
-          try {
-            await prisma.user.create({
-              data: { clerkId, ...data },
-            });
-          } catch (error) {
-            // The reader's first page load created the row between our
-            // lookups and this insert (lib/auth syncs on first request too).
-            // Same person, so update that row instead.
-            if (!isUniqueViolation(error)) {
-              throw error;
-            }
-
-            await prisma.user.updateMany({
-              where: { OR: [{ clerkId }, { email }] },
-              data: { ...data, clerkId },
-            });
-          }
-        }
-      }
     }
 
     if (event.type === "user.deleted" && event.data.id) {
-      await prisma.user.deleteMany({
-        where: {
-          clerkId: event.data.id,
-        },
+      // Marked, not deleted: removing the row would cascade to the reader's
+      // payments, subscriptions and reading history, which are kept for
+      // reporting. Signing up again with the same email reclaims the row.
+      await prisma.user.updateMany({
+        where: { clerkId: event.data.id, deletedAt: null },
+        data: { deletedAt: new Date() },
       });
     }
   } catch (err) {
+    if (err instanceof AccountConflictError) {
+      console.error("[clerk webhook] account conflict", err.message);
+      return new Response("OK", { status: 200 });
+    }
+
     console.error("clerk webhook user sync failed", err);
     // Return 200 so Clerk stops retrying; the error is in your logs
     return new Response("OK", { status: 200 });

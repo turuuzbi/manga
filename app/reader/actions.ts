@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { ensureDbUser } from "@/lib/auth";
 import { grantCompletionRewardIfEarned } from "@/lib/rewards";
 
 /**
@@ -27,7 +27,7 @@ export async function markChapterRead(chapterId: string) {
     return;
   }
 
-  const user = await syncCurrentClerkUser();
+  const user = await ensureDbUser();
 
   if (!user) {
     return;

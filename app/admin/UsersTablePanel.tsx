@@ -207,6 +207,18 @@ export function UsersTablePanel() {
                       Админ
                     </span>
                   ) : null}
+                  {user.deleted ? (
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                      style={{
+                        background: "var(--home-paper-2)",
+                        color: "var(--home-plum-soft)",
+                      }}
+                      title="Clerk бүртгэл устгагдсан; төлбөр, түүх хадгалагдсан"
+                    >
+                      Устгагдсан
+                    </span>
+                  ) : null}
                 </span>
 
                 <span className="flex shrink-0 items-center gap-2.5">

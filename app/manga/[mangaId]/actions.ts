@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { ensureDbUser } from "@/lib/auth";
 
 export type CommentActionState = {
   ok: boolean;
@@ -23,7 +23,7 @@ export async function setPosterChoiceAction(
   posterUrl: string,
 ): Promise<PosterChoiceResult> {
   try {
-    const user = await syncCurrentClerkUser();
+    const user = await ensureDbUser();
 
     if (!user) {
       return { ok: false, message: "Sign in to choose a poster." };
@@ -120,7 +120,7 @@ export async function createMangaCommentAction(
   formData: FormData,
 ): Promise<CommentActionState> {
   try {
-    const user = await syncCurrentClerkUser();
+    const user = await ensureDbUser();
 
     if (!user) {
       return {
@@ -220,7 +220,7 @@ export async function deleteMangaCommentAction(
   formData: FormData,
 ): Promise<CommentActionState> {
   try {
-    const user = await syncCurrentClerkUser();
+    const user = await ensureDbUser();
 
     if (!user) {
       return {

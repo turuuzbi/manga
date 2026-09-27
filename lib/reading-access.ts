@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import prisma from "@/lib/db";
 import {
+  FREE_ACCOUNTS_PER_IP_PER_DAY,
   FREE_CHAPTERS_PER_DAY,
   isPremium,
   resolvePaywalledChapters,
@@ -12,7 +13,7 @@ export type AccessReason =
   | "already_read"
   | "already_today"
   | "consumed"
-  | "ip_claimed"
+  | "ip_limit"
   | "quota_exhausted"
   | "latest_locked";
 
@@ -80,9 +81,10 @@ export async function isPaywalledLatestChapter(chapter: {
  *   2. already read this chapter        → allow (free re-read)
  *   3. already unlocked today           → allow (idempotent)
  *   4. one of the newest chapters       → block (subscriber-only window)
- *   5. free tier (per user + IP claim):
- *      - first account on the IP today claims it; other accounts get 0
- *      - claimant may unlock up to FREE_CHAPTERS_PER_DAY new chapters/day
+ *   5. free tier:
+ *      - each account may unlock FREE_CHAPTERS_PER_DAY new chapters a day
+ *      - at most FREE_ACCOUNTS_PER_IP_PER_DAY accounts per IP a day use it
+ *        (an anti-abuse ceiling; shared IPs stay usable)
  *   6. otherwise                        → block (paywall)
  *
  * Steps 2–3 come first on purpose: a chapter someone has already opened stays
@@ -154,13 +156,13 @@ export async function resolveChapterAccess({
 
   const ipHash = await getClientIpHash();
 
-  // Claim, count and consume as one serialized step. Two opens of the same
-  // chapter at the same instant (a double tap, a prefetch racing the real
-  // load) used to both run this path: both tried to insert the same claim or
-  // usage row, and the loser's unique-constraint error became an error page.
-  // Two different chapters could also both pass the 3/day check. The advisory
-  // locks make a concurrent open wait for this one and then see its rows.
-  // The IP lock is always taken first, so two requests cannot deadlock.
+  // Check and consume as one serialized step. The advisory locks make a
+  // concurrent open (a double tap, two tabs) wait for this one and then see
+  // its row, so two chapters cannot both pass the daily check and two
+  // accounts cannot both take the IP's last place. The IP lock is always
+  // taken first, so two requests cannot deadlock. The insert is also
+  // ON CONFLICT DO NOTHING, so even a request that got past the locks could
+  // not turn a duplicate into an error page.
   return prisma.$transaction(
     async (tx): Promise<ChapterAccess> => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`free-ip:${ipHash}:${dayKey}`}))`;
@@ -184,17 +186,6 @@ export async function resolveChapterAccess({
         };
       }
 
-      // Claim the IP's free tier for today. The first account wins; others get 0.
-      const claim = await tx.ipDailyClaim.upsert({
-        where: { ipHash_dayKey: { ipHash, dayKey } },
-        create: { ipHash, dayKey, userId },
-        update: {},
-        select: { userId: true },
-      });
-      if (claim.userId !== userId) {
-        return { allowed: false, reason: "ip_claimed", isPremium: false, remainingFree: 0 };
-      }
-
       if (usedToday >= FREE_CHAPTERS_PER_DAY) {
         return {
           allowed: false,
@@ -204,11 +195,14 @@ export async function resolveChapterAccess({
         };
       }
 
-      // Consume one free unlock (idempotent on the unique key).
-      await tx.freeReadUsage.upsert({
-        where: { userId_dayKey_chapterId: { userId, dayKey, chapterId } },
-        create: { userId, ipHash, dayKey, chapterId },
-        update: {},
+      if (await ipLimitReached(tx, { ipHash, dayKey, userId })) {
+        return { allowed: false, reason: "ip_limit", isPremium: false, remainingFree: 0 };
+      }
+
+      // Consume one free unlock.
+      await tx.freeReadUsage.createMany({
+        data: [{ userId, ipHash, dayKey, chapterId }],
+        skipDuplicates: true,
       });
 
       return {
@@ -219,6 +213,26 @@ export async function resolveChapterAccess({
       };
     },
     { maxWait: 5_000, timeout: 10_000 },
+  );
+}
+
+/**
+ * True when this IP already has FREE_ACCOUNTS_PER_IP_PER_DAY other accounts
+ * using free chapters today. An account already among them keeps its place.
+ */
+async function ipLimitReached(
+  db: Pick<typeof prisma, "freeReadUsage">,
+  { ipHash, dayKey, userId }: { ipHash: string; dayKey: string; userId: string },
+): Promise<boolean> {
+  const accounts = await db.freeReadUsage.findMany({
+    where: { ipHash, dayKey },
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+
+  return (
+    accounts.length >= FREE_ACCOUNTS_PER_IP_PER_DAY &&
+    !accounts.some((row) => row.userId === userId)
   );
 }
 
@@ -234,8 +248,8 @@ export type FreeReadState = {
   isPremium: boolean;
   used: number;
   remaining: number;
-  /** True when another account already claimed this IP's free tier today. */
-  ipClaimedByOther: boolean;
+  /** True when this IP's free-reader places are all taken today. */
+  ipLimitReached: boolean;
 };
 
 /** Read-only snapshot of the user's free-tier standing today (no writes). */
@@ -244,26 +258,20 @@ export async function getFreeReadState(user: {
   premiumUntil: Date | null;
 }): Promise<FreeReadState> {
   if (isPremium(user)) {
-    return { isPremium: true, used: 0, remaining: 0, ipClaimedByOther: false };
+    return { isPremium: true, used: 0, remaining: 0, ipLimitReached: false };
   }
 
   const dayKey = ulaanbaatarDayKey();
   const ipHash = await getClientIpHash();
 
-  const [used, claim] = await Promise.all([
+  const [used, ipFull] = await Promise.all([
     prisma.freeReadUsage.count({ where: { userId: user.id, dayKey } }),
-    prisma.ipDailyClaim.findUnique({
-      where: { ipHash_dayKey: { ipHash, dayKey } },
-      select: { userId: true },
-    }),
+    ipLimitReached(prisma, { ipHash, dayKey, userId: user.id }),
   ]);
 
-  const ipClaimedByOther = Boolean(claim && claim.userId !== user.id);
-  const remaining = ipClaimedByOther
-    ? 0
-    : Math.max(0, FREE_CHAPTERS_PER_DAY - used);
+  const remaining = ipFull ? 0 : Math.max(0, FREE_CHAPTERS_PER_DAY - used);
 
-  return { isPremium: false, used, remaining, ipClaimedByOther };
+  return { isPremium: false, used, remaining, ipLimitReached: ipFull };
 }
 
 /**

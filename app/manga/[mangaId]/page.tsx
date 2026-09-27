@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { ensureDbUser } from "@/lib/auth";
 import {
   isPremium,
   premiumDaysRemaining,
@@ -547,7 +547,7 @@ export default async function MangaPreviewPage({
   params,
 }: MangaPreviewPageProps) {
   const { mangaId } = await params;
-  const currentDbUser = await syncCurrentClerkUser();
+  const currentDbUser = await ensureDbUser();
 
   const manga = await prisma.manga.findUnique({
     where: {

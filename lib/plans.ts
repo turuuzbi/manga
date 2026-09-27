@@ -73,6 +73,13 @@ export const PLAN_ORDER: SubscriptionPlan[] = [
 export const FREE_CHAPTERS_PER_DAY = 3;
 
 /**
+ * How many accounts on one IP get the daily free chapters. Mobile carriers and
+ * school Wi-Fi put many strangers behind one address, so the IP is only an
+ * anti-abuse ceiling; the real limit is FREE_CHAPTERS_PER_DAY per account.
+ */
+export const FREE_ACCOUNTS_PER_IP_PER_DAY = 6;
+
+/**
  * Default number of a series' newest chapters that are subscriber-only, used
  * when a manga has no per-series override. The window rolls forward as
  * chapters publish: with 40 chapters, 36–40 are locked; once 41 lands, 36

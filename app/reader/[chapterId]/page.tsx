@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { ensureDbUser } from "@/lib/auth";
 import {
   getFreeSpendChapterIds,
   resolveChapterAccess,
@@ -25,7 +25,7 @@ export default async function ReaderChapterPage({
 
   // Reading is gated: send logged-out users to sign in, then back to this
   // chapter. The homepage and manga detail pages stay public.
-  const dbUser = await syncCurrentClerkUser();
+  const dbUser = await ensureDbUser();
 
   if (!dbUser) {
     redirect(

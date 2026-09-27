@@ -107,6 +107,8 @@ export type AdminUsersOverview = {
     role: "READER" | "ADMIN";
     createdAt: string;
     premiumUntil: string | null;
+    /** Clerk account deleted; the row is kept for its payments and history. */
+    deleted: boolean;
   }>;
 };
 
@@ -131,8 +133,9 @@ export async function getUsersOverviewAction(): Promise<AdminUsersOverview> {
   const now = new Date();
 
   const [totalUsers, entitledUsers, users] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { premiumUntil: { gt: now } } }),
+    // Deleted Clerk accounts keep their rows (lib/auth) but are not readers.
+    prisma.user.count({ where: { deletedAt: null } }),
+    prisma.user.count({ where: { premiumUntil: { gt: now }, deletedAt: null } }),
     prisma.user.findMany({
       select: {
         id: true,
@@ -141,6 +144,7 @@ export async function getUsersOverviewAction(): Promise<AdminUsersOverview> {
         role: true,
         createdAt: true,
         premiumUntil: true,
+        deletedAt: true,
       },
       orderBy: { createdAt: "desc" },
       take: USERS_TABLE_LIMIT,
@@ -157,6 +161,7 @@ export async function getUsersOverviewAction(): Promise<AdminUsersOverview> {
       role: user.role,
       createdAt: user.createdAt.toISOString(),
       premiumUntil: user.premiumUntil?.toISOString() ?? null,
+      deleted: user.deletedAt !== null,
     })),
   };
 }

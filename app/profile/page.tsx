@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ChevronLeft, Gift } from "lucide-react";
 import prisma from "@/lib/db";
-import { syncCurrentClerkUser } from "@/lib/auth";
+import { ensureDbUser } from "@/lib/auth";
 import { premiumDaysRemaining } from "@/lib/plans";
 import { formatDateMn } from "@/lib/relative-time";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
@@ -54,7 +54,7 @@ const PROFILE_STYLES = `
  * rewards they have earned, which they can apply behind the whole site.
  */
 export default async function ProfilePage() {
-  const user = await syncCurrentClerkUser();
+  const user = await ensureDbUser();
 
   if (!user) {
     redirect(`/sign-in?redirect_url=${encodeURIComponent("/profile")}`);
