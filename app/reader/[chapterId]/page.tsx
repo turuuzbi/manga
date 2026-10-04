@@ -56,6 +56,9 @@ export default async function ReaderChapterPage({
           id: true,
           pageNumber: true,
           imageUrl: true,
+          // Stored at import; lets each page hold its space before it loads.
+          width: true,
+          height: true,
         },
       },
     },

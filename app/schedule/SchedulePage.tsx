@@ -307,6 +307,11 @@ export function ScheduleView({
 
           <div className="mt-6">
             <SectionHeader eyebrow="Бүлэг гарах хуваарь" title="Хуваарь" />
+            {/* A dated list reads like a fixed timetable; say plainly that
+                it is not one. */}
+            <p className="ys-note -mt-2 mb-6">
+              Хуваарийг өдөр бүр биш, гараар гаргана.
+            </p>
           </div>
 
           <nav className="ys-switch" aria-label="Сар сонгох">

@@ -10,6 +10,7 @@ import {
   Crown,
   Home,
   Library,
+  RotateCw,
   Rows3,
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
@@ -43,11 +44,7 @@ type ReaderExperienceProps = {
   isPremium?: boolean;
   /** Free chapter unlocks left for the user today (null when premium). */
   freeRemaining?: number | null;
-  pages: Array<{
-    id: string;
-    pageNumber: number;
-    imageUrl: string;
-  }>;
+  pages: Array<ReaderPage>;
   previousChapter: ReaderNeighbourChapter | null;
   nextChapter: ReaderNeighbourChapter | null;
 };
@@ -57,6 +54,15 @@ type ReaderNeighbourChapter = {
   number: number;
   /** Opening it would spend one of today's free unlocks. */
   spendsFreeRead: boolean;
+};
+
+type ReaderPage = {
+  id: string;
+  pageNumber: number;
+  imageUrl: string;
+  /** Pixel size stored at import; null for a few older rows. */
+  width?: number | null;
+  height?: number | null;
 };
 
 const readerModeStorageKey = "manga-reader-mode";
@@ -174,6 +180,103 @@ function ReaderChapterSwitch({
         )}
       </div>
     </div>
+  );
+}
+
+/** Silent retries before a page shows its "try again" button. */
+const pageImageAutoRetries = 2;
+
+/**
+ * One chapter page. A failed load is retried with a cache-busting query (R2
+ * ignores the query and serves the same object, and the browser cannot answer
+ * from a broken cached copy); after that the page says it failed and offers a
+ * button, instead of leaving a bare line of alt text.
+ */
+function ReaderPageImage({
+  page,
+  alt,
+  className,
+  fallbackClassName,
+  loading,
+}: {
+  page: ReaderPage;
+  alt: string;
+  className: string;
+  fallbackClassName: string;
+  loading?: "eager" | "lazy";
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const handledSrcRef = useRef<string | null>(null);
+  const src =
+    attempt === 0
+      ? page.imageUrl
+      : `${page.imageUrl}${page.imageUrl.includes("?") ? "&" : "?"}retry=${attempt}`;
+
+  // The server-rendered first pages start loading before hydration, and React
+  // does not replay an error that fired before it was listening. Fire it
+  // again so those pages get the same retry.
+  useEffect(() => {
+    const image = imageRef.current;
+
+    if (image?.complete && image.naturalWidth === 0) {
+      image.dispatchEvent(new Event("error"));
+    }
+  }, []);
+
+  function handleError() {
+    // Once per URL: the replay above can race the browser's own event.
+    if (handledSrcRef.current === src) {
+      return;
+    }
+
+    handledSrcRef.current = src;
+
+    if (attempt < pageImageAutoRetries) {
+      setAttempt(attempt + 1);
+    } else {
+      setFailed(true);
+    }
+  }
+
+  if (failed) {
+    return (
+      <div className={fallbackClassName}>
+        <p className="text-sm text-zinc-400">
+          {page.pageNumber}-р хуудсыг ачаалж чадсангүй.
+        </p>
+        <button
+          type="button"
+          onClick={(event) => {
+            // The scroll view toggles the reader controls on any tap.
+            event.stopPropagation();
+            setFailed(false);
+            setAttempt(attempt + 1);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] py-2 pl-3 pr-4 text-xs font-semibold text-zinc-200 transition hover:bg-white/10 hover:text-white"
+        >
+          <RotateCw size={14} />
+          Дахин оролдох
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      ref={imageRef}
+      src={src}
+      alt={alt}
+      // Lets the page hold its height before it loads, so lazy pages stay
+      // lazy instead of collapsing and all starting at once.
+      width={page.width ?? undefined}
+      height={page.height ?? undefined}
+      loading={loading}
+      onError={handleError}
+      className={className}
+    />
   );
 }
 
@@ -490,10 +593,11 @@ export function ReaderExperience({
                 data-page-index={index}
                 className="overflow-hidden bg-black"
               >
-                <img
-                  src={page.imageUrl}
+                <ReaderPageImage
+                  page={page}
                   alt={`${chapterLabel} page ${page.pageNumber}`}
                   className="block h-auto w-full select-none object-contain"
+                  fallbackClassName="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center"
                   loading={index < 2 ? "eager" : "lazy"}
                 />
               </div>
@@ -550,11 +654,17 @@ export function ReaderExperience({
               <ChevronRight size={30} />
             </button>
 
-            <img
-              src={pages[currentPage]?.imageUrl}
-              alt={`${chapterLabel} page ${pages[currentPage]?.pageNumber ?? 1}`}
-              className="relative z-10 h-full w-full select-none object-contain"
-            />
+            {pages[currentPage] ? (
+              <ReaderPageImage
+                // A fresh retry count for every page turned to.
+                key={pages[currentPage].id}
+                page={pages[currentPage]}
+                alt={`${chapterLabel} page ${pages[currentPage].pageNumber}`}
+                className="relative z-10 h-full w-full select-none object-contain"
+                // Above the tap zones (z-20) so the button can be pressed.
+                fallbackClassName="relative z-30 flex flex-col items-center gap-4 px-6 text-center"
+              />
+            ) : null}
 
             <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center">
               <div className="rounded-full border border-white/10 bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-200 backdrop-blur">

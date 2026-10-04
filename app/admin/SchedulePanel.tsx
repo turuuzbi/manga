@@ -26,7 +26,6 @@ import {
   type AdminScheduleEntry,
 } from "@/app/admin/schedule-actions";
 import {
-  addDays,
   currentMonthKey,
   isDayKey,
   monthBounds,
@@ -218,8 +217,9 @@ function clampToMonth(dayKey: string, monthKey: string) {
 /**
  * "Хуваарь": the release schedule, one month at a time, edited as rows and
  * saved together. Built for entering a month quickly: "Мөр нэмэх" (or Enter in
- * a row's last fields) keeps the series picked last, moves the date on a day
- * and counts the chapter up; any row can be copied.
+ * a row's last fields) keeps the series picked last and counts the chapter up;
+ * any row can be copied. The date stays the previous row's: chapters go out by
+ * hand, not on a daily step, so each date is picked on purpose.
  */
 export function SchedulePanel({
   series,
@@ -321,7 +321,7 @@ export function SchedulePanel({
     const template = [...rows].reverse().find((row) => row.mangaId === lastSeries);
     const today = scheduleTodayKey();
     const date = last
-      ? clampToMonth(addDays(last.date, 1), monthKey)
+      ? clampToMonth(last.date, monthKey)
       : today.startsWith(monthKey)
         ? today
         : monthBounds(monthKey).first;
@@ -424,9 +424,9 @@ export function SchedulePanel({
         </p>
         <h2 className="ad-h2">Бүлэг гарах хуваарь</h2>
         <p className="ad-sub">
-          Сараа сонгоод мөр нэмнэ. Шинэ мөр сүүлд сонгосон цувралаа авч, огноог
-          нэг өдрөөр, бүлгийг нэгээр ахиулна. Хадгалмагц нийтийн хуудсанд шууд
-          гарна.
+          Сараа сонгоод мөр нэмнэ. Шинэ мөр сүүлд сонгосон цувралаа авч,
+          бүлгийг нэгээр ахиулна. Огноо өмнөх мөрийнхөөрөө үлдэх тул та өөрөө
+          сольж сонгоно. Хадгалмагц нийтийн хуудсанд шууд гарна.
         </p>
       </div>
 
