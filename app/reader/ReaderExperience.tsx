@@ -183,14 +183,19 @@ function ReaderChapterSwitch({
   );
 }
 
-/** Silent retries before a page shows its "try again" button. */
-const pageImageAutoRetries = 2;
+/**
+ * Waits before each silent retry, then the page shows its "try again" button.
+ * Retrying at once used all attempts inside one dropped-signal moment on a
+ * phone, so a page failed for good over a blip of a second or two.
+ */
+const pageImageRetryDelaysMs = [1000, 3000];
 
 /**
  * One chapter page. A failed load is retried with a cache-busting query (R2
  * ignores the query and serves the same object, and the browser cannot answer
  * from a broken cached copy); after that the page says it failed and offers a
- * button, instead of leaving a bare line of alt text.
+ * button, instead of leaving a bare line of alt text. A failed page also
+ * retries by itself when the phone comes back online.
  */
 function ReaderPageImage({
   page,
@@ -207,8 +212,10 @@ function ReaderPageImage({
 }) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const handledSrcRef = useRef<string | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
   const src =
     attempt === 0
       ? page.imageUrl
@@ -225,6 +232,29 @@ function ReaderPageImage({
     }
   }, []);
 
+  useEffect(
+    () => () => {
+      if (retryTimeoutRef.current !== null) {
+        window.clearTimeout(retryTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!failed) {
+      return;
+    }
+
+    function retryWhenOnline() {
+      setFailed(false);
+      setAttempt((current) => current + 1);
+    }
+
+    window.addEventListener("online", retryWhenOnline);
+    return () => window.removeEventListener("online", retryWhenOnline);
+  }, [failed]);
+
   function handleError() {
     // Once per URL: the replay above can race the browser's own event.
     if (handledSrcRef.current === src) {
@@ -233,8 +263,14 @@ function ReaderPageImage({
 
     handledSrcRef.current = src;
 
-    if (attempt < pageImageAutoRetries) {
-      setAttempt(attempt + 1);
+    if (attempt < pageImageRetryDelaysMs.length) {
+      const next = attempt + 1;
+      setWaiting(true);
+      retryTimeoutRef.current = window.setTimeout(() => {
+        retryTimeoutRef.current = null;
+        setWaiting(false);
+        setAttempt(next);
+      }, pageImageRetryDelaysMs[attempt]);
     } else {
       setFailed(true);
     }
@@ -275,7 +311,8 @@ function ReaderPageImage({
       height={page.height ?? undefined}
       loading={loading}
       onError={handleError}
-      className={className}
+      // Hides the broken-image icon and alt text while a retry is pending.
+      className={waiting ? `${className} invisible` : className}
     />
   );
 }
