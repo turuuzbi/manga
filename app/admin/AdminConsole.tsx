@@ -76,6 +76,7 @@ import {
   CONTENT_WARNINGS,
   type ContentWarningValue,
 } from "@/lib/content-warning";
+import { ImagePrepareError, preparePage } from "@/lib/client-image";
 
 const initialAdminActionState: AdminActionState = {
   ok: false,
@@ -2760,6 +2761,7 @@ function PageReplacementPicker({
   fileName: string | undefined;
   onPicked: (fileName: string | null) => void;
 }) {
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -2777,12 +2779,15 @@ function PageReplacementPicker({
           className="shrink-0"
           style={{ color: "var(--home-gold)" }}
         />
-        <span className="truncate">{fileName ?? "Солих зураг сонгох"}</span>
+        <span className="truncate">
+          {busy ? "Бэлдэж байна..." : (fileName ?? "Солих зураг сонгох")}
+        </span>
         <input
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(event) => {
+          disabled={busy}
+          onChange={async (event) => {
             const file = event.target.files?.[0];
             event.target.value = "";
 
@@ -2790,30 +2795,32 @@ function PageReplacementPicker({
               return;
             }
 
-            const contentType =
-              file.type ||
-              (/\.png$/i.test(file.name)
-                ? "image/png"
-                : /\.webp$/i.test(file.name)
-                  ? "image/webp"
-                  : "image/jpeg");
-
-            if (!/^image\/(jpeg|png|webp|gif|avif)$/.test(contentType)) {
-              setError("Зөвхөн JPG, PNG, WEBP, GIF, AVIF зураг оруулна.");
-              return;
-            }
-
             setError(null);
-            registry.set(`page:${pageId}`, [
-              {
-                field: "pageImageUrl",
-                slot: "page",
-                blob: file,
-                contentType,
-                fileName: file.name,
-              },
-            ]);
-            onPicked(file.name);
+            setBusy(true);
+
+            try {
+              // Converts an iPhone HEIC to JPEG, which every reader can show.
+              const page = await preparePage(file);
+
+              registry.set(`page:${pageId}`, [
+                {
+                  field: "pageImageUrl",
+                  slot: "page",
+                  blob: page.blob,
+                  contentType: page.contentType,
+                  fileName: page.fileName,
+                },
+              ]);
+              onPicked(file.name);
+            } catch (caught) {
+              setError(
+                caught instanceof ImagePrepareError
+                  ? caught.message
+                  : "Зургийг бэлдэж чадсангүй. Өөр зураг сонгоно уу.",
+              );
+            } finally {
+              setBusy(false);
+            }
           }}
         />
       </label>

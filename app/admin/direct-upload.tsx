@@ -34,7 +34,9 @@ import { requestUploadTargetsAction } from "@/app/admin/upload-actions";
 import {
   ARTWORK_MAX_SIDE,
   ImagePrepareError,
+  isHeic,
   prepareImage,
+  preparePage,
 } from "@/lib/client-image";
 import {
   MAX_UPLOAD_BYTES,
@@ -505,8 +507,11 @@ export function DirectImageField({
       ];
 
       if (keepOriginal) {
+        // A HEIC original would not open for most readers; send the JPEG.
         const originalAllowed =
-          Boolean(UPLOAD_CONTENT_TYPES[file.type]) && file.size <= MAX_UPLOAD_BYTES;
+          Boolean(UPLOAD_CONTENT_TYPES[file.type]) &&
+          file.size <= MAX_UPLOAD_BYTES &&
+          !(await isHeic(file));
         uploads.push({
           field: keepOriginal.name,
           slot: keepOriginal.slot,
@@ -635,20 +640,12 @@ export function DirectImageField({
   );
 }
 
-const PAGE_TYPE_BY_EXT: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-  avif: "image/avif",
-};
-
 type PagesState = { count: number; bytes: number; resetVersion: number } | null;
 
 /**
  * Chapter pages for ГАРААР ОРУУЛАХ. Sent untouched — translated pages keep
  * their full quality — and uploaded in reading order (numeric file names).
+ * HEIC pages are the exception: they are converted to JPEG (preparePage).
  */
 export function DirectPagesField({
   name,
@@ -663,10 +660,11 @@ export function DirectPagesField({
   const { resetVersion } = useUploadRegistryState(registry);
   const inputRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<PagesState>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const visible = picked && picked.resetVersion === resetVersion ? picked : null;
 
-  function onPick(event: React.ChangeEvent<HTMLInputElement>) {
+  async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const files = [...(event.target.files ?? [])].sort((left, right) =>
       left.name.localeCompare(right.name, undefined, {
         numeric: true,
@@ -680,31 +678,33 @@ export function DirectPagesField({
     }
 
     const uploads: PendingUpload[] = [];
+    setError(null);
+    setBusy(true);
+    registry.setPreparing(name, true);
 
-    for (const file of files) {
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-      const contentType = UPLOAD_CONTENT_TYPES[file.type]
-        ? file.type
-        : PAGE_TYPE_BY_EXT[ext];
+    try {
+      for (const file of files) {
+        const page = await preparePage(file);
 
-      if (!contentType) {
-        setError(`"${file.name}" — зөвхөн JPG, PNG, WEBP, GIF, AVIF хуудас оруулна.`);
-        return;
+        uploads.push({
+          field: name,
+          slot: "page",
+          blob: page.blob,
+          contentType: page.contentType,
+          fileName: page.fileName,
+          append: true,
+        });
       }
-
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setError(`"${file.name}" хэт том байна (${formatBytes(file.size)}).`);
-        return;
-      }
-
-      uploads.push({
-        field: name,
-        slot: "page",
-        blob: file,
-        contentType,
-        fileName: file.name,
-        append: true,
-      });
+    } catch (caught) {
+      setError(
+        caught instanceof ImagePrepareError
+          ? caught.message
+          : "Хуудсуудыг бэлдэж чадсангүй. Дахин сонгоно уу.",
+      );
+      return;
+    } finally {
+      registry.setPreparing(name, false);
+      setBusy(false);
     }
 
     setError(null);
@@ -730,15 +730,20 @@ export function DirectPagesField({
       <button
         type="button"
         className="ad-upload du-drop"
+        disabled={busy}
         onClick={() => inputRef.current?.click()}
       >
         <span className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
           <span className="ad-upload-ico">
-            <Images size={20} />
+            {busy ? <Loader2 size={20} className="du-spin" /> : <Images size={20} />}
           </span>
           <span>
             <span className="du-strong block">
-              {visible ? `${visible.count} хуудас сонгосон` : "Хуудсууд сонгох"}
+              {busy
+                ? "Бэлдэж байна..."
+                : visible
+                  ? `${visible.count} хуудас сонгосон`
+                  : "Хуудсууд сонгох"}
             </span>
             <span className="du-muted mt-1 block">
               {visible
