@@ -84,6 +84,7 @@ const STATUS_FILTERS: Array<{ value: MangaStatusValue; label: string }> = [
   { value: "COMPLETED", label: "Дууссан" },
   { value: "CATCHING_UP", label: "Гүйцэж байна" },
   { value: "STOPPED", label: "Зогссон" },
+  { value: "ONESHOT", label: "Oneshot" },
 ];
 
 const VALID_STATUSES = new Set(STATUS_FILTERS.map((entry) => entry.value));

@@ -156,6 +156,7 @@ export default async function ReaderChapterPage({
         number: chapter.chapterNumber,
         title: chapter.title,
         yumeComment: chapter.yumeComment,
+        contentWarning: chapter.contentWarning,
         yumeCommentAuthor: chapter.yumeCommentAuthor
           ? {
               name: getUserDisplayName(chapter.yumeCommentAuthor),

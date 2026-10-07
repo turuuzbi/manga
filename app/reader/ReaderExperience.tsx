@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { markChapterRead } from "@/app/reader/actions";
 import { YumeComment } from "@/app/reader/YumeComment";
+import { ContentWarningModal } from "@/app/reader/ContentWarningModal";
+import type { ContentWarningValue } from "@/lib/content-warning";
 import { ChapterCommentsCard } from "@/app/_components/comments/ChapterCommentsCard";
 import type { CommentPreview } from "@/lib/comment-rules";
 import {
@@ -38,6 +40,8 @@ type ReaderExperienceProps = {
     yumeComment?: string | null;
     /** The account that wrote the note (its avatar and name). */
     yumeCommentAuthor?: { name: string; avatarUrl: string | null } | null;
+    /** 18+ / violence notice to accept before the pages load; null = none. */
+    contentWarning?: ContentWarningValue | null;
   };
   /** The chapter's comment count and newest two, for the end screen. */
   comments: CommentPreview;
@@ -300,6 +304,15 @@ export function ReaderExperience({
   const [confirming, setConfirming] = useState<ReaderNeighbourChapter | null>(
     null,
   );
+  // The chapter whose warning the reader accepted. Held as an id rather than
+  // a flag so the next or previous chapter asks again even when this
+  // component stays mounted across the navigation; never stored, so every
+  // open asks.
+  const [acceptedWarningFor, setAcceptedWarningFor] = useState<string | null>(
+    null,
+  );
+  const warningPending =
+    Boolean(chapter.contentWarning) && acceptedWarningFor !== chapter.id;
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
   const chromeHideTimeoutRef = useRef<number | null>(null);
   const router = useRouter();
@@ -343,9 +356,12 @@ export function ReaderExperience({
 
   // Mark this chapter as read once the reader actually mounts in the browser.
   // The series is resolved server-side from the chapter, so it is not passed.
+  // A chapter behind a warning counts as read once the warning is accepted.
   useEffect(() => {
-    void markChapterRead(chapter.id);
-  }, [chapter.id]);
+    if (!warningPending) {
+      void markChapterRead(chapter.id);
+    }
+  }, [chapter.id, warningPending]);
 
   useEffect(() => {
     if (!showChrome || !isTouchDevice()) {
@@ -422,7 +438,7 @@ export function ReaderExperience({
     }
 
     return () => observer.disconnect();
-  }, [pages.length, readerMode]);
+  }, [pages.length, readerMode, warningPending]);
 
   const chapterLabel = formatChapterLabel(chapter.number, chapter.title);
   // Tap mode has one extra step after the last page: the end-of-chapter
@@ -495,6 +511,19 @@ export function ReaderExperience({
       </div>
     </>
   );
+
+  // Nothing of the chapter is rendered until the warning is accepted, so no
+  // page image is requested before "УНШИХ".
+  if (warningPending && chapter.contentWarning) {
+    return (
+      <ContentWarningModal
+        warning={chapter.contentWarning}
+        chapterLabel={`${manga.name} · ${chapterLabel}`}
+        mangaId={manga.id}
+        onAccept={() => setAcceptedWarningFor(chapter.id)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100">

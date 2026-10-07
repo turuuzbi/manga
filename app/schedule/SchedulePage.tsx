@@ -2,16 +2,10 @@ import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import prisma from "@/lib/db";
 import {
-  SCHEDULE_HREF,
-  currentMonthKey,
-  dateToDayKey,
-  dayLabel,
-  monthDateRange,
-  monthLabel,
-  parseMonthKey,
-  scheduleMonthHref,
-  scheduleTodayKey,
-  shiftMonth,
+  WEEKDAYS,
+  normalizeWeekdays,
+  scheduleTodayWeekday,
+  weekdayName,
 } from "@/lib/schedule";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
 import { CelestialFrame } from "@/app/_components/CelestialFrame";
@@ -39,32 +33,8 @@ const SCHEDULE_STYLES = `
 }
 .yume-schedule .ys-back:hover { color: var(--home-rose-deep); transform: translateX(-2px); }
 
-.yume-schedule .ys-switch {
-  display: flex; align-items: center; justify-content: space-between; gap: 6px;
-  margin-bottom: 26px; padding: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--home-paper) 92%, transparent);
-  border: 1px solid var(--home-line-strong);
-  box-shadow: 0 16px 36px -26px var(--home-shadow-strong), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.yume-schedule .ys-arrow {
-  flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; border-radius: 999px;
-  color: var(--home-plum); text-decoration: none;
-  transition: background 0.2s, color 0.2s;
-}
-.yume-schedule .ys-arrow:hover { background: var(--home-paper-2); color: var(--home-rose-deep); }
-.yume-schedule .ys-arrow.is-off { visibility: hidden; }
-.yume-schedule .ys-month {
-  min-width: 0; text-align: center;
-  font-family: 'Cormorant Garamond', serif; font-weight: 700; font-style: italic;
-  font-size: clamp(20px, 5.4vw, 26px); line-height: 1.1; color: var(--home-plum);
-}
-
-.yume-schedule .ys-days { display: grid; gap: 26px; }
-.yume-schedule .ys-day { transition: opacity 0.2s; }
-.yume-schedule .ys-day.is-past { opacity: 0.5; }
+/* Phones: the seven days as one list, Monday first. */
+.yume-schedule .ys-week { display: grid; gap: 22px; }
 .yume-schedule .ys-day-head {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
 }
@@ -82,6 +52,10 @@ const SCHEDULE_STYLES = `
   border-radius: 999px; padding: 3px 10px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
   color: #fff; background: linear-gradient(135deg, var(--home-rose), var(--home-rose-deep));
+}
+.yume-schedule .ys-none {
+  margin: 0; padding: 2px 4px;
+  font-size: 13px; color: var(--home-plum-soft); opacity: 0.6;
 }
 
 .yume-schedule .ys-entries { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -121,15 +95,34 @@ const SCHEDULE_STYLES = `
   font-size: 19px; line-height: 1.15; color: var(--home-plum);
   overflow-wrap: anywhere;
 }
-.yume-schedule .ys-chapter {
-  font-size: 13px; font-weight: 700; color: var(--home-rose-deep);
-  overflow-wrap: anywhere;
-}
 .yume-schedule .ys-note {
   font-size: 13px; line-height: 1.5; color: var(--home-plum-soft);
   overflow-wrap: anywhere;
 }
 .yume-schedule .ys-go { flex-shrink: 0; color: var(--home-plum-soft); }
+
+/* Wide screens: Monday to Sunday side by side, one column per day. */
+@media (min-width: 1024px) {
+  .yume-schedule .ys-week { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+  .yume-schedule .ys-day {
+    min-width: 0; padding: 12px 10px 14px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--home-paper) 70%, transparent);
+    border: 1px solid var(--home-line);
+  }
+  .yume-schedule .ys-day.is-today {
+    border-color: color-mix(in srgb, var(--home-gold) 60%, var(--home-line));
+  }
+  .yume-schedule .ys-day-head { flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .yume-schedule .ys-day-head::after { flex-basis: 100%; }
+  .yume-schedule .ys-day-label { font-size: 18px; }
+  .yume-schedule .ys-none { text-align: center; }
+  .yume-schedule .ys-entry { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px; border-radius: 14px; }
+  .yume-schedule .ys-thumb { width: 100%; }
+  .yume-schedule .ys-title { font-size: 16px; }
+  .yume-schedule .ys-note { font-size: 12px; }
+  .yume-schedule .ys-go { display: none; }
+}
 
 .yume-schedule .ys-empty {
   border-radius: 24px;
@@ -143,25 +136,18 @@ const SCHEDULE_STYLES = `
 export type ScheduleItem = {
   id: string;
   title: string;
-  chapterLabel: string;
   note: string | null;
   mangaId: string | null;
   imageUrl: string | null;
 };
 
-export type ScheduleDayItems = { dayKey: string; items: ScheduleItem[] };
-
-/** Entries of one month, grouped by day in date order. */
-async function loadMonth(monthKey: string): Promise<ScheduleDayItems[]> {
-  const { start, end } = monthDateRange(monthKey);
-  const entries = await prisma.scheduleEntry.findMany({
-    where: { date: { gte: start, lt: end } },
-    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+/** The schedule's series grouped by weekday (1 = Monday … 7 = Sunday). */
+async function loadWeek(): Promise<Map<number, ScheduleItem[]>> {
+  const entries = await prisma.weeklyScheduleEntry.findMany({
     select: {
       id: true,
-      date: true,
       customTitle: true,
-      chapterLabel: true,
+      weekdays: true,
       note: true,
       manga: {
         select: {
@@ -176,7 +162,7 @@ async function loadMonth(monthKey: string): Promise<ScheduleDayItems[]> {
     },
   });
 
-  const days = new Map<string, ScheduleItem[]>();
+  const week = new Map<number, ScheduleItem[]>(WEEKDAYS.map((day) => [day, []]));
 
   for (const entry of entries) {
     const title = entry.manga?.mangaName ?? entry.customTitle?.trim();
@@ -186,12 +172,9 @@ async function loadMonth(monthKey: string): Promise<ScheduleDayItems[]> {
       continue;
     }
 
-    const dayKey = dateToDayKey(entry.date);
-    const list = days.get(dayKey) ?? [];
-    list.push({
+    const item: ScheduleItem = {
       id: entry.id,
       title,
-      chapterLabel: entry.chapterLabel,
       note: entry.note,
       mangaId: entry.manga?.id ?? null,
       imageUrl:
@@ -200,15 +183,19 @@ async function loadMonth(monthKey: string): Promise<ScheduleDayItems[]> {
         entry.manga?.coverImage ??
         entry.manga?.detailCoverImage ??
         null,
-    });
-    days.set(dayKey, list);
+    };
+
+    for (const weekday of normalizeWeekdays(entry.weekdays)) {
+      week.get(weekday)?.push(item);
+    }
   }
 
   // Within a day, by title, so the order does not depend on save order.
-  return [...days.entries()].map(([dayKey, items]) => ({
-    dayKey,
-    items: items.sort((left, right) => left.title.localeCompare(right.title, "mn")),
-  }));
+  for (const items of week.values()) {
+    items.sort((left, right) => left.title.localeCompare(right.title, "mn"));
+  }
+
+  return week;
 }
 
 function ScheduleEntryCard({ item }: { item: ScheduleItem }) {
@@ -224,7 +211,6 @@ function ScheduleEntryCard({ item }: { item: ScheduleItem }) {
       </span>
       <span className="ys-body">
         <span className="ys-title">{item.title}</span>
-        <span className="ys-chapter">{item.chapterLabel}</span>
         {item.note ? <span className="ys-note">{item.note}</span> : null}
       </span>
     </>
@@ -245,39 +231,15 @@ function ScheduleEntryCard({ item }: { item: ScheduleItem }) {
 }
 
 /**
- * "Хуваарь": one month of upcoming chapters as a day-by-day agenda. Identical
- * for every reader so it is cached (see the routes' `revalidate`); saving in
- * admin refreshes it at once. Which day is today is settled in the browser
- * (ScheduleDay).
+ * "Хуваарь": which series come out on which weekday, every week, Monday to
+ * Sunday. Identical for every reader so it is cached (see the route's
+ * `revalidate`); saving in admin refreshes it at once. Which day is today is
+ * settled in the browser (ScheduleDay).
  */
-export async function SchedulePage({ monthKey }: { monthKey: string }) {
-  return (
-    <ScheduleView
-      monthKey={monthKey}
-      days={await loadMonth(monthKey)}
-      today={scheduleTodayKey()}
-      thisMonth={currentMonthKey()}
-    />
-  );
-}
-
-/** The page itself, from already-loaded entries. */
-export function ScheduleView({
-  monthKey,
-  days,
-  today,
-  thisMonth,
-}: {
-  monthKey: string;
-  days: ScheduleDayItems[];
-  /** Ulaanbaatar day and month at render time. */
-  today: string;
-  thisMonth: string;
-}) {
-  const previous = shiftMonth(monthKey, -1);
-  const next = shiftMonth(monthKey, 1);
-  const hasPrevious = parseMonthKey(previous) !== null && previous !== monthKey;
-  const hasNext = parseMonthKey(next) !== null && next !== monthKey;
+export async function SchedulePage() {
+  const week = await loadWeek();
+  const hasEntries = [...week.values()].some((items) => items.length > 0);
+  const today = scheduleTodayWeekday();
 
   return (
     <>
@@ -290,7 +252,7 @@ export function ScheduleView({
         <MangaTopNav />
 
         <main
-          className="motion-ink-fade relative mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-6"
+          className="motion-ink-fade relative mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-6 lg:max-w-6xl"
           style={{ zIndex: 1 }}
         >
           <div className="ys-top motion-ink-up">
@@ -298,67 +260,44 @@ export function ScheduleView({
               <ChevronLeft size={14} />
               Нүүр
             </Link>
-            {monthKey !== thisMonth ? (
-              <Link href={SCHEDULE_HREF} className="yume-pill">
-                Энэ сар
-              </Link>
-            ) : null}
           </div>
 
           <div className="mt-6">
-            <SectionHeader eyebrow="Бүлэг гарах хуваарь" title="Хуваарь" />
-            {/* A dated list reads like a fixed timetable; say plainly that
-                it is not one. */}
+            <SectionHeader eyebrow="Долоо хоногийн хуваарь" title="Хуваарь" />
+            {/* Weekdays can read like a promise; say plainly that chapters
+                still go out by hand. */}
             <p className="ys-note -mt-2 mb-6">
               Хуваарийг өдөр бүр биш, гараар гаргана.
             </p>
           </div>
 
-          <nav className="ys-switch" aria-label="Сар сонгох">
-            <Link
-              href={scheduleMonthHref(previous)}
-              className={`ys-arrow${hasPrevious ? "" : " is-off"}`}
-              aria-label={monthLabel(previous)}
-              aria-hidden={!hasPrevious}
-              tabIndex={hasPrevious ? undefined : -1}
-              prefetch={false}
-            >
-              <ChevronLeft size={20} />
-            </Link>
-            <h2 className="ys-month" aria-live="polite">
-              {monthLabel(monthKey)}
-            </h2>
-            <Link
-              href={scheduleMonthHref(next)}
-              className={`ys-arrow${hasNext ? "" : " is-off"}`}
-              aria-label={monthLabel(next)}
-              aria-hidden={!hasNext}
-              tabIndex={hasNext ? undefined : -1}
-              prefetch={false}
-            >
-              <ChevronRight size={20} />
-            </Link>
-          </nav>
+          {hasEntries ? (
+            <div className="ys-week">
+              {WEEKDAYS.map((weekday) => {
+                const items = week.get(weekday) ?? [];
 
-          {days.length > 0 ? (
-            <div className="ys-days">
-              {days.map((day) => (
-                <ScheduleDay
-                  key={day.dayKey}
-                  dayKey={day.dayKey}
-                  label={dayLabel(day.dayKey)}
-                  serverToday={today}
-                >
-                  <ul className="ys-entries">
-                    {day.items.map((item) => (
-                      <ScheduleEntryCard key={item.id} item={item} />
-                    ))}
-                  </ul>
-                </ScheduleDay>
-              ))}
+                return (
+                  <ScheduleDay
+                    key={weekday}
+                    weekday={weekday}
+                    label={weekdayName(weekday)}
+                    serverToday={today}
+                  >
+                    {items.length > 0 ? (
+                      <ul className="ys-entries">
+                        {items.map((item) => (
+                          <ScheduleEntryCard key={item.id} item={item} />
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="ys-none">—</p>
+                    )}
+                  </ScheduleDay>
+                );
+              })}
             </div>
           ) : (
-            <div className="ys-empty">Энэ сарын хуваарь удахгүй гарна.</div>
+            <div className="ys-empty">Хуваарь удахгүй гарна.</div>
           )}
         </main>
       </div>

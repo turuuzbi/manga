@@ -155,6 +155,7 @@ export default async function AdminPage() {
           badgeImage: chapter.badgeImage ?? "",
           badgeScale: chapter.badgeScale ?? null,
           yumeComment: chapter.yumeComment ?? "",
+          contentWarning: chapter.contentWarning,
           publishedAt: chapter.publishedAt.toISOString(),
           pageCount: chapter._count.pages,
         })),

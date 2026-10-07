@@ -1,19 +1,10 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
   ExternalLink,
   Plus,
   RotateCcw,
@@ -21,48 +12,30 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  listScheduleMonthAction,
-  saveScheduleMonthAction,
+  listWeeklyScheduleAction,
+  saveWeeklyScheduleAction,
   type AdminScheduleEntry,
 } from "@/app/admin/schedule-actions";
-import {
-  currentMonthKey,
-  isDayKey,
-  monthBounds,
-  monthLabel,
-  parseMonthKey,
-  scheduleMonthHref,
-  scheduleTodayKey,
-  shiftMonth,
-  weekdayLabel,
-} from "@/lib/schedule";
+import { SCHEDULE_HREF, WEEKDAYS, weekdayName } from "@/lib/schedule";
 
 type DraftRow = {
   /** React key; stays put while the row is edited. */
   key: string;
   /** Saved entry id, or null for a row not saved yet. */
   id: string | null;
-  date: string;
   /** "" = no series on the site; customTitle is used instead. */
   mangaId: string;
   customTitle: string;
-  chapterLabel: string;
+  /** ISO weekdays, 1 = Monday … 7 = Sunday, ascending. */
+  weekdays: number[];
   note: string;
 };
 
 type Status = { ok: boolean; message: string } | null;
 
-const UNSAVED_WARNING = "Хадгалаагүй өөрчлөлт байна. Орхих уу?";
-
 const PANEL_STYLES = `
 .yume-admin .sp-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-}
-.yume-admin .sp-bar .ad-input { width: auto; flex: 1 1 170px; max-width: 220px; }
-.yume-admin .sp-month-label {
-  flex-basis: 100%;
-  font-family: 'Cormorant Garamond', serif; font-weight: 700; font-style: italic;
-  font-size: 22px; color: var(--home-plum);
 }
 .yume-admin .sp-public {
   display: inline-flex; align-items: center; gap: 6px;
@@ -76,9 +49,8 @@ const PANEL_STYLES = `
   display: grid; gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "date    actions"
-    "series  series"
-    "chapter chapter"
+    "series  actions"
+    "days    days"
     "note    note";
   padding: 12px; border-radius: 16px;
   background: var(--home-paper-2); border: 1px solid var(--home-line);
@@ -89,42 +61,51 @@ const PANEL_STYLES = `
   box-shadow: 0 0 0 3px color-mix(in srgb, #c15f73 16%, transparent);
 }
 .yume-admin .sp-cell { min-width: 0; display: grid; gap: 6px; align-content: start; }
-.yume-admin .sp-date { grid-area: date; }
 .yume-admin .sp-series { grid-area: series; }
-.yume-admin .sp-chapter { grid-area: chapter; }
+.yume-admin .sp-days { grid-area: days; }
 .yume-admin .sp-note { grid-area: note; }
 .yume-admin .sp-actions { grid-area: actions; display: flex; gap: 6px; align-items: flex-start; }
 .yume-admin .sp-actions .ad-icon-btn { padding: 10px; }
-.yume-admin .sp-date-line { display: flex; align-items: center; gap: 10px; }
-.yume-admin .sp-weekday { font-size: 13px; font-weight: 600; color: var(--home-plum-soft); white-space: nowrap; }
-.yume-admin .sp-moves { font-size: 12px; color: var(--home-rose-deep); }
 .yume-admin .sp-row .ad-input, .yume-admin .sp-row .ad-select {
   /* 16px keeps iOS Safari from zooming into the field on focus. */
   padding: 10px 12px; border-radius: 11px; font-size: 16px;
 }
 .yume-admin .sp-row .ad-select { padding-right: 34px; background-position: right 10px center; }
-.yume-admin .sp-row input[type="date"] { min-height: 44px; }
 .yume-admin .sp-mini {
   font-family: 'Marcellus', serif; font-size: 9px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--home-gold);
 }
-@container (min-width: 700px) {
+.yume-admin .sp-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.yume-admin .sp-day {
+  min-height: 44px; border-radius: 11px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  color: var(--home-plum-soft);
+  background: var(--home-paper);
+  border: 1px solid var(--home-line);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.yume-admin .sp-day:hover { border-color: var(--home-line-strong); }
+.yume-admin .sp-day.is-on {
+  color: #fff;
+  background: linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%);
+  border-color: transparent;
+}
+@container (min-width: 760px) {
   .yume-admin .sp-head, .yume-admin .sp-row {
-    grid-template-columns: 158px minmax(0, 1.4fr) 128px minmax(0, 1fr) auto;
-    grid-template-areas: "date series chapter note actions";
-    column-gap: 8px;
+    grid-template-columns: minmax(0, 1.2fr) 300px minmax(0, 1fr) auto;
+    grid-template-areas: "series days note actions";
+    column-gap: 10px;
   }
   .yume-admin .sp-head {
     display: grid; padding: 0 13px;
     font-family: 'Marcellus', serif; font-size: 10px; letter-spacing: 0.16em;
     text-transform: uppercase; color: var(--home-gold);
   }
-  .yume-admin .sp-head span:last-child { width: 88px; }
+  .yume-admin .sp-head span:last-child { width: 44px; }
   .yume-admin .sp-row { padding: 8px 12px; }
   .yume-admin .sp-row .sp-mini { display: none; }
   .yume-admin .sp-row .ad-input, .yume-admin .sp-row .ad-select { font-size: 14px; }
-  .yume-admin .sp-date-line { flex-direction: column; align-items: stretch; gap: 3px; }
-  .yume-admin .sp-weekday { font-size: 11.5px; padding-left: 4px; }
+  .yume-admin .sp-day { min-height: 40px; font-size: 12px; }
 }
 
 .yume-admin .sp-add {
@@ -163,10 +144,9 @@ function toDraft(entry: AdminScheduleEntry): DraftRow {
   return {
     key: newRowKey(),
     id: entry.id,
-    date: entry.date,
     mangaId: entry.mangaId ?? "",
     customTitle: entry.customTitle,
-    chapterLabel: entry.chapterLabel,
+    weekdays: entry.weekdays,
     note: entry.note,
   };
 }
@@ -176,95 +156,64 @@ function signature(rows: DraftRow[]) {
   return JSON.stringify(
     rows.map((row) => [
       row.id,
-      row.date,
       row.mangaId,
       row.mangaId ? "" : row.customTitle.trim(),
-      row.chapterLabel.trim(),
+      row.weekdays,
       row.note.trim(),
     ]),
   );
 }
 
 function rowProblem(row: DraftRow) {
-  return (
-    !isDayKey(row.date) ||
-    !row.chapterLabel.trim() ||
-    (!row.mangaId && !row.customTitle.trim())
-  );
-}
-
-/** "115-р бүлэг" → "116-р бүлэг": the label's last number, plus one. */
-function nextChapterLabel(label: string) {
-  const match = /(\d+)(?!.*\d)/.exec(label);
-
-  if (!match) {
-    return label;
-  }
-
-  return (
-    label.slice(0, match.index) +
-    String(Number(match[1]) + 1) +
-    label.slice(match.index + match[1].length)
-  );
-}
-
-function clampToMonth(dayKey: string, monthKey: string) {
-  const { first, last } = monthBounds(monthKey);
-
-  return dayKey < first ? first : dayKey > last ? last : dayKey;
+  return row.weekdays.length === 0 || (!row.mangaId && !row.customTitle.trim());
 }
 
 /**
- * "Хуваарь": the release schedule, one month at a time, edited as rows and
- * saved together. Built for entering a month quickly: "Мөр нэмэх" (or Enter in
- * a row's last fields) keeps the series picked last and counts the chapter up;
- * any row can be copied. The date stays the previous row's: chapters go out by
- * hand, not on a daily step, so each date is picked on purpose.
+ * "Хуваарь": the weekly release schedule. One row per series with the
+ * weekday(s) it comes out on, every week; all rows are saved together.
  */
 export function SchedulePanel({
   series,
 }: {
   series: Array<{ id: string; mangaName: string }>;
 }) {
-  const [monthKey, setMonthKey] = useState(currentMonthKey);
   const [rows, setRows] = useState<DraftRow[]>([]);
   const [savedSignature, setSavedSignature] = useState(signature([]));
-  const [loadedMonth, setLoadedMonth] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [lastSeries, setLastSeries] = useState("");
   const [showProblems, setShowProblems] = useState(false);
   const [status, setStatus] = useState<Status>(null);
-  const [focusKey, setFocusKey] = useState<string | null>(null);
   const [isSaving, startSave] = useTransition();
   const requestRef = useRef(0);
 
-  const dirty = loadedMonth !== null && signature(rows) !== savedSignature;
+  const dirty = loaded && signature(rows) !== savedSignature;
   const seriesName = new Map(series.map((entry) => [entry.id, entry.mangaName]));
+  // Series already on another row: one row per series.
+  const usedSeries = new Set(rows.map((row) => row.mangaId).filter(Boolean));
 
-  function applySaved(entries: AdminScheduleEntry[], month: string) {
+  function applySaved(entries: AdminScheduleEntry[]) {
     const drafts = entries.map(toDraft);
     setRows(drafts);
     setSavedSignature(signature(drafts));
-    setLoadedMonth(month);
+    setLoaded(true);
     setShowProblems(false);
-    setLastSeries(drafts.at(-1)?.mangaId ?? "");
   }
 
   /**
-   * Loads a month into the editor. A failed load leaves the editor closed:
-   * an empty list saved over a month that has entries would delete them.
+   * Loads the schedule into the editor. A failed load leaves the editor
+   * closed: an empty list saved over the real one would delete it.
    */
-  function loadMonth(month: string) {
+  function load() {
     const request = ++requestRef.current;
 
-    listScheduleMonthAction(month)
+    listWeeklyScheduleAction()
       .then((entries) => {
         if (request !== requestRef.current) {
           return;
         }
         setLoadError(!entries);
         if (entries) {
-          applySaved(entries, month);
+          applySaved(entries);
         }
       })
       .catch(() => {
@@ -275,7 +224,7 @@ export function SchedulePanel({
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => loadMonth(monthKey), [monthKey]);
+  useEffect(() => load(), []);
 
   // Leaving the page (reload, closing the tab) with edits: the browser asks.
   useEffect(() => {
@@ -291,64 +240,32 @@ export function SchedulePanel({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  function goToMonth(next: string) {
-    if (!parseMonthKey(next) || next === monthKey) {
-      return;
-    }
-    if (dirty && !window.confirm(UNSAVED_WARNING)) {
-      return;
-    }
-
-    setStatus(null);
-    setLoadError(false);
-    setLoadedMonth(null);
-    setMonthKey(next);
-  }
-
   function updateRow(key: string, patch: Partial<DraftRow>) {
     setRows((current) =>
       current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
     );
+  }
 
-    if (patch.mangaId !== undefined) {
-      setLastSeries(patch.mangaId);
-    }
+  function toggleDay(key: string, weekday: number) {
+    setRows((current) =>
+      current.map((row) =>
+        row.key === key
+          ? {
+              ...row,
+              weekdays: row.weekdays.includes(weekday)
+                ? row.weekdays.filter((day) => day !== weekday)
+                : [...row.weekdays, weekday].sort((left, right) => left - right),
+            }
+          : row,
+      ),
+    );
   }
 
   function addRow() {
-    const last = rows.at(-1);
-    // The newest row of the series picked last: its title and chapter.
-    const template = [...rows].reverse().find((row) => row.mangaId === lastSeries);
-    const today = scheduleTodayKey();
-    const date = last
-      ? clampToMonth(last.date, monthKey)
-      : today.startsWith(monthKey)
-        ? today
-        : monthBounds(monthKey).first;
-    const row: DraftRow = {
-      key: newRowKey(),
-      id: null,
-      date,
-      mangaId: lastSeries,
-      customTitle: !lastSeries && template ? template.customTitle : "",
-      chapterLabel: template ? nextChapterLabel(template.chapterLabel) : "",
-      note: "",
-    };
-
-    setRows((current) => [...current, row]);
-    setFocusKey(row.key);
-  }
-
-  function duplicateRow(key: string) {
-    const index = rows.findIndex((row) => row.key === key);
-
-    if (index < 0) {
-      return;
-    }
-
-    const copy = { ...rows[index], key: newRowKey(), id: null };
-    setRows((current) => [...current.slice(0, index + 1), copy, ...current.slice(index + 1)]);
-    setFocusKey(copy.key);
+    setRows((current) => [
+      ...current,
+      { key: newRowKey(), id: null, mangaId: "", customTitle: "", weekdays: [], note: "" },
+    ]);
   }
 
   function removeRow(key: string) {
@@ -361,8 +278,8 @@ export function SchedulePanel({
     }
 
     setStatus(null);
-    setLoadedMonth(null);
-    loadMonth(monthKey);
+    setLoaded(false);
+    load();
   }
 
   function save() {
@@ -370,23 +287,19 @@ export function SchedulePanel({
       setShowProblems(true);
       setStatus({
         ok: false,
-        message: "Улаан хүрээтэй мөрүүдийг гүйцээнэ үү: огноо, цуврал (эсвэл гарчиг), бүлэг.",
+        message: "Улаан хүрээтэй мөрүүдийг гүйцээнэ үү: цуврал (эсвэл гарчиг), гарах өдөр.",
       });
       return;
     }
 
-    const month = monthKey;
-
     startSave(async () => {
       try {
-        const result = await saveScheduleMonthAction(
-          month,
+        const result = await saveWeeklyScheduleAction(
           rows.map((row) => ({
             id: row.id,
-            date: row.date,
             mangaId: row.mangaId || null,
             customTitle: row.customTitle,
-            chapterLabel: row.chapterLabel,
+            weekdays: row.weekdays,
             note: row.note,
           })),
         );
@@ -394,25 +307,13 @@ export function SchedulePanel({
         setStatus({ ok: result.ok, message: result.message });
 
         if (result.ok && result.entries) {
-          applySaved(result.entries, month);
+          applySaved(result.entries);
         }
       } catch {
         setStatus({ ok: false, message: "Хадгалж чадсангүй. Дахин оролдоно уу." });
       }
     });
   }
-
-  /** Enter in the last row's text fields adds the next row. */
-  function onFieldKeyDown(event: KeyboardEvent<HTMLInputElement>, key: string) {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      if (rows.at(-1)?.key === key) {
-        addRow();
-      }
-    }
-  }
-
-  const loading = loadedMonth !== monthKey;
 
   return (
     <section className="ad-card motion-ink-up p-5 sm:p-7">
@@ -422,45 +323,15 @@ export function SchedulePanel({
         <p className="ad-eyebrow">
           <CalendarDays size={13} /> Хуваарь
         </p>
-        <h2 className="ad-h2">Бүлэг гарах хуваарь</h2>
+        <h2 className="ad-h2">Долоо хоногийн хуваарь</h2>
         <p className="ad-sub">
-          Сараа сонгоод мөр нэмнэ. Шинэ мөр сүүлд сонгосон цувралаа авч,
-          бүлгийг нэгээр ахиулна. Огноо өмнөх мөрийнхөөрөө үлдэх тул та өөрөө
-          сольж сонгоно. Хадгалмагц нийтийн хуудсанд шууд гарна.
+          Цуврал бүрт нэг мөр нэмээд долоо хоног бүр гарах өдрүүдийг нь сонгоно.
+          Хадгалмагц нийтийн хуудсанд шууд гарна.
         </p>
       </div>
 
       <div className="sp-bar mb-5">
-        <p className="sp-month-label">{monthLabel(monthKey)}</p>
-        <button
-          type="button"
-          className="ad-icon-btn"
-          onClick={() => goToMonth(shiftMonth(monthKey, -1))}
-          aria-label="Өмнөх сар"
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <input
-          type="month"
-          className="ad-input"
-          value={monthKey}
-          onChange={(event) => goToMonth(event.target.value)}
-          aria-label="Сар"
-        />
-        <button
-          type="button"
-          className="ad-icon-btn"
-          onClick={() => goToMonth(shiftMonth(monthKey, 1))}
-          aria-label="Дараах сар"
-        >
-          <ChevronRight size={16} />
-        </button>
-        <a
-          href={scheduleMonthHref(monthKey)}
-          target="_blank"
-          rel="noreferrer"
-          className="sp-public ml-auto"
-        >
+        <a href={SCHEDULE_HREF} target="_blank" rel="noreferrer" className="sp-public ml-auto">
           <ExternalLink size={14} /> Нийтийн хуудас
         </a>
       </div>
@@ -472,27 +343,25 @@ export function SchedulePanel({
         </div>
       ) : null}
 
-      {loading ? (
+      {!loaded ? (
         loadError ? null : <div className="sp-empty">Ачаалж байна…</div>
       ) : (
         <div className="sp-list">
           {rows.length > 0 ? (
             <div className="sp-head" aria-hidden="true">
-              <span>Огноо</span>
               <span>Цуврал</span>
-              <span>Бүлэг</span>
+              <span>Гарах өдөр</span>
               <span>Тэмдэглэл</span>
               <span />
             </div>
           ) : (
             <div className="sp-empty">
-              Энэ сард бүртгэл алга. Доорх товчоор эхний мөрөө нэмнэ үү.
+              Хуваарь хоосон байна. Доорх товчоор эхний мөрөө нэмнэ үү.
             </div>
           )}
 
           {rows.map((row, index) => {
             const invalid = showProblems && rowProblem(row);
-            const outsideMonth = isDayKey(row.date) && !row.date.startsWith(monthKey);
             const missingSeries = row.mangaId !== "" && !seriesName.has(row.mangaId);
 
             return (
@@ -500,26 +369,6 @@ export function SchedulePanel({
                 key={row.key}
                 className={`sp-row${row.id ? "" : " is-new"}${invalid ? " is-invalid" : ""}`}
               >
-                <label className="sp-cell sp-date">
-                  <span className="sp-mini">Огноо</span>
-                  <span className="sp-date-line">
-                    <input
-                      type="date"
-                      className="ad-input"
-                      value={row.date}
-                      required
-                      onChange={(event) => updateRow(row.key, { date: event.target.value })}
-                      aria-label={`${index + 1}-р мөрийн огноо`}
-                    />
-                    <span className="sp-weekday">
-                      {isDayKey(row.date) ? weekdayLabel(row.date) : ""}
-                    </span>
-                  </span>
-                  {outsideMonth ? (
-                    <span className="sp-moves">Өөр сар руу шилжинэ</span>
-                  ) : null}
-                </label>
-
                 <div className="sp-cell sp-series">
                   <span className="sp-mini">Цуврал</span>
                   <select
@@ -533,7 +382,11 @@ export function SchedulePanel({
                       <option value={row.mangaId}>(устгагдсан цуврал)</option>
                     ) : null}
                     {series.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
+                      <option
+                        key={entry.id}
+                        value={entry.id}
+                        disabled={entry.id !== row.mangaId && usedSeries.has(entry.id)}
+                      >
                         {entry.mangaName}
                       </option>
                     ))}
@@ -552,21 +405,31 @@ export function SchedulePanel({
                   ) : null}
                 </div>
 
-                <label className="sp-cell sp-chapter">
-                  <span className="sp-mini">Бүлэг</span>
-                  <input
-                    className="ad-input"
-                    value={row.chapterLabel}
-                    maxLength={60}
-                    placeholder="115-р бүлэг"
-                    autoFocus={row.key === focusKey}
-                    onChange={(event) =>
-                      updateRow(row.key, { chapterLabel: event.target.value })
-                    }
-                    onKeyDown={(event) => onFieldKeyDown(event, row.key)}
-                    enterKeyHint="next"
-                  />
-                </label>
+                <div className="sp-cell sp-days">
+                  <span className="sp-mini">Гарах өдөр</span>
+                  <div
+                    className="sp-weekdays"
+                    role="group"
+                    aria-label={`${index + 1}-р мөрийн гарах өдрүүд`}
+                  >
+                    {WEEKDAYS.map((weekday) => {
+                      const on = row.weekdays.includes(weekday);
+
+                      return (
+                        <button
+                          key={weekday}
+                          type="button"
+                          className={`sp-day${on ? " is-on" : ""}`}
+                          aria-pressed={on}
+                          title={weekdayName(weekday)}
+                          onClick={() => toggleDay(row.key, weekday)}
+                        >
+                          {weekdayName(weekday, true)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <label className="sp-cell sp-note">
                   <span className="sp-mini">Тэмдэглэл</span>
@@ -576,21 +439,10 @@ export function SchedulePanel({
                     maxLength={200}
                     placeholder="Сонголттой"
                     onChange={(event) => updateRow(row.key, { note: event.target.value })}
-                    onKeyDown={(event) => onFieldKeyDown(event, row.key)}
-                    enterKeyHint="next"
                   />
                 </label>
 
                 <div className="sp-actions">
-                  <button
-                    type="button"
-                    className="ad-icon-btn"
-                    onClick={() => duplicateRow(row.key)}
-                    aria-label="Хуулж нэмэх"
-                    title="Хуулж нэмэх"
-                  >
-                    <Copy size={15} />
-                  </button>
                   <button
                     type="button"
                     className="ad-icon-btn"

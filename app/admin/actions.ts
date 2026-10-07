@@ -13,6 +13,11 @@ import {
 } from "@/lib/google-drive";
 import { deleteFromR2, getR2KeyFromUrl, uploadToR2 } from "@/lib/r2";
 import { readUploadedUrl, readUploadedUrls } from "@/lib/uploads";
+import { placeInFeaturedSlider } from "@/lib/featured";
+import {
+  parseContentWarning,
+  type ContentWarningValue,
+} from "@/lib/content-warning";
 import {
   MAX_PAYWALLED_LATEST_CHAPTERS,
   PLANS,
@@ -348,13 +353,15 @@ const allowedStatuses = new Set([
   "COMPLETED",
   "CATCHING_UP",
   "STOPPED",
+  "ONESHOT",
 ]);
 
 type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
   | "CATCHING_UP"
-  | "STOPPED";
+  | "STOPPED"
+  | "ONESHOT";
 
 type IngestionInput = {
   mangaName: string;
@@ -651,6 +658,7 @@ async function createChapterWithPages({
   chapterId,
   coverImage,
   yumeComment,
+  contentWarning,
 }: {
   mangaId: string;
   mangaName: string;
@@ -666,6 +674,8 @@ async function createChapterWithPages({
   coverImage?: string | null;
   /** Yume's end-of-chapter note, or null for none. */
   yumeComment?: YumeNote;
+  /** Notice shown before the pages load, or null for none. */
+  contentWarning?: ContentWarningValue | null;
 }) {
   const chapter = await prisma.chapter.create({
     data: {
@@ -676,6 +686,7 @@ async function createChapterWithPages({
       coverImage: coverImage || null,
       yumeComment: yumeComment?.text ?? null,
       yumeCommentAuthorId: yumeComment?.authorId ?? null,
+      contentWarning: contentWarning ?? null,
     },
   });
 
@@ -738,6 +749,7 @@ async function createMangaIngestion({
   chapterId,
   chapterCoverImage,
   yumeComment,
+  contentWarning,
 }: {
   input: IngestionInput;
   coverAsset?: UploadAsset | null;
@@ -746,6 +758,7 @@ async function createMangaIngestion({
   chapterId?: string | null;
   chapterCoverImage?: string | null;
   yumeComment?: YumeNote;
+  contentWarning?: ContentWarningValue | null;
 }) {
   const manga = await createMangaRecord(input, mangaId);
 
@@ -764,6 +777,7 @@ async function createMangaIngestion({
     chapterId,
     coverImage: chapterCoverImage,
     yumeComment,
+    contentWarning,
   });
 }
 
@@ -776,6 +790,7 @@ async function appendChapterToManga({
   chapterId,
   chapterCoverImage,
   yumeComment,
+  contentWarning,
 }: {
   mangaId: string;
   chapterNumber: number;
@@ -785,6 +800,7 @@ async function appendChapterToManga({
   chapterId?: string | null;
   chapterCoverImage?: string | null;
   yumeComment?: YumeNote;
+  contentWarning?: ContentWarningValue | null;
 }) {
   const manga = await prisma.manga.findUnique({
     where: { id: mangaId },
@@ -830,6 +846,7 @@ async function appendChapterToManga({
     chapterId,
     coverImage: chapterCoverImage,
     yumeComment,
+    contentWarning,
   });
 }
 
@@ -1123,6 +1140,7 @@ export async function ingestMangaAction(
       chapterId: uploads.chapterId,
       coverImage: uploads.chapterCoverUrl,
       yumeComment: yumeNoteFrom(formData, adminUser.id),
+      contentWarning: parseContentWarning(formData.get("contentWarning")),
     });
 
     revalidateSeriesSurfaces(manga.id);
@@ -1291,6 +1309,7 @@ export async function importGoogleDriveFolderAction(
         chapterId: uploads.chapterId,
         chapterCoverImage: uploads.chapterCoverUrl,
         yumeComment: yumeNoteFrom(formData, adminUser.id),
+        contentWarning: parseContentWarning(formData.get("contentWarning")),
       });
 
       revalidateSeriesSurfaces(existingMangaId);
@@ -1316,7 +1335,8 @@ export async function importGoogleDriveFolderAction(
       mangaId: uploads.mangaId,
       chapterId: uploads.chapterId,
       chapterCoverImage: uploads.chapterCoverUrl,
-        yumeComment: yumeNoteFrom(formData, adminUser.id),
+      yumeComment: yumeNoteFrom(formData, adminUser.id),
+      contentWarning: parseContentWarning(formData.get("contentWarning")),
     });
 
     revalidateSeriesSurfaces(result.mangaId);
@@ -1548,7 +1568,6 @@ export async function updateMangaMetadataAction(
             status: input.rawStatus as MangaStatusValue,
             titleFont: input.titleFont || null,
             isFeatured: input.isFeatured,
-            featuredOrder: input.isFeatured ? input.featuredOrder : null,
             paywalledChapters: input.paywalledChapters,
             promoSlot: nextPromoSlot,
             ...(promoImageUrl !== undefined ? { promoImageUrl } : {}),
@@ -1578,6 +1597,13 @@ export async function updateMangaMetadataAction(
             data: { promoSlot: manga.promoSlot },
           });
         }
+
+        await placeInFeaturedSlider(
+          tx,
+          input.mangaId,
+          input.isFeatured,
+          input.featuredOrder,
+        );
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -1934,6 +1960,7 @@ export async function updateChapterMetadataAction(
         chapterNumber,
         title: chapterTitle || null,
         yumeComment: nextYumeComment,
+        contentWarning: parseContentWarning(formData.get("contentWarning")),
         ...(yumeCommentChanged
           ? { yumeCommentAuthorId: nextYumeComment ? adminUser.id : null }
           : {}),

@@ -5,7 +5,8 @@ export type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
   | "CATCHING_UP"
-  | "STOPPED";
+  | "STOPPED"
+  | "ONESHOT";
 
 export interface MangaSeries {
   id: string;
@@ -22,6 +23,7 @@ export const STATUS_LABELS: Record<MangaStatusValue, string> = {
   COMPLETED: "Дууссан",
   CATCHING_UP: "Гүйцэж байна",
   STOPPED: "Зогссон",
+  ONESHOT: "Oneshot",
 };
 
 /** Extra class per status, so the ribbon reads differently at a glance. */
@@ -30,6 +32,7 @@ const STATUS_BADGE_MODIFIER: Record<MangaStatusValue, string> = {
   COMPLETED: " is-completed",
   CATCHING_UP: " is-catching-up",
   STOPPED: " is-stopped",
+  ONESHOT: " is-oneshot",
 };
 
 const DEFAULT_TITLE_FONT = "Cormorant Garamond";
@@ -221,6 +224,13 @@ export const YUME_CARD_STYLES = `
 }
 .yume-status.is-stopped {
   color: var(--home-plum-soft);
+}
+/* A single-chapter story: complete by nature, so it shares the gold of
+   "Дууссан" but on a solid ribbon to tell the two apart. */
+.yume-status.is-oneshot {
+  color: #fff;
+  background: linear-gradient(135deg, var(--home-gold) 0%, color-mix(in srgb, var(--home-gold) 70%, var(--home-plum)) 100%);
+  border-color: transparent;
 }
 .yume-card-title {
   font-family: 'Cormorant Garamond', serif;

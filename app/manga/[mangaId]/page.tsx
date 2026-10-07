@@ -531,6 +531,7 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: "Дууссан",
   CATCHING_UP: "Гүйцэж байна",
   STOPPED: "Зогссон",
+  ONESHOT: "Oneshot",
 };
 
 type MangaPreviewPageProps = {

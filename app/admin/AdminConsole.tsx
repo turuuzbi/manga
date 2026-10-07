@@ -72,6 +72,10 @@ import {
   PAYWALLED_LATEST_CHAPTERS,
 } from "@/lib/plans";
 import { ImageEditorField, type AspectPreset } from "@/app/admin/ImageEditor";
+import {
+  CONTENT_WARNINGS,
+  type ContentWarningValue,
+} from "@/lib/content-warning";
 
 const initialAdminActionState: AdminActionState = {
   ok: false,
@@ -273,7 +277,8 @@ type MangaStatusValue =
   | "ONGOING"
   | "COMPLETED"
   | "CATCHING_UP"
-  | "STOPPED";
+  | "STOPPED"
+  | "ONESHOT";
 
 type AdminConsoleProps = {
   dbUser: {
@@ -334,6 +339,8 @@ type AdminConsoleProps = {
       badgeScale: number | null;
       /** Yume's end-of-chapter note; empty = none. */
       yumeComment: string;
+      /** Notice shown before the pages load; null = none. */
+      contentWarning: ContentWarningValue | null;
       publishedAt: string;
       pageCount: number;
     }>;
@@ -1004,6 +1011,11 @@ export function AdminConsole({
                           defaultValue={selectedManga.featuredOrder ?? ""}
                         />
                       </div>
+                      <p className="ad-sub mt-2">
+                        Тухайн байрлалд байсан манга болон түүнээс хойшхи нь нэг
+                        байраар хойшилно. Хоосон орхивол одоогийн байрлалдаа
+                        (шинээр нэмэгдэж буй бол хамгийн сүүлд) үлдэнэ.
+                      </p>
 
                       <div className="mt-5 grid gap-4 lg:grid-cols-2">
                         <div>
@@ -1810,6 +1822,12 @@ export function AdminConsole({
                           </div>
 
                           <div className="mt-4">
+                            <ContentWarningField
+                              defaultValue={selectedChapter.contentWarning ?? ""}
+                            />
+                          </div>
+
+                          <div className="mt-4">
                             <YumeCommentField
                               defaultValue={selectedChapter.yumeComment}
                             />
@@ -2107,6 +2125,8 @@ export function AdminConsole({
                     />
                   </div>
 
+                  <ContentWarningField />
+
                   <YumeCommentField />
 
                   <div className="ad-soft p-4 text-sm" style={{ color: "var(--home-plum-soft)" }}>
@@ -2230,6 +2250,7 @@ export function AdminConsole({
                         label="Бүлгийн thumbnail"
                         helper="Сонголттой. Сүүлийн шинэчлэлийн картанд харагдана — оруулахгүй бол эхний хуудас харагдана."
                       />
+                      <ContentWarningField />
                       <YumeCommentField />
                     </>
                   ) : null}
@@ -2427,6 +2448,7 @@ function MetadataFields({
           <option value="COMPLETED">Дууссан</option>
           <option value="CATCHING_UP">Орчуулж гүйцэж байна</option>
           <option value="STOPPED">Зогссон</option>
+          <option value="ONESHOT">Oneshot</option>
         </SelectField>
         <Field
           label="Зохиолч"
@@ -2602,6 +2624,33 @@ function YumeCommentField({ defaultValue = "" }: { defaultValue?: string }) {
       <p className="ad-sub mt-2">
         Бүлгийн сүүлийн хуудасны дараа Юүмэгийн хөөсөнд харагдана. Хоосон
         орхивол харагдахгүй. Мөр шилжилт хадгалагдана.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * "Анхааруулга": a notice the reader has to accept before the chapter's pages
+ * load, every time the chapter is opened. "Байхгүй" opens it straight away.
+ */
+function ContentWarningField({ defaultValue = "" }: { defaultValue?: string }) {
+  return (
+    <div>
+      <SelectField
+        label="Анхааруулга"
+        name="contentWarning"
+        defaultValue={defaultValue}
+      >
+        <option value="">Байхгүй</option>
+        {(Object.keys(CONTENT_WARNINGS) as ContentWarningValue[]).map((value) => (
+          <option key={value} value={value}>
+            {CONTENT_WARNINGS[value].label}
+          </option>
+        ))}
+      </SelectField>
+      <p className="ad-sub mt-2">
+        Сонговол бүлгийг нээх бүрт хуудсууд ачаалагдахаас өмнө анхааруулга
+        гарч, уншигч &quot;Унших&quot; дарж үргэлжлүүлнэ.
       </p>
     </div>
   );
@@ -2783,6 +2832,7 @@ function getStatusLabel(status: MangaStatusValue) {
     COMPLETED: "Дууссан",
     CATCHING_UP: "Орчуулж гүйцэж байна",
     STOPPED: "Зогссон",
+    ONESHOT: "Oneshot",
   };
 
   return labels[status];

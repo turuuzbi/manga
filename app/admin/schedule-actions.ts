@@ -3,172 +3,142 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminUser } from "@/lib/auth";
 import prisma from "@/lib/db";
-import {
-  dateToDayKey,
-  dayKeyToDate,
-  isDayKey,
-  monthDateRange,
-  parseMonthKey,
-} from "@/lib/schedule";
+import { normalizeWeekdays } from "@/lib/schedule";
 
 export type AdminScheduleEntry = {
   id: string;
-  /** "YYYY-MM-DD" */
-  date: string;
   mangaId: string | null;
   customTitle: string;
-  chapterLabel: string;
+  /** ISO weekdays, 1 = Monday … 7 = Sunday, ascending. */
+  weekdays: number[];
   note: string;
 };
 
 /** A row as the panel sends it; id is null for a row not saved yet. */
 export type ScheduleRowInput = {
   id: string | null;
-  date: string;
   mangaId: string | null;
   customTitle: string;
-  chapterLabel: string;
+  weekdays: number[];
   note: string;
 };
 
 export type ScheduleSaveResult = {
   ok: boolean;
   message: string;
-  /** The month as saved, in display order. */
+  /** The schedule as saved, in display order. */
   entries?: AdminScheduleEntry[];
 };
 
-const MAX_ROWS = 300;
+const MAX_ROWS = 200;
 const MAX_TITLE_LENGTH = 120;
-const MAX_LABEL_LENGTH = 60;
 const MAX_NOTE_LENGTH = 200;
 
-async function loadMonth(monthKey: string): Promise<AdminScheduleEntry[]> {
-  const { start, end } = monthDateRange(monthKey);
-  const rows = await prisma.scheduleEntry.findMany({
-    where: { date: { gte: start, lt: end } },
-    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+async function loadSchedule(): Promise<AdminScheduleEntry[]> {
+  const rows = await prisma.weeklyScheduleEntry.findMany({
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
-      date: true,
       mangaId: true,
       customTitle: true,
-      chapterLabel: true,
+      weekdays: true,
       note: true,
       manga: { select: { mangaName: true } },
     },
   });
 
-  // The public page's order: by day, then title.
+  // By first weekday, then title — roughly the public page's reading order.
   return rows
     .map((row) => ({
       entry: {
         id: row.id,
-        date: dateToDayKey(row.date),
         mangaId: row.mangaId,
         customTitle: row.customTitle ?? "",
-        chapterLabel: row.chapterLabel,
+        weekdays: normalizeWeekdays(row.weekdays),
         note: row.note ?? "",
       },
       title: row.manga?.mangaName ?? row.customTitle ?? "",
     }))
     .sort(
       (left, right) =>
-        left.entry.date.localeCompare(right.entry.date) ||
+        (left.entry.weekdays[0] ?? 8) - (right.entry.weekdays[0] ?? 8) ||
         left.title.localeCompare(right.title, "mn"),
     )
     .map((row) => row.entry);
 }
 
-/** The public schedule is cached; show a save at once. */
-function revalidateSchedule() {
-  revalidatePath("/schedule");
-  revalidatePath("/schedule/[month]", "page");
-}
-
-export async function listScheduleMonthAction(
-  monthKey: string,
-): Promise<AdminScheduleEntry[] | null> {
-  if (!(await requireAdminUser()) || !parseMonthKey(monthKey)) {
+export async function listWeeklyScheduleAction(): Promise<AdminScheduleEntry[] | null> {
+  if (!(await requireAdminUser())) {
     return null;
   }
 
-  return loadMonth(monthKey);
+  return loadSchedule();
 }
 
 /**
- * Saves one month as the panel shows it: rows with an id are updated (only
- * when something changed), rows without one are created, and this month's
- * entries missing from the list are deleted. A row may carry a date in
- * another month; it simply moves there.
+ * Saves the whole weekly schedule as the panel shows it: rows with an id are
+ * updated (only when something changed), rows without one are created, and
+ * saved rows missing from the list are deleted.
  */
-export async function saveScheduleMonthAction(
-  monthKey: string,
+export async function saveWeeklyScheduleAction(
   rows: ScheduleRowInput[],
 ): Promise<ScheduleSaveResult> {
   if (!(await requireAdminUser())) {
     return { ok: false, message: "Админ эрх шаардлагатай." };
   }
 
-  if (!parseMonthKey(monthKey) || !Array.isArray(rows)) {
+  if (!Array.isArray(rows)) {
     return { ok: false, message: "Хүсэлт буруу байна." };
   }
 
   if (rows.length > MAX_ROWS) {
-    return { ok: false, message: `Нэг сард ${MAX_ROWS}-аас олон мөр хадгалах боломжгүй.` };
+    return { ok: false, message: `${MAX_ROWS}-аас олон мөр хадгалах боломжгүй.` };
   }
 
   const clean: ScheduleRowInput[] = [];
+  const seenSeries = new Set<string>();
 
   for (const [index, row] of rows.entries()) {
     const line = `${index + 1}-р мөр`;
-    const date = String(row?.date ?? "");
     const mangaId = typeof row?.mangaId === "string" && row.mangaId ? row.mangaId : null;
     const customTitle = mangaId ? "" : String(row?.customTitle ?? "").trim();
-    const chapterLabel = String(row?.chapterLabel ?? "").trim();
+    const weekdays = normalizeWeekdays(row?.weekdays);
     const note = String(row?.note ?? "").trim();
 
-    if (!isDayKey(date)) {
-      return { ok: false, message: `${line}: огноо буруу байна.` };
-    }
     if (!mangaId && !customTitle) {
       return { ok: false, message: `${line}: цуврал сонгох эсвэл гарчиг бичнэ үү.` };
     }
-    if (!chapterLabel) {
-      return { ok: false, message: `${line}: бүлгээ бичнэ үү.` };
+    if (weekdays.length === 0) {
+      return { ok: false, message: `${line}: гарах өдрөө сонгоно уу.` };
     }
-    if (
-      customTitle.length > MAX_TITLE_LENGTH ||
-      chapterLabel.length > MAX_LABEL_LENGTH ||
-      note.length > MAX_NOTE_LENGTH
-    ) {
+    if (customTitle.length > MAX_TITLE_LENGTH || note.length > MAX_NOTE_LENGTH) {
       return { ok: false, message: `${line}: текст хэт урт байна.` };
     }
 
+    // One row per series: its days are all picked on that row.
+    const seriesKey = mangaId ?? `title:${customTitle.toLowerCase()}`;
+    if (seenSeries.has(seriesKey)) {
+      return {
+        ok: false,
+        message: `${line}: энэ цуврал өмнөх мөрөнд байна. Өдрүүдийг нэг мөрөнд сонгоно уу.`,
+      };
+    }
+    seenSeries.add(seriesKey);
+
     clean.push({
       id: typeof row?.id === "string" && row.id ? row.id : null,
-      date,
       mangaId,
       customTitle,
-      chapterLabel,
+      weekdays,
       note,
     });
   }
 
-  const mangaIds = [...new Set(clean.flatMap((row) => (row.mangaId ? [row.mangaId] : [])))];
-  const { start, end } = monthDateRange(monthKey);
+  const mangaIds = clean.flatMap((row) => (row.mangaId ? [row.mangaId] : []));
   const [foundManga, existing] = await Promise.all([
     prisma.manga.findMany({ where: { id: { in: mangaIds } }, select: { id: true } }),
-    prisma.scheduleEntry.findMany({
-      where: { date: { gte: start, lt: end } },
-      select: {
-        id: true,
-        date: true,
-        mangaId: true,
-        customTitle: true,
-        chapterLabel: true,
-        note: true,
-      },
+    prisma.weeklyScheduleEntry.findMany({
+      select: { id: true, mangaId: true, customTitle: true, weekdays: true, note: true },
     }),
   ]);
 
@@ -196,10 +166,9 @@ export async function saveScheduleMonthAction(
     keptIds.add(row.id);
 
     const changed =
-      dateToDayKey(saved.date) !== row.date ||
       saved.mangaId !== row.mangaId ||
       (saved.customTitle ?? "") !== row.customTitle ||
-      saved.chapterLabel !== row.chapterLabel ||
+      normalizeWeekdays(saved.weekdays).join() !== row.weekdays.join() ||
       (saved.note ?? "") !== row.note;
 
     if (changed) {
@@ -212,26 +181,26 @@ export async function saveScheduleMonthAction(
     .filter((id) => !keptIds.has(id));
 
   const data = (row: ScheduleRowInput) => ({
-    date: dayKeyToDate(row.date),
     mangaId: row.mangaId,
     customTitle: row.customTitle || null,
-    chapterLabel: row.chapterLabel,
+    weekdays: row.weekdays,
     note: row.note || null,
   });
 
   await prisma.$transaction([
-    prisma.scheduleEntry.deleteMany({ where: { id: { in: deletedIds } } }),
+    prisma.weeklyScheduleEntry.deleteMany({ where: { id: { in: deletedIds } } }),
     ...updates.map(({ id, row }) =>
-      prisma.scheduleEntry.update({ where: { id }, data: data(row) }),
+      prisma.weeklyScheduleEntry.update({ where: { id }, data: data(row) }),
     ),
-    prisma.scheduleEntry.createMany({ data: creates.map(data) }),
+    prisma.weeklyScheduleEntry.createMany({ data: creates.map(data) }),
   ]);
 
-  revalidateSchedule();
+  // The public schedule is cached; show a save at once.
+  revalidatePath("/schedule");
 
   return {
     ok: true,
     message: `Хадгаллаа: ${creates.length} нэмсэн, ${updates.length} зассан, ${deletedIds.length} устгасан.`,
-    entries: await loadMonth(monthKey),
+    entries: await loadSchedule(),
   };
 }

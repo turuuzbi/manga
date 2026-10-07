@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, type ReactNode } from "react";
-import { scheduleTodayKey } from "@/lib/schedule";
+import { scheduleTodayWeekday } from "@/lib/schedule";
 
 function subscribe(onChange: () => void) {
   // Re-check when a tab left open past midnight comes back into view.
@@ -10,36 +10,35 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * One day of the schedule. The page is cached for everyone, so the day it
+ * One weekday of the schedule. The page is cached for everyone, so the day it
  * was rendered on can be stale by the time it is read; the browser's own
- * Ulaanbaatar date decides which day is today and which are past. The server's
- * guess is used until hydration, so the markup always matches.
+ * Ulaanbaatar weekday decides which one is today. The server's guess is used
+ * until hydration, so the markup always matches.
  */
 export function ScheduleDay({
-  dayKey,
+  weekday,
   label,
   serverToday,
   children,
 }: {
-  dayKey: string;
+  /** 1 = Monday … 7 = Sunday. */
+  weekday: number;
   label: string;
-  serverToday: string;
+  serverToday: number;
   children: ReactNode;
 }) {
   const today = useSyncExternalStore(
     subscribe,
-    () => scheduleTodayKey(),
+    () => scheduleTodayWeekday(),
     () => serverToday,
   );
-  const state = dayKey === today ? "today" : dayKey < today ? "past" : "upcoming";
+  const isToday = weekday === today;
 
   return (
-    <section className={`ys-day is-${state}`}>
+    <section className={`ys-day${isToday ? " is-today" : ""}`}>
       <header className="ys-day-head">
-        <h2 className="ys-day-label">
-          <time dateTime={dayKey}>{label}</time>
-        </h2>
-        {state === "today" ? (
+        <h2 className="ys-day-label">{label}</h2>
+        {isToday ? (
           <span className="ys-today" aria-current="date">
             Өнөөдөр
           </span>

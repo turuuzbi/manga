@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "4mb",
     },
   },
+  async redirects() {
+    return [
+      // The schedule used to be one page per month (/schedule/2026-10). It is
+      // weekly now, so old links and bookmarks land on the one weekly page.
+      { source: "/schedule/:month", destination: "/schedule", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

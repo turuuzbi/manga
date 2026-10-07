@@ -13,6 +13,14 @@ enum MangaStatus {
   COMPLETED
   CATCHING_UP
   STOPPED
+  ONESHOT
+}
+
+// Shown as a modal before a chapter's pages load. A chapter without one
+// (null) opens straight away.
+enum ContentWarning {
+  ADULT
+  VIOLENCE
 }
 
 enum UserRole {
@@ -101,6 +109,7 @@ model Manga {
   posterChoices   UserPosterChoice[]
   rewards         UserReward[]
   scheduleEntries ScheduleEntry[]
+  weeklySchedule  WeeklyScheduleEntry[]
 
   @@index([isFeatured, featuredOrder])
   @@index([viewCount])
@@ -139,6 +148,8 @@ model Chapter {
   // The admin account that wrote yumeComment; its avatar and name are shown
   // beside the bubble. Set whenever the note's text changes.
   yumeCommentAuthorId String?
+  // 18+ or violence notice the reader must accept before the pages load.
+  contentWarning ContentWarning?
   // Opens of this chapter. Bumped in the same transaction as Manga.viewCount,
   // so the two move together from here on. They do not start equal: chapter
   // counts were seeded from the ReadingProgress floor after the series counter
@@ -352,8 +363,26 @@ model ArticleView {
   @@id([articleId, viewerKey])
 }
 
-// One line of the monthly release schedule ("Хуваарь"). Either linked to a
-// series (its cover, title and page) or free-standing with customTitle.
+// The weekly release schedule ("Хуваарь"): a series and the weekdays it comes
+// out on, every week. Either linked to a series (its cover, title and page)
+// or free-standing with customTitle.
+model WeeklyScheduleEntry {
+  id          String   @id @default(nanoid())
+  mangaId     String?
+  customTitle String?
+  // ISO weekdays, 1 = Monday … 7 = Sunday, ascending and without repeats.
+  weekdays    Int[]
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  manga Manga? @relation(fields: [mangaId], references: [id], onDelete: SetNull)
+
+  @@index([mangaId])
+}
+
+// Superseded by WeeklyScheduleEntry (its migration copied every row's weekday
+// across). Kept so no data is dropped; nothing reads it any more.
 model ScheduleEntry {
   id           String   @id @default(nanoid())
   // Calendar day only — no time, no timezone.

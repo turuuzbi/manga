@@ -20,6 +20,7 @@ const STATUS_MODIFIER: Record<ChapterFeedCard["status"], string> = {
   COMPLETED: " is-completed",
   CATCHING_UP: " is-catching-up",
   STOPPED: " is-stopped",
+  ONESHOT: " is-oneshot",
 };
 
 /** Extra rules on top of YUME_CARD_STYLES for chapter cards. */
