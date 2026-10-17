@@ -11,7 +11,7 @@ I have high hopes this will be a well done project.
 2. Generate the Prisma client with `npx prisma generate`.
 3. Create or update your database schema with `npx prisma migrate dev`.
 4. In Clerk, create a webhook that points to `/api/webhooks/clerk` and copy its signing secret into `CLERK_WEBHOOK_SIGNING_SECRET`.
-5. In Cloudflare R2, create a bucket, generate API tokens, and set `R2_PUBLIC_URL` to your public bucket domain or `r2.dev` URL.
+5. In Cloudflare R2, create a bucket, generate API tokens, and connect a custom domain to the bucket and set `R2_PUBLIC_URL` to it (the `r2.dev` URL is for testing only). If rows still use an older host, list it in `R2_LEGACY_PUBLIC_URLS` and run `scripts/rewrite-image-hosts.mjs`.
 
 ### Notes
 

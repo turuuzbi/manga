@@ -66,7 +66,13 @@ const limitIndex = process.argv.indexOf("--limit");
 const limit =
   limitIndex === -1 ? Infinity : Number(process.argv[limitIndex + 1]) || 0;
 const bucket = process.env.R2_BUCKET_NAME;
-const publicBaseUrl = process.env.R2_PUBLIC_URL.replace(/\/$/, "");
+// The current host first, then any older ones rows may still carry.
+const publicBaseUrls = [
+  process.env.R2_PUBLIC_URL,
+  ...(process.env.R2_LEGACY_PUBLIC_URLS ?? "").split(","),
+]
+  .map((value) => value.trim().replace(/\/$/, ""))
+  .filter(Boolean);
 const BACKUP_PREFIX = "heic-originals/";
 
 const prisma = new PrismaClient({
@@ -187,12 +193,14 @@ try {
   let foreign = 0;
 
   for (const { url, label } of rows) {
-    if (!url.startsWith(`${publicBaseUrl}/`)) {
+    const baseUrl = publicBaseUrls.find((base) => url.startsWith(`${base}/`));
+
+    if (!baseUrl) {
       foreign += 1;
       continue;
     }
 
-    const key = url.slice(publicBaseUrl.length + 1);
+    const key = url.slice(baseUrl.length + 1);
     const entry = byKey.get(key) ?? { key, url, labels: [] };
     entry.labels.push(label);
     byKey.set(key, entry);

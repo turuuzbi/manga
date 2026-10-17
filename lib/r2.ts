@@ -93,20 +93,36 @@ export async function createPresignedDownload(
 }
 
 /**
+ * Every public host our own images may carry: the current R2_PUBLIC_URL first,
+ * then any R2_LEGACY_PUBLIC_URLS (comma-separated, e.g. the old r2.dev address)
+ * that stored rows may still point at while they are being rewritten.
+ */
+function ownPublicBaseUrls() {
+  const current = process.env.R2_PUBLIC_URL;
+  const legacy = process.env.R2_LEGACY_PUBLIC_URLS ?? "";
+
+  return [current, ...legacy.split(",")]
+    .map((value) => value?.trim().replace(/\/$/, ""))
+    .filter((value): value is string => Boolean(value));
+}
+
+/**
  * The object key for a URL on our own public bucket domain, or null for any
  * other URL. Stricter than getR2KeyFromUrl, which falls back to the path of
  * any URL — this is the check to use on URLs a browser sends us.
  */
 export function getOwnR2Key(url: string): string | null {
-  const publicBaseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+  for (const baseUrl of ownPublicBaseUrls()) {
+    if (!url.startsWith(`${baseUrl}/`)) {
+      continue;
+    }
 
-  if (!publicBaseUrl || !url.startsWith(`${publicBaseUrl}/`)) {
-    return null;
+    const key = url.slice(baseUrl.length + 1);
+
+    return key && !key.includes("..") ? key : null;
   }
 
-  const key = url.slice(publicBaseUrl.length + 1);
-
-  return key && !key.includes("..") ? key : null;
+  return null;
 }
 
 export async function uploadToR2(
@@ -149,10 +165,10 @@ export function getR2PublicUrl(key: string) {
 }
 
 export function getR2KeyFromUrl(url: string) {
-  const publicBaseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
-
-  if (publicBaseUrl && url.startsWith(`${publicBaseUrl}/`)) {
-    return url.slice(publicBaseUrl.length + 1);
+  for (const baseUrl of ownPublicBaseUrls()) {
+    if (url.startsWith(`${baseUrl}/`)) {
+      return url.slice(baseUrl.length + 1);
+    }
   }
 
   try {
