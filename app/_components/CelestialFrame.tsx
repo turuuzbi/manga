@@ -5,7 +5,8 @@
  * beaded charm strands — renders in every theme. The autumn layer on top of it
  * (watercolour maple leaves in the corners, berry sprigs, and a sun-flanked-by-
  * crescents band across the top and bottom) is gated purely in CSS on
- * `html[data-theme="autumn"]`, so there is no client state here and nothing to
+ * `html[data-theme="autumn"]` (the Halloween cobwebs, bats and pumpkins the same
+ * way on `"halloween"`), so there is no client state here and nothing to
  * hydrate. Safe to render from a server component.
  */
 export function CelestialFrame() {
@@ -18,6 +19,12 @@ export function CelestialFrame() {
         <LeafCluster className="leaves autumn-only l-tr" />
         <LeafCluster className="leaves autumn-only l-bl" />
         <LeafCluster className="leaves autumn-only l-br" />
+
+        <Cobweb className="web halloween-only w-tl" />
+        <Cobweb className="web halloween-only w-tr" />
+        <BatFlock className="bats halloween-only" />
+        <Pumpkin className="pumpkin halloween-only p-bl" />
+        <Pumpkin className="pumpkin halloween-only p-br" />
 
         <CornerOrnament className="corner c-tl" />
         <CornerOrnament className="corner c-tr" />
@@ -40,6 +47,119 @@ export function CelestialFrame() {
         <SunBand className="band" />
       </div>
     </>
+  );
+}
+
+/* ── Halloween: cobwebs, bats and jack-o'-lanterns ──────────────────────── */
+
+/** Corner cobweb: radial threads from the corner plus sagging cross-strands. */
+function Cobweb({ className }: { className?: string }) {
+  const radii = [0, 18, 36, 54, 72, 90];
+  const rings = [30, 58, 88, 120];
+
+  return (
+    <svg
+      className={className}
+      width="150"
+      height="150"
+      viewBox="0 0 150 150"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {radii.map((deg) => {
+        const a = (deg * Math.PI) / 180;
+        return (
+          <line
+            key={deg}
+            x1="0"
+            y1="0"
+            x2={(Math.cos(a) * 140).toFixed(1)}
+            y2={(Math.sin(a) * 140).toFixed(1)}
+            strokeWidth="0.9"
+            opacity="0.75"
+          />
+        );
+      })}
+      {rings.map((r) => {
+        const points = radii.map((deg) => {
+          const a = (deg * Math.PI) / 180;
+          return [Math.cos(a) * r, Math.sin(a) * r];
+        });
+        // Each strand sags toward the corner between two threads.
+        const d = points
+          .slice(1)
+          .map(([x, y], i) => {
+            const [px, py] = points[i];
+            const cx = (px + x) / 2 - 4;
+            const cy = (py + y) / 2 - 4;
+            return `${i === 0 ? `M${px.toFixed(1)} ${py.toFixed(1)}` : ""} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
+          })
+          .join(" ");
+        return <path key={r} d={d} strokeWidth="0.7" opacity="0.55" />;
+      })}
+    </svg>
+  );
+}
+
+function Bat({ x, y, scale, rotate }: { x: number; y: number; scale: number; rotate: number }) {
+  return (
+    <path
+      d="M0 0 C -4 -6 -12 -8 -22 -2 C -17 -2 -14 1 -13 6 C -9 2 -5 2 -3 6 C -2 3 2 3 3 6 C 5 2 9 2 13 6 C 14 1 17 -2 22 -2 C 12 -8 4 -6 0 0 Z"
+      fill="currentColor"
+      stroke="none"
+      transform={`translate(${x} ${y}) rotate(${rotate}) scale(${scale})`}
+    />
+  );
+}
+
+function BatFlock({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="260"
+      height="110"
+      viewBox="0 0 260 110"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <Bat x={60} y={40} scale={1.5} rotate={-12} />
+      <Bat x={140} y={22} scale={1} rotate={8} />
+      <Bat x={206} y={64} scale={1.2} rotate={-4} />
+      <Bat x={110} y={80} scale={0.7} rotate={14} />
+    </svg>
+  );
+}
+
+/** Jack-o'-lantern with a lit face; the glow is its own layer so it can pulse. */
+function Pumpkin({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="150"
+      height="140"
+      viewBox="0 0 150 140"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <ellipse cx="75" cy="124" rx="52" ry="7" fill="#000" opacity="0.28" />
+      <path d="M72 30 C 70 18 76 10 88 8 C 84 16 82 22 82 30 Z" fill="#4a6b2a" />
+      <path
+        d="M75 28 C 40 18 10 40 10 78 C 10 108 38 124 75 124 C 112 124 140 108 140 78 C 140 40 110 18 75 28 Z"
+        fill="#e8660f"
+      />
+      <path
+        d="M75 28 C 56 30 46 52 46 78 C 46 104 58 122 75 124 C 92 122 104 104 104 78 C 104 52 94 30 75 28 Z"
+        fill="#ff8a2b"
+        opacity="0.75"
+      />
+      <path d="M75 28 C 66 50 66 100 75 124 M75 28 C 84 50 84 100 75 124" stroke="#b84a05" strokeWidth="2" fill="none" opacity="0.6" />
+      <g className="face" fill="#2a0e00">
+        <path d="M38 66 L56 56 L58 76 Z" />
+        <path d="M112 66 L94 56 L92 76 Z" />
+        <path d="M68 84 L75 76 L82 84 Z" />
+        <path d="M40 92 Q 75 122 110 92 L 102 92 L 96 100 L 88 92 L 80 102 L 72 92 L 64 102 L 56 92 L 50 100 L 46 92 Z" />
+      </g>
+    </svg>
   );
 }
 
@@ -424,8 +544,36 @@ const CELESTIAL_FRAME_STYLES = `
 
 /* Autumn-only ornaments. Hidden by default so light/dark keep the plain gold
    frame; the theme attribute is the only switch. */
-.autumn-only { display: none; }
+.autumn-only, .halloween-only { display: none; }
 html[data-theme="autumn"] .autumn-only { display: block; }
+html[data-theme="halloween"] .halloween-only { display: block; }
+
+/* Halloween ornaments. The cobwebs hang from just under the sticky header, the
+   pumpkins sit in the bottom corners, and the bats drift across the top. */
+.yume-frame .web { position: absolute; color: rgba(246, 233, 216, 0.5); }
+.yume-frame .w-tl { top: 64px; left: 0; }
+.yume-frame .w-tr { top: 64px; right: 0; transform: scaleX(-1); }
+.yume-frame .bats {
+  position: absolute; top: 76px; right: 14%;
+  color: rgba(246, 233, 216, 0.22);
+  animation: yume-bat-drift 9s ease-in-out infinite alternate;
+}
+.yume-frame .pumpkin { position: absolute; bottom: -8px; opacity: 0.92; }
+.yume-frame .p-bl { left: 6px; }
+.yume-frame .p-br { right: 6px; transform: scaleX(-1); }
+.yume-frame .pumpkin .face {
+  fill: #ffd37a;
+  filter: drop-shadow(0 0 6px rgba(255, 190, 80, 0.9));
+  animation: yume-glow 3.2s ease-in-out infinite alternate;
+}
+@keyframes yume-bat-drift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-26px, 10px); }
+}
+@keyframes yume-glow { from { opacity: 0.7; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .yume-frame .bats, .yume-frame .pumpkin .face { animation: none; }
+}
 
 .yume-frame .leaves { position: absolute; opacity: 0.85; }
 /* The top pair clears the 64px sticky header — tucked underneath it they were
@@ -451,6 +599,9 @@ html[data-theme="autumn"] .autumn-only { display: block; }
      cover image read as clutter, so only the bottom corners stay. */
   html[data-theme="autumn"] .yume-frame .l-tl,
   html[data-theme="autumn"] .yume-frame .l-tr { display: none; }
+  /* Same reasoning as the leaves: only the bottom ornaments stay on phones. */
+  .yume-frame .web, .yume-frame .bats { display: none !important; }
+  .yume-frame .pumpkin { width: 96px; height: auto; opacity: 0.8; }
   .yume-frame .leaves { width: 132px; opacity: 0.6; }
   .yume-frame .l-bl { bottom: -14px; left: -18px; }
   .yume-frame .l-br { bottom: -14px; right: -18px; }

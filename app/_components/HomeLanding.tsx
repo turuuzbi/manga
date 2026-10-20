@@ -78,6 +78,30 @@ html[data-theme="dark"] .yume-home {
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
 }
 
+/* Halloween: moonlit plum-black with pumpkin-orange accents. */
+html[data-theme="halloween"] .yume-home {
+  --home-cream: #120c18;
+  --home-blush: #2a1738;
+  --home-rose: #ff8a2b;
+  --home-rose-deep: #ffb066;
+  --home-gold: #f0a04b;
+  --home-gold-soft: #b9741f;
+  --home-plum: #f6e9d8;
+  --home-plum-soft: #bba5c4;
+  --home-paper: #1b1224;
+  --home-paper-2: #251a31;
+  --home-line: rgba(240, 160, 75, 0.3);
+  --home-line-strong: rgba(240, 160, 75, 0.58);
+  --home-shadow: rgba(0, 0, 0, 0.5);
+  --home-shadow-strong: rgba(0, 0, 0, 0.68);
+  --home-overlay: linear-gradient(to top, rgba(10, 5, 14, 0.95) 4%, rgba(10, 5, 14, 0.52) 38%, transparent 74%);
+  --home-on-dark-soft: rgba(246, 233, 216, 0.84);
+  background-image:
+    radial-gradient(circle at 12% 6%, rgba(255, 122, 26, 0.2), transparent 38%),
+    radial-gradient(circle at 90% 4%, rgba(120, 60, 170, 0.28), transparent 42%),
+    radial-gradient(circle at 50% 104%, rgba(255, 122, 26, 0.14), transparent 55%);
+}
+
 /* Autumn: the same layout in warm cream, amber and maple, with the watercolour
    corner blooms of the reference frame painted in as background washes. */
 html[data-theme="autumn"] .yume-home {

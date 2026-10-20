@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, ImageIcon, Leaf, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
+import { Crown, Ghost, ImageIcon, Leaf, Menu, Moon, Search, Shield, Sun, X } from "lucide-react";
 import { useNewsState } from "@/app/_components/NewsNotifier";
 import {
   SignInButton,
@@ -25,6 +25,7 @@ import {
 
 /** The button shows the theme it will switch *to*, so the icon is the destination. */
 const THEME_ICON: Record<Theme, typeof Sun> = {
+  halloween: Ghost,
   light: Sun,
   autumn: Leaf,
   dark: Moon,

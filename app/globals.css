@@ -157,6 +157,42 @@ html[data-theme="autumn"] {
   --skeleton-shimmer: rgba(255, 255, 255, 0.7);
 }
 
+/* Halloween — the default. A moonlit plum-black night with pumpkin-orange
+   accents and a ghostly lilac muted tone; the ornaments live in CelestialFrame. */
+html[data-theme="halloween"] {
+  --background: #120c18;
+  --foreground: #f6e9d8;
+  --manga-bg: #120c18;
+  --manga-paper: #1b1224;
+  --manga-paper-2: #251a31;
+  --manga-paper-3: #2e2140;
+  --manga-border: #f0a04b;
+  --manga-text: #f6e9d8;
+  --manga-muted: #cdb9d6;
+  --manga-muted-2: #a893b5;
+  --manga-accent: #ff7a1a;
+  --manga-gold: #f0a04b;
+  --manga-shadow: #000000;
+  --manga-nav-bg: rgba(18, 12, 24, 0.94);
+  --manga-grid: rgba(255, 150, 60, 0.05);
+  --manga-radial-a: rgba(255, 122, 26, 0.14);
+  --manga-radial-b: rgba(76, 36, 110, 0.4);
+  --manga-brand-a: #e4630a;
+  --manga-brand-b: #ff7a1a;
+  --manga-brand-c: #ffc27d;
+  --manga-highlight: #ff9a3c;
+  --manga-highlight-text: #1a0d05;
+  --manga-accent-shadow: #c24d05;
+  --manga-hero-overlay: rgba(10, 5, 14, 0.92);
+  --manga-hero-overlay-soft: rgba(255, 122, 26, 0.12);
+  --manga-card-overlay: rgba(10, 5, 14, 0.86);
+  --skeleton-tone-1: rgba(255, 255, 255, 0.08);
+  --skeleton-tone-2: rgba(255, 255, 255, 0.03);
+  --skeleton-strong-1: rgba(255, 122, 26, 0.2);
+  --skeleton-strong-2: rgba(255, 255, 255, 0.07);
+  --skeleton-shimmer: rgba(255, 255, 255, 0.14);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -387,6 +423,42 @@ html[data-theme="dark"] .yume-surface {
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
 }
 
+/* Halloween surface. Mirrors the `.yume-home` block in HomeLanding. */
+html[data-theme="halloween"] .yume-surface {
+  --home-cream: #120c18;
+  --home-blush: #2a1738;
+  --home-rose: #ff8a2b;
+  --home-rose-deep: #ffb066;
+  --home-gold: #f0a04b;
+  --home-gold-soft: #b9741f;
+  --home-plum: #f6e9d8;
+  --home-plum-soft: #bba5c4;
+  --home-paper: #1b1224;
+  --home-paper-2: #251a31;
+  --home-line: rgba(240, 160, 75, 0.3);
+  --home-line-strong: rgba(240, 160, 75, 0.58);
+  --home-shadow: rgba(0, 0, 0, 0.5);
+  --home-shadow-strong: rgba(0, 0, 0, 0.68);
+  --home-overlay: linear-gradient(
+    to top,
+    rgba(10, 5, 14, 0.95) 4%,
+    rgba(10, 5, 14, 0.52) 38%,
+    transparent 74%
+  );
+  --home-on-dark-soft: rgba(246, 233, 216, 0.84);
+
+  --skeleton-tone-1: rgba(240, 160, 75, 0.1);
+  --skeleton-tone-2: rgba(255, 255, 255, 0.03);
+  --skeleton-strong-1: rgba(255, 122, 26, 0.18);
+  --skeleton-strong-2: rgba(255, 255, 255, 0.06);
+  --skeleton-shimmer: rgba(255, 255, 255, 0.12);
+
+  background-image:
+    radial-gradient(circle at 12% 6%, rgba(255, 122, 26, 0.2), transparent 38%),
+    radial-gradient(circle at 90% 4%, rgba(120, 60, 170, 0.28), transparent 42%),
+    radial-gradient(circle at 50% 104%, rgba(255, 122, 26, 0.14), transparent 55%);
+}
+
 /* Autumn surface. Mirrors the `.yume-home` block in HomeLanding so the library,
    detail, about and subscribe pages carry the same paper as the landing page. */
 html[data-theme="autumn"] .yume-surface {
@@ -532,7 +604,8 @@ html[data-theme="autumn"] .yume-surface {
 html[data-user-bg] {
   --user-bg-veil: color-mix(in srgb, var(--background) 58%, transparent);
 }
-html[data-theme="dark"][data-user-bg] {
+html[data-theme="dark"][data-user-bg],
+html[data-theme="halloween"][data-user-bg] {
   --user-bg-veil: color-mix(in srgb, var(--background) 72%, transparent);
 }
 html[data-user-bg] body::before {

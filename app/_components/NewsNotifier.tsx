@@ -3,7 +3,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Gift, Newspaper, X } from "lucide-react";
+import { BookOpen, Gift, Ghost, Newspaper, X } from "lucide-react";
+import { applyTheme } from "@/lib/theme";
 import {
   getNewsServerSnapshot,
   getNewsSnapshot,
@@ -48,6 +49,11 @@ html[data-theme="dark"] .ynp-overlay {
   --ynp-paper: #191222; --ynp-paper-2: #211830; --ynp-plum: #f1e5ee; --ynp-plum-soft: #b6a3b3;
   --ynp-rose: #df9fbf; --ynp-rose-deep: #c77da3; --ynp-gold: #d8b56a;
   --ynp-line: rgba(216, 181, 106, 0.32); --ynp-line-strong: rgba(216, 181, 106, 0.55);
+}
+html[data-theme="halloween"] .ynp-overlay {
+  --ynp-paper: #1b1224; --ynp-paper-2: #251a31; --ynp-plum: #f6e9d8; --ynp-plum-soft: #bba5c4;
+  --ynp-rose: #ff8a2b; --ynp-rose-deep: #e4630a; --ynp-gold: #f0a04b;
+  --ynp-line: rgba(240, 160, 75, 0.3); --ynp-line-strong: rgba(240, 160, 75, 0.58);
 }
 html[data-theme="autumn"] .ynp-overlay {
   --ynp-paper: #fffaf2; --ynp-paper-2: #f9ead6; --ynp-plum: #59402e; --ynp-plum-soft: #927759;
@@ -104,6 +110,15 @@ html[data-theme="autumn"] .ynp-overlay {
   margin-top: 10px; font-family: 'Marcellus', serif; font-size: 11px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ynp-rose-deep);
 }
+.ynp-promo-art {
+  margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 18px 12px; border-radius: 16px; border: 1px solid var(--ynp-line);
+  background:
+    radial-gradient(circle at 50% 120%, rgba(255, 138, 43, 0.35), transparent 60%),
+    linear-gradient(160deg, #1b1224, #2e1a40);
+  font-size: 44px; line-height: 1;
+}
+.ynp-promo-art span { filter: drop-shadow(0 0 10px rgba(255, 160, 60, 0.7)); }
 .ynp-actions { margin-top: 18px; display: flex; flex-direction: column; gap: 9px; }
 .ynp-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -125,6 +140,17 @@ html[data-theme="autumn"] .ynp-overlay {
 }
 `;
 
+/** Remembers, per browser, that the Halloween theme card has been shown. */
+const HALLOWEEN_PROMO_KEY = "yume-halloween-promo-seen";
+
+function halloweenPromoUnseen() {
+  try {
+    return window.localStorage.getItem(HALLOWEEN_PROMO_KEY) === null;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Loads the reader's unread МЭДЭЭ once per page load and shows the newest
  * unread item as a one-time popup. Dismissing it, or opening it, marks it
@@ -137,6 +163,8 @@ export function NewsNotifier() {
   // Held back a moment so the page paints first and the card doesn't land
   // on top of a half-loaded screen.
   const [ready, setReady] = useState(false);
+  // The one-time Halloween theme card; yields to a real news popup.
+  const [promoPending, setPromoPending] = useState(false);
 
   useEffect(() => {
     if (quiet) {
@@ -144,21 +172,46 @@ export function NewsNotifier() {
     }
 
     void loadNewsStatus();
-    const timer = window.setTimeout(() => setReady(true), 700);
+    const timer = window.setTimeout(() => {
+      setReady(true);
+      setPromoPending(halloweenPromoUnseen());
+    }, 700);
     return () => window.clearTimeout(timer);
   }, [quiet]);
 
   const item = !quiet && ready ? news.popup : null;
+  const promo = !quiet && ready && news.loaded && !news.popup && promoPending;
+
+  function dismissPromo(applyHalloween: boolean) {
+    try {
+      window.localStorage.setItem(HALLOWEEN_PROMO_KEY, "1");
+    } catch {
+      // Storage blocked: the card may show again next visit; harmless.
+    }
+
+    if (applyHalloween) {
+      applyTheme("halloween");
+    }
+
+    setPromoPending(false);
+  }
+
+  const open = Boolean(item) || promo;
 
   useEffect(() => {
-    if (!item) {
+    if (!open) {
       return;
     }
 
-    const key = item.key;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        markNewsSeen([key]);
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (item) {
+        markNewsSeen([item.key]);
+      } else {
+        dismissPromo(false);
       }
     }
 
@@ -170,7 +223,75 @@ export function NewsNotifier() {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [item]);
+  }, [open, item]);
+
+  if (promo && !item) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <div
+          className="ynp-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ynp-title"
+          onClick={() => dismissPromo(false)}
+        >
+          <div className="ynp-card" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="ynp-close"
+              aria-label="Хаах"
+              onClick={() => dismissPromo(false)}
+            >
+              <X size={16} />
+            </button>
+
+            <p className="ynp-eyebrow">
+              <span className="ynp-icon">
+                <Ghost size={15} />
+              </span>
+              Шинэ загвар
+            </p>
+
+            <h2 id="ynp-title" className="ynp-title">
+              Хэллоуины загвар
+            </h2>
+
+            <div className="ynp-promo-art" aria-hidden="true">
+              <span>🦇</span>
+              <span>🎃</span>
+              <span>🕸️</span>
+            </div>
+
+            <p className="ynp-body">
+              Сайт Хэллоуины хувцастай боллоо: сарьсан багваахай, аалзны тор,
+              гэрэлтэй хулуу бүхий хар ягаан шөнө. Дээд талын товчоор хүссэн
+              үедээ өөр загвар руу шилжиж болно.
+            </p>
+
+            <div className="ynp-actions">
+              <button
+                type="button"
+                className="ynp-btn ynp-btn-go"
+                onClick={() => dismissPromo(true)}
+                autoFocus
+              >
+                <Ghost size={15} />
+                Үзэх
+              </button>
+              <button
+                type="button"
+                className="ynp-btn ynp-btn-later"
+                onClick={() => dismissPromo(false)}
+              >
+                Дараа
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!item) {
     return null;

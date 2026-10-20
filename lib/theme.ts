@@ -3,17 +3,19 @@
  *
  * `light` and `dark` are the originals; `autumn` is the seasonal skin drawn
  * from the pressed-leaf frame — same layout and components, warm cream paper,
- * maple accents, plus the leaf/sun ornaments in `CelestialFrame`.
+ * maple accents, plus the leaf/sun ornaments in `CelestialFrame`. `halloween`
+ * is the October skin: a moonlit plum-black night with pumpkin-orange accents,
+ * and the bat/cobweb/pumpkin ornaments in the same frame. It is the default.
  *
  * Every theme is applied the same way: `data-theme` on `<html>`, read by the
  * token blocks in `globals.css` and in `HomeLanding`'s scoped styles. Nothing
  * branches on the theme in JavaScript beyond the button itself.
  */
-export const THEMES = ["light", "autumn", "dark"] as const;
+export const THEMES = ["halloween", "light", "autumn", "dark"] as const;
 
 export type Theme = (typeof THEMES)[number];
 
-export const DEFAULT_THEME: Theme = "light";
+export const DEFAULT_THEME: Theme = "halloween";
 
 export const THEME_STORAGE_KEY = "yume-theme";
 
@@ -21,6 +23,7 @@ export const THEME_STORAGE_KEY = "yume-theme";
 export const THEME_CHANGE_EVENT = "yume-theme-change";
 
 export const THEME_LABELS: Record<Theme, string> = {
+  halloween: "Хэллоуин",
   light: "Гэгээн",
   autumn: "Намар",
   dark: "Шөнө",
