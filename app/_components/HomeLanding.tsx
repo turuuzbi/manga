@@ -78,33 +78,6 @@ html[data-theme="dark"] .yume-home {
     radial-gradient(circle at 50% 102%, rgba(216, 181, 106, 0.08), transparent 55%);
 }
 
-/* Autumn: the same layout in warm cream, amber and maple, with the watercolour
-   corner blooms of the reference frame painted in as background washes. */
-html[data-theme="autumn"] .yume-home {
-  --home-cream: #fdf4e8;
-  --home-blush: #f9dfc2;
-  --home-rose: #e08a4a;
-  --home-rose-deep: #c25f2a;
-  --home-gold: #c19434;
-  --home-gold-soft: #e6cd94;
-  --home-plum: #59402e;
-  --home-plum-soft: #927759;
-  --home-paper: #fffaf2;
-  --home-paper-2: #f9ead6;
-  --home-line: rgba(193, 148, 52, 0.4);
-  --home-line-strong: rgba(193, 148, 52, 0.68);
-  --home-shadow: rgba(180, 120, 62, 0.2);
-  --home-shadow-strong: rgba(150, 88, 40, 0.32);
-  --home-overlay: linear-gradient(to top, rgba(58, 34, 18, 0.92) 4%, rgba(58, 34, 18, 0.45) 38%, transparent 72%);
-  --home-on-dark-soft: rgba(255, 246, 234, 0.84);
-  background-image:
-    radial-gradient(circle at 6% 3%, rgba(233, 138, 69, 0.30), transparent 34%),
-    radial-gradient(circle at 95% 7%, rgba(207, 95, 43, 0.20), transparent 31%),
-    radial-gradient(circle at 3% 94%, rgba(207, 95, 43, 0.22), transparent 33%),
-    radial-gradient(circle at 97% 97%, rgba(233, 138, 69, 0.28), transparent 34%),
-    radial-gradient(circle at 50% 48%, rgba(255, 251, 244, 0.55), transparent 58%);
-}
-
 /* Soften the shared nav tokens inside the home theme */
 .yume-home {
   --manga-border: var(--home-line-strong);

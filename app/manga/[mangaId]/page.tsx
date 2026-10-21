@@ -17,6 +17,7 @@ import { ChapterList } from "@/app/manga/[mangaId]/ChapterList";
 import { DetailHero } from "@/app/manga/[mangaId]/DetailHero";
 import { CommentsSection } from "@/app/manga/[mangaId]/CommentsSection";
 import { MangaTopNav } from "@/app/_components/MangaTopNav";
+import { AutumnFrame } from "@/app/_components/AutumnFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -780,6 +781,7 @@ export default async function MangaPreviewPage({
   return (
     <div className="yume-surface yume-detail relative min-h-screen">
       <style>{PREVIEW_STYLES}</style>
+      <AutumnFrame />
 
       <MangaTopNav
         isAdmin={currentDbUser?.role === "ADMIN"}

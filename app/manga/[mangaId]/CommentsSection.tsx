@@ -65,7 +65,7 @@ export function CommentsSection({
         {comments.length === 0 ? (
           <div className="yd-reply flex flex-col items-center py-12 text-center">
             <span
-              className="flex h-14 w-14 items-center justify-center rounded-full"
+              className="autumn-fill flex h-14 w-14 items-center justify-center rounded-full"
               style={{
                 background:
                   "linear-gradient(135deg, var(--home-gold-soft), var(--home-rose))",

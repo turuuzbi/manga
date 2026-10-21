@@ -1,0 +1,455 @@
+/* ─── Autumn ──────────────────────────────────────────────────────────────────
+   The seasonal skin. Everything that makes the site "autumn" lives in this one
+   file and is gated on html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) — delete the import in
+   globals.css and the theme is gone. Whether a visitor gets it (season window,
+   NEXT_PUBLIC_SEASONAL_THEME) is decided in lib/theme.ts; this file only paints.
+
+   Palette is sampled from public/themes/autumn/frame.png. Where a spec colour
+   fails WCAG AA as *text* on cream, a darker sibling is used for text and the
+   spec colour stays on lines, fills and borders:
+
+     gold      #D9A54A  2.1:1 on cream  → lines, borders, ornaments only
+     gold-text #7C5710  6.1:1           → eyebrows, icons, gold text
+     muted     #8A6E55  4.4:1 (fails)   → #735A42, 6.0:1 on cream, 5.1:1 on the tan info boxes
+     text      #4A3424  10.8:1
+     brown on pumpkin #F2B26B 6.3:1, on soft orange #F7C98B 7.6:1
+     white on pumpkin-deep #984D0C 6.2:1
+   Text sizes below 24px (18.66px bold) need 4.5:1; every pair above clears it
+   on cream (#FDF6EC), parchment (#FBEFDD) and the tan boxes (#F1E3CB).
+   ──────────────────────────────────────────────────────────────────────────── */
+
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) {
+  --autumn-cream: #fdf6ec;
+  --autumn-parchment: #fbefdd;
+  /* The frame image's own paper — slightly whiter than the page cream. */
+  --autumn-paper: #fdfaf2;
+  --autumn-card: rgba(255, 251, 244, 0.85);
+  --autumn-card-solid: #fffbf4;
+  --autumn-gold: #d9a54a;
+  --autumn-gold-text: #7c5710;
+  --autumn-pumpkin: #f2b26b;
+  --autumn-orange-soft: #f7c98b;
+  --autumn-pumpkin-deep: #984d0c;
+  --autumn-text: #4a3424;
+  --autumn-muted: #735a42;
+  --autumn-line: rgba(217, 165, 74, 0.5);
+  --autumn-line-strong: rgba(217, 165, 74, 0.85);
+  --autumn-shadow: rgba(150, 100, 45, 0.2);
+  --autumn-shadow-strong: rgba(130, 80, 30, 0.32);
+
+  /* Filled controls: pumpkin-to-gold with brown text (white fails AA here). */
+  --autumn-fill: linear-gradient(
+    135deg,
+    var(--autumn-orange-soft) 0%,
+    var(--autumn-pumpkin) 55%,
+    var(--autumn-gold) 100%
+  );
+  --autumn-on-fill: #4a3424;
+
+  --background: var(--autumn-cream);
+  --foreground: var(--autumn-text);
+  --manga-bg: var(--autumn-cream);
+  --manga-paper: var(--autumn-card-solid);
+  --manga-paper-2: var(--autumn-parchment);
+  --manga-paper-3: var(--autumn-parchment);
+  --manga-border: var(--autumn-gold);
+  --manga-text: var(--autumn-text);
+  --manga-muted: var(--autumn-muted);
+  --manga-muted-2: var(--autumn-muted);
+  --manga-accent: var(--autumn-pumpkin-deep);
+  --manga-gold: var(--autumn-gold);
+  --manga-shadow: var(--autumn-shadow);
+  --manga-nav-bg: rgba(253, 246, 236, 0.92);
+  --manga-grid: rgba(74, 52, 36, 0.04);
+  --manga-radial-a: rgba(255, 251, 244, 0.94);
+  --manga-radial-b: rgba(251, 239, 221, 0.45);
+  --manga-brand-a: var(--autumn-orange-soft);
+  --manga-brand-b: var(--autumn-pumpkin);
+  --manga-brand-c: var(--autumn-parchment);
+  --manga-highlight: var(--autumn-pumpkin);
+  --manga-highlight-text: var(--autumn-text);
+  --manga-accent-shadow: var(--autumn-pumpkin-deep);
+  --manga-hero-overlay: rgba(58, 34, 18, 0.88);
+  --manga-hero-overlay-soft: rgba(255, 246, 234, 0.22);
+  --manga-card-overlay: rgba(58, 34, 18, 0.8);
+  --skeleton-tone-1: #f6e4cc;
+  --skeleton-tone-2: #fffbf4;
+  --skeleton-strong-1: #f4d3a4;
+  --skeleton-strong-2: #fbefdd;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.7);
+}
+
+/* The --home-* tokens every page's scoped styles read. `.yume-home` carries the
+   same names, so one block themes the landing page and the surface pages alike. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) :is(.yume-surface, .yume-home) {
+  --home-cream: var(--autumn-cream);
+  --home-blush: var(--autumn-parchment);
+  --home-rose: var(--autumn-pumpkin);
+  --home-rose-deep: var(--autumn-pumpkin-deep);
+  --home-gold: var(--autumn-gold-text);
+  --home-gold-soft: var(--autumn-orange-soft);
+  --home-plum: var(--autumn-text);
+  --home-plum-soft: var(--autumn-muted);
+  --home-paper: var(--autumn-card-solid);
+  --home-paper-2: var(--autumn-parchment);
+  --home-line: var(--autumn-line);
+  --home-line-strong: var(--autumn-line-strong);
+  --home-shadow: var(--autumn-shadow);
+  --home-shadow-strong: var(--autumn-shadow-strong);
+  --home-overlay: linear-gradient(
+    to top,
+    rgba(58, 34, 18, 0.92) 4%,
+    rgba(58, 34, 18, 0.45) 38%,
+    transparent 72%
+  );
+  --home-on-dark-soft: rgba(255, 246, 234, 0.84);
+  --manga-accent: var(--autumn-pumpkin-deep);
+  --manga-border: var(--autumn-line-strong);
+
+  --skeleton-tone-1: #f6e4cc;
+  --skeleton-tone-2: #fffbf4;
+  --skeleton-strong-1: #f4d3a4;
+  --skeleton-strong-2: #fbefdd;
+  --skeleton-shimmer: rgba(255, 255, 255, 0.7);
+
+  background-color: var(--autumn-cream);
+  /* Only a soft centre glow: the corner colour now comes from the frame art. */
+  background-image: radial-gradient(
+    circle at 50% 42%,
+    rgba(255, 251, 244, 0.7),
+    transparent 62%
+  );
+  /* Room for the sun band that closes the page on desktop, and the one baked
+     into the bottom of the phone background. */
+  padding-bottom: 76px;
+}
+
+/* The news pop-up reads its own --ynp-* copy of the tokens. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .ynp-overlay {
+  --ynp-paper: var(--autumn-card-solid);
+  --ynp-paper-2: var(--autumn-parchment);
+  --ynp-plum: var(--autumn-text);
+  --ynp-plum-soft: var(--autumn-muted);
+  --ynp-rose: var(--autumn-pumpkin);
+  --ynp-rose-deep: var(--autumn-pumpkin-deep);
+  --ynp-gold: var(--autumn-gold-text);
+  --ynp-line: var(--autumn-line);
+  --ynp-line-strong: var(--autumn-line-strong);
+}
+
+/* ─── Frame ──────────────────────────────────────────────────────────────────
+   Rendered by <AutumnFrame/> (via CelestialFrame on most pages). Hidden outside
+   autumn, and hidden when the reader has applied their own profile background —
+   that choice wins.
+
+   Phones: the supplied frame, scaled to the screen's width. A plain
+   `background-size: cover` crops the side rails and the left/right pumpkins off
+   any phone taller than the art's 0.6 aspect (nearly all of them), so the top
+   half and bottom half of the image are pinned to their own edges instead; on a
+   screen that matches the art the two halves meet exactly like `cover` would.
+
+   Desktop: the art is never stretched. The pumpkin corners and the sun band are
+   cut out as transparent sprites (scripts/build-autumn-frame.mjs) over the
+   page's own cream, inside a thin gold rule. */
+.autumn-frame,
+.autumn-band {
+  display: none;
+}
+
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .autumn-frame {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Large-viewport height, so collapsing mobile toolbars never uncover a strip. */
+  height: 100vh;
+  height: 100lvh;
+  z-index: 0;
+  pointer-events: none;
+}
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"])[data-user-bg] .autumn-frame,
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"])[data-user-bg] .autumn-band {
+  display: none;
+}
+
+.autumn-frame > span {
+  position: absolute;
+  background-repeat: no-repeat;
+}
+
+@media (max-width: 768px) {
+  .autumn-frame .af-top,
+  .autumn-frame .af-bottom {
+    left: 0;
+    right: 0;
+    height: 50%;
+    background-color: var(--autumn-paper);
+    background-size: 100% auto;
+    background-image: image-set(
+      url("/themes/autumn/frame.avif") type("image/avif"),
+      url("/themes/autumn/frame.webp") type("image/webp"),
+      url("/themes/autumn/frame.png") type("image/png")
+    );
+  }
+  .autumn-frame .af-top {
+    top: 0;
+    background-position: center top;
+  }
+  .autumn-frame .af-bottom {
+    bottom: 0;
+    background-position: center bottom;
+  }
+  .autumn-frame .af-rule,
+  .autumn-frame .af-corner {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) {
+  .autumn-frame .af-top,
+  .autumn-frame .af-bottom {
+    display: none;
+  }
+
+  .autumn-frame .af-rule {
+    inset: 14px;
+    border: 1px solid var(--autumn-line);
+    border-radius: 3px;
+  }
+
+  .autumn-frame .af-corner {
+    width: clamp(150px, 14vw, 230px);
+    background-size: 100% 100%;
+    opacity: 0.95;
+  }
+  .autumn-frame .af-tl {
+    /* Under the 64px sticky header, so its translucent bar never washes the art. */
+    top: 60px;
+    left: 0;
+    aspect-ratio: 270 / 300;
+    background-image: image-set(
+      url("/themes/autumn/corner-tl.avif") type("image/avif"),
+      url("/themes/autumn/corner-tl.webp") type("image/webp")
+    );
+  }
+  .autumn-frame .af-tr {
+    top: 60px;
+    right: 0;
+    aspect-ratio: 231 / 230;
+    background-image: image-set(
+      url("/themes/autumn/corner-tr.avif") type("image/avif"),
+      url("/themes/autumn/corner-tr.webp") type("image/webp")
+    );
+  }
+  .autumn-frame .af-bl {
+    bottom: 0;
+    left: 0;
+    aspect-ratio: 270 / 260;
+    background-image: image-set(
+      url("/themes/autumn/corner-bl.avif") type("image/avif"),
+      url("/themes/autumn/corner-bl.webp") type("image/webp")
+    );
+  }
+  .autumn-frame .af-br {
+    bottom: 0;
+    right: 0;
+    aspect-ratio: 251 / 300;
+    background-image: image-set(
+      url("/themes/autumn/corner-br.avif") type("image/avif"),
+      url("/themes/autumn/corner-br.webp") type("image/webp")
+    );
+  }
+
+  /* The sun band closes the page: anchored to the end of the document (the
+     parent surface is position: relative), not the viewport, so scrolling
+     content never slices it. */
+  html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .autumn-band {
+    display: block;
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    width: min(340px, 60vw);
+    aspect-ratio: 508 / 112;
+    transform: translateX(-50%);
+    z-index: 0;
+    pointer-events: none;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-image: image-set(
+      url("/themes/autumn/band.avif") type("image/avif"),
+      url("/themes/autumn/band.webp") type("image/webp")
+    );
+  }
+}
+
+/* The gold SVG ornaments from CelestialFrame belong to light/dark; the frame art
+   carries its own corners and rules. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yume-frame {
+  display: none;
+}
+
+/* ─── Type ───────────────────────────────────────────────────────────────────
+   Cormorant Garamond via next/font (see app/layout.tsx), with the Cyrillic
+   subsets that carry Mongolian Ө/ө/Ү/ү — verified present in the font's cmap.
+   Body copy stays in the site's own sans. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) :is(h1, h2, h3, h4) {
+  font-family:
+    var(--font-display), "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  color: var(--autumn-text);
+}
+
+/* ─── Cards and panels ───────────────────────────────────────────────────────
+   Translucent cream, a 1px gold edge, a soft warm shadow. Rounded corners are
+   already set by each component. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"])
+  :is(
+    .yume-detail .yd-panel,
+    .yume-detail .yd-chapter,
+    .yume-detail .yd-comment,
+    .yume-library .yl-empty,
+    .yume-updates .yu-empty,
+    .yume-news .yn-item,
+    .yume-profile .yp-card
+  ) {
+  background: var(--autumn-card);
+  border: 1px solid var(--autumn-line-strong);
+  box-shadow: 0 14px 34px -22px var(--autumn-shadow-strong);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────
+   Primary: pumpkin-to-gold fill, brown text. Secondary: the existing paper
+   buttons keep their gold outline (--manga-border / --home-line-strong).
+   The list is every control that used to be rose fill + white text. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"])
+  :is(
+    .yu-btn-ink,
+    .yume-detail .yd-btn,
+    .yume-detail .yd-poster-check,
+    .yume-detail .yd-sort-btn.active,
+    .yume-detail .yd-avatar,
+    .yume-profile .yp-active,
+    .yume-profile .yp-btn-primary,
+    .yume-profile .yp-empty-icon,
+    .yume-schedule .ys-today,
+    .yume-ranked .yume-rank,
+    .yume-status.is-catching-up,
+    .yume-pill.active
+  ) {
+  background: var(--autumn-fill);
+  color: var(--autumn-on-fill);
+  border-color: var(--autumn-line-strong);
+  text-shadow: none;
+}
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yume-profile .yp-btn-primary:hover:not(:disabled) {
+  color: var(--autumn-on-fill);
+}
+/* Inline-styled controls that cannot be reached by a class rule. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .autumn-fill {
+  background: var(--autumn-fill) !important;
+  color: var(--autumn-on-fill) !important;
+}
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yu-btn-ink {
+  border-color: var(--autumn-line-strong);
+}
+
+/* ─── Small touches ──────────────────────────────────────────────────────────
+   A sparkle marks the active filter and sort; the crescent rides the hover. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) :is(.yume-pill.active, .yume-detail .yd-sort-btn.active)::before {
+  content: "✦";
+  margin-right: 6px;
+  font-size: 0.85em;
+  line-height: 1;
+}
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yume-card:hover .yume-card-title::after,
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yume-detail .yd-chapter:hover .yd-chapter-title::after {
+  content: " ☾";
+  color: var(--autumn-gold-text);
+}
+
+/* Keyboard focus stays visible on cream. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) :is(a, button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--autumn-pumpkin-deep);
+  outline-offset: 2px;
+}
+
+/* Photo-backed text: the hero eyebrow sits on artwork, so it gets a shadow the
+   way the title already does. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yume-detail .yd-hero-eyebrow {
+  color: var(--autumn-orange-soft);
+  text-shadow: 0 1px 10px rgba(30, 16, 6, 0.75);
+}
+
+/* The unread МЭДЭЭ badge was white on a pink gradient (3.9:1); now brown on pumpkin. */
+html:is([data-theme="autumn"], [data-theme="dark"][data-season="autumn"]) .yume-unread {
+  background: var(--autumn-fill);
+  color: var(--autumn-on-fill);
+  border-color: var(--autumn-card-solid);
+  box-shadow: 0 4px 10px -3px rgba(90, 45, 10, 0.55);
+}
+
+/* ─── Autumn after dark ──────────────────────────────────────────────────────
+   The same design in deep brown. Used when a reader picks the night theme while
+   the season is on (html[data-season] is set by the pre-paint script in the root
+   layout); outside the season, dark is the original plum dark. Gold and pumpkin
+   carry over unchanged; only the paper and the text flip.
+
+     text   #F6E9D8  on #2A1E16  13.3:1      muted  #CDB59A  8.1:1
+     gold-text / pumpkin-deep  #F2B26B  8.9:1
+     brown #4A3424 on pumpkin fills is unchanged (6.3:1) */
+html[data-theme="dark"][data-season="autumn"] {
+  --autumn-cream: #2a1e16;
+  --autumn-parchment: #33261c;
+  --autumn-paper: #271b14;
+  --autumn-card: rgba(52, 38, 28, 0.85);
+  --autumn-card-solid: #34261c;
+  --autumn-gold-text: #f2b26b;
+  --autumn-pumpkin-deep: #f2b26b;
+  --autumn-text: #f6e9d8;
+  --autumn-muted: #cdb59a;
+  --autumn-line: rgba(217, 165, 74, 0.38);
+  --autumn-line-strong: rgba(217, 165, 74, 0.7);
+  --autumn-shadow: rgba(0, 0, 0, 0.4);
+  --autumn-shadow-strong: rgba(0, 0, 0, 0.55);
+
+  --manga-nav-bg: rgba(42, 30, 22, 0.92);
+  --manga-grid: rgba(246, 233, 216, 0.04);
+  --manga-radial-a: rgba(74, 52, 36, 0.4);
+  --manga-radial-b: rgba(42, 30, 22, 0.45);
+  --manga-hero-overlay: rgba(20, 12, 6, 0.9);
+  --manga-card-overlay: rgba(20, 12, 6, 0.85);
+  --skeleton-tone-1: rgba(217, 165, 74, 0.12);
+  --skeleton-tone-2: rgba(255, 255, 255, 0.03);
+  --skeleton-strong-1: rgba(242, 178, 107, 0.2);
+  --skeleton-strong-2: rgba(255, 255, 255, 0.06);
+  --skeleton-shimmer: rgba(255, 255, 255, 0.12);
+}
+html[data-theme="dark"][data-season="autumn"] :is(.yume-surface, .yume-home) {
+  background-image: radial-gradient(
+    circle at 50% 42%,
+    rgba(74, 52, 36, 0.55),
+    transparent 62%
+  );
+  --skeleton-tone-1: rgba(217, 165, 74, 0.12);
+  --skeleton-tone-2: rgba(255, 255, 255, 0.03);
+  --skeleton-strong-1: rgba(242, 178, 107, 0.2);
+  --skeleton-strong-2: rgba(255, 255, 255, 0.06);
+  --skeleton-shimmer: rgba(255, 255, 255, 0.12);
+}
+/* Transparent art over the dark paper — same frame, no cream rectangles. */
+@media (max-width: 768px) {
+  html[data-theme="dark"][data-season="autumn"] :is(.autumn-frame .af-top, .autumn-frame .af-bottom) {
+    background-image: image-set(
+      url("/themes/autumn/frame-art.avif") type("image/avif"),
+      url("/themes/autumn/frame-art.webp") type("image/webp")
+    );
+  }
+}
+html[data-theme="dark"][data-season="autumn"] .autumn-frame .af-corner,
+html[data-theme="dark"][data-season="autumn"] .autumn-band {
+  filter: saturate(1.25) brightness(1.3);
+}
+html[data-theme="dark"][data-season="autumn"] .autumn-frame .af-top,
+html[data-theme="dark"][data-season="autumn"] .autumn-frame .af-bottom {
+  filter: saturate(1.15) brightness(1.2);
+}

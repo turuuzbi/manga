@@ -435,7 +435,7 @@ export function MangaTopNav({
             </span>
             {typeof premiumDaysLeft === "number" ? (
               <span
-                className="rounded-full px-2.5 py-1"
+                className="autumn-fill rounded-full px-2.5 py-1"
                 style={{
                   fontSize: 11,
                   fontWeight: 700,

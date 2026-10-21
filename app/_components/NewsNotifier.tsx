@@ -49,11 +49,6 @@ html[data-theme="dark"] .ynp-overlay {
   --ynp-rose: #df9fbf; --ynp-rose-deep: #c77da3; --ynp-gold: #d8b56a;
   --ynp-line: rgba(216, 181, 106, 0.32); --ynp-line-strong: rgba(216, 181, 106, 0.55);
 }
-html[data-theme="autumn"] .ynp-overlay {
-  --ynp-paper: #fffaf2; --ynp-paper-2: #f9ead6; --ynp-plum: #59402e; --ynp-plum-soft: #927759;
-  --ynp-rose: #e08a4a; --ynp-rose-deep: #c25f2a; --ynp-gold: #c19434;
-  --ynp-line: rgba(193, 148, 52, 0.4); --ynp-line-strong: rgba(193, 148, 52, 0.68);
-}
 .ynp-card {
   position: relative; width: 100%; max-width: 400px;
   border-radius: 26px; padding: 24px 22px 20px;

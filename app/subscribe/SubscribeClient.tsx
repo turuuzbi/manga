@@ -50,7 +50,7 @@ export function SubscribeClient({
   const selectedPlan = plans.find((entry) => entry.plan === selected) ?? plans[0];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-20 pt-8 sm:px-6">
+    <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-20 pt-8 sm:px-6">
       <Link
         href="/"
         className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition"
@@ -115,7 +115,7 @@ export function SubscribeClient({
             >
               {active ? (
                 <span
-                  className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full text-white"
+                  className="autumn-fill absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full text-white"
                   style={{ background: "var(--home-rose-deep)" }}
                 >
                   <Check size={14} />
@@ -130,7 +130,7 @@ export function SubscribeClient({
                 {entry.label}
                 {entry.discounted ? (
                   <span
-                    className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-white"
+                    className="autumn-fill rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-white"
                     style={{ background: "var(--home-rose-deep)" }}
                   >
                     -10%
@@ -263,7 +263,7 @@ function StepNumber({ n }: { n: number }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+      className="autumn-fill flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
       style={{
         background:
           "linear-gradient(135deg, var(--home-rose) 0%, var(--home-rose-deep) 100%)",
