@@ -1,8 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import convertHeic from "heic-convert";
 import { requireAdminUser } from "@/lib/auth";
+import {
+  ensureBrowserSafeImage,
+  ensureBrowserSafeImages,
+  hasHeicBrand,
+  heicToJpeg,
+} from "@/lib/heic";
 import prisma from "@/lib/db";
 import {
   downloadGoogleDriveFile,
@@ -691,6 +696,8 @@ async function createChapterWithPages({
   });
 
   if (pageUrls) {
+    await ensureBrowserSafeImages(pageUrls);
+
     await prisma.page.createMany({
       data: pageUrls.map((imageUrl, index) => ({
         chapterId: chapter.id,
@@ -885,51 +892,6 @@ function readIngestUploads(
   };
 }
 
-// HEIC is what an iPhone saves, and only Safari 17+ can display it: Chrome,
-// Firefox, every Android browser and iOS 16 or older show such a page as
-// broken alt text. Matched on the file's own ftyp brand as well as Drive's
-// type, because an iPhone HEIC can carry a .jpg name.
-const HEIC_BRAND = /^ftyp(heic|heix|hevc|hevx|heim|heis)$/;
-
-/**
- * The ICC profile a HEIC carries in a `colr` box of type `prof` — iPhones tag
- * many images Display P3 — or null. The decoder returns the pixels in that
- * colour space, so a JPEG without the profile would look duller.
- */
-function heicIccProfile(heic: Buffer) {
-  for (
-    let at = heic.indexOf("colrprof");
-    at >= 4;
-    at = heic.indexOf("colrprof", at + 8)
-  ) {
-    const icc = heic.subarray(at + 8, at - 4 + heic.readUInt32BE(at - 4));
-
-    if (icc.toString("latin1", 36, 40) === "acsp") {
-      return icc;
-    }
-  }
-
-  return null;
-}
-
-/** The JPEG with `icc` as its APP2 ICC_PROFILE segment, after the JFIF one. */
-function withIccProfile(jpeg: Buffer, icc: Buffer) {
-  // One segment holds 65,519 bytes of profile; a P3 profile is 536.
-  if (icc.length > 65519) {
-    return jpeg;
-  }
-
-  const header = Buffer.alloc(18);
-  header.writeUInt16BE(0xffe2, 0);
-  header.writeUInt16BE(16 + icc.length, 2);
-  header.write("ICC_PROFILE\0", 4, "latin1");
-  header[16] = 1; // segment 1…
-  header[17] = 1; // …of 1
-  const at = jpeg.readUInt16BE(2) === 0xffe0 ? 4 + jpeg.readUInt16BE(4) : 2;
-
-  return Buffer.concat([jpeg.subarray(0, at), header, icc, jpeg.subarray(at)]);
-}
-
 /**
  * A Drive file as something every reader's browser can show: HEIC is
  * re-encoded as JPEG (keeping its colour profile); anything else is stored
@@ -937,8 +899,7 @@ function withIccProfile(jpeg: Buffer, icc: Buffer) {
  */
 async function toBrowserSafeAsset(asset: UploadAsset): Promise<UploadAsset> {
   const isHeic =
-    /^image\/hei[cf]/.test(asset.contentType) ||
-    HEIC_BRAND.test(asset.buffer.toString("latin1", 4, 12));
+    /^image\/hei[cf]/.test(asset.contentType) || hasHeicBrand(asset.buffer);
 
   if (!isHeic) {
     return asset;
@@ -947,22 +908,18 @@ async function toBrowserSafeAsset(asset: UploadAsset): Promise<UploadAsset> {
   let jpeg: Buffer;
 
   try {
-    jpeg = Buffer.from(
-      await convertHeic({ buffer: asset.buffer, format: "JPEG", quality: 0.9 }),
-    );
+    jpeg = await heicToJpeg(asset.buffer);
   } catch {
     throw new Error(
       `Could not convert "${asset.name}" from HEIC to JPEG. Replace it in Drive with a JPG.`,
     );
   }
 
-  const icc = heicIccProfile(asset.buffer);
-
   return {
     ...asset,
     name: `${asset.name.replace(/\.[^.]+$/, "")}.jpg`,
     contentType: "image/jpeg",
-    buffer: icc ? withIccProfile(jpeg, icc) : jpeg,
+    buffer: jpeg,
   };
 }
 
@@ -2070,6 +2027,8 @@ export async function replaceChapterPageImageAction(
         message: "Солих зургаа сонгоод дахин оролдоно уу.",
       };
     }
+
+    await ensureBrowserSafeImage(url);
 
     await prisma.$transaction(async (tx) => {
       await tx.page.update({

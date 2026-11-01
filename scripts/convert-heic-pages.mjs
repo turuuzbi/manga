@@ -263,11 +263,11 @@ try {
           return;
         }
 
-        const converted = Buffer.from(
+        const decoded = Buffer.from(
           await convertHeic({ buffer: bytes, format: "JPEG", quality: 0.9 }),
         );
         const icc = heicIccProfile(Buffer.from(bytes));
-        const jpeg = icc ? withIccProfile(converted, icc) : converted;
+        const jpeg = icc ? withIccProfile(decoded, icc) : decoded;
 
         await r2.send(
           new CopyObjectCommand({
